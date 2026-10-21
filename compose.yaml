@@ -1,0 +1,51 @@
+name: josholson-dev
+
+services:
+  postgres:
+    image: docker.io/library/postgres:18
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-josholson}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:-josholson}
+    volumes:
+      - postgres-data:/var/lib/postgresql
+    # Loopback only: reach it from DBeaver via an SSH tunnel to this host.
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # Placeholders until api/ and web/ exist.
+  #
+  # migrate:
+  #   build: ./migrations          # image with the Waypoint binary + SQL files
+  #   profiles: [tools]            # run on demand: podman compose run --rm migrate
+  #   depends_on:
+  #     postgres:
+  #       condition: service_healthy
+  #
+  # api:
+  #   build: ./api
+  #   restart: unless-stopped
+  #   depends_on:
+  #     postgres:
+  #       condition: service_healthy
+  #   ports:
+  #     - "${API_PORT:-8081}:8080"   # Caddy: api.josholson.dev
+  #
+  # web:
+  #   build: ./web
+  #   restart: unless-stopped
+  #   depends_on:
+  #     - api
+  #   environment:
+  #     ORIGIN: https://www.josholson.dev
+  #   ports:
+  #     - "${WEB_PORT:-8080}:3000"   # Caddy: www.josholson.dev
+
+volumes:
+  postgres-data:

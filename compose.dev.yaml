@@ -1,0 +1,16 @@
+# Dev only. Never load this on the server.
+#   podman compose -f compose.yaml -f compose.dev.yaml up -d
+services:
+  postgres:
+    # Durability off for speed (seed template clones, test databases).
+    # Unsafe: a crash can corrupt or lose data.
+    command:
+      - postgres
+      - -c
+      - fsync=off
+      - -c
+      - synchronous_commit=off
+      - -c
+      - full_page_writes=off
+      - -c
+      - max_connections=200
