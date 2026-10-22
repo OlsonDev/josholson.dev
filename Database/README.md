@@ -10,4 +10,4 @@ waypoint --url postgres://USER:PASSWORD@127.0.0.1:5432/DATABASE --locations Data
 waypoint --url ... --locations Database/Migrations info
 ```
 
-Conventions: [.claude/rules/sql.md](../.claude/rules/sql.md).
+Conventions: [.claude/rules/sql.md](../.claude/rules/sql.md). Design notes: [docs/database.md](../docs/database.md).

@@ -16,7 +16,7 @@ Personal website for Josh Olson: www.josholson.dev (SvelteKit SSR) and api.josho
 - `compose.yaml`: production-safe. `compose.dev.yaml`: dev only, always load explicitly
 - `api/`, `web/`: 🚧 not created yet
 - `.githooks/`: `commit-msg` hook (gitmoji format check), run by `dotnet-script`
-- `docs/`: architecture, seeding, product requirements, and `adr/` decision records
+- `docs/`: architecture, database, seeding, product, and `adr/` decision records
 - `.claude/rules/`: conventions, loaded when matching files are touched
 - `.claude/settings.json` and `.claude/hooks/`: hooks that keep Claude from committing (see Commits)
 
@@ -70,6 +70,7 @@ The user makes every commit themselves; commits are signed with a Token2 hardwar
 Read these on demand; they are not loaded automatically.
 
 - [docs/architecture.md](../docs/architecture.md): containers, Caddy, deploy flow
+- [docs/database.md](../docs/database.md): schemas, resume model, design notes
 - [docs/seeding.md](../docs/seeding.md): seed tool design
 - [docs/product.md](../docs/product.md): site features and pages
 - [docs/adr/](../docs/adr/README.md): decision records
