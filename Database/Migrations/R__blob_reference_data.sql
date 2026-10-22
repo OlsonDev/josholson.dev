@@ -22,14 +22,14 @@ VALUES
   , ('webp')
 ON CONFLICT (name) DO NOTHING;
 
-UPDATE blob.mime_type_file_extension
+UPDATE blob.mime_type__file_extension
 SET is_preferred = FALSE
 WHERE is_preferred;
 
-INSERT INTO blob.mime_type_file_extension (mime_type_id, file_extension_id, is_preferred)
+INSERT INTO blob.mime_type__file_extension (mime_type_id, file_extension_id, is_preferred)
 SELECT
-    m.id
-  , e.id
+    m.mime_type_id
+  , e.file_extension_id
   , v.is_preferred
 FROM (
   VALUES
