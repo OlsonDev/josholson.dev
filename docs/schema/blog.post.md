@@ -1,0 +1,136 @@
+# `blog.post`
+
+## Columns
+
+| Name            | Type                                         |   Nullable | Default                        |
+| --------------- | -------------------------------------------- | ---------: | ------------------------------ |
+| `post_id`       | [`INTEGER`][pg:integer]                      | `NOT NULL` | `GENERATED ALWAYS AS IDENTITY` |
+| `slug`          | [`text.kebab_case`][domain:text.kebab_case]  | `NOT NULL` |                                |
+| `title`         | [`text.trimmed`][domain:text.trimmed]        | `NOT NULL` |                                |
+| `summary`       | [`text.trimmed`][domain:text.trimmed]        |     `NULL` |                                |
+| `body`          | [`text.trimmed`][domain:text.trimmed]        | `NOT NULL` |                                |
+| `cover_blob_id` | [`INTEGER`][pg:integer]                      |     `NULL` |                                |
+| `series_id`     | [`INTEGER`][pg:integer]                      |     `NULL` |                                |
+| `series_order`  | [`INTEGER`][pg:integer]                      |     `NULL` |                                |
+| `canonical_url` | [`text.url`][domain:text.url]                |     `NULL` |                                |
+| `is_featured`   | [`BOOLEAN`][pg:boolean]                      | `NOT NULL` | `false`                        |
+| `published_utc` | [`TIMESTAMPTZ`][pg:timestamp-with-time-zone] |     `NULL` |                                |
+| `updated_utc`   | [`TIMESTAMPTZ`][pg:timestamp-with-time-zone] |     `NULL` |                                |
+| `created_utc`   | [`TIMESTAMPTZ`][pg:timestamp-with-time-zone] | `NOT NULL` | `now()`                        |
+
+## Constraints
+
+### Primary key
+
+| Name      | Definition |
+| --------- | ---------- |
+| `pk_post` | `post_id`  |
+
+### Unique constraints
+
+| Name                   | Definition                                              |
+| ---------------------- | ------------------------------------------------------- |
+| `uq_post_series_order` | `series_id, series_order DEFERRABLE INITIALLY DEFERRED` |
+| `uq_post_slug`         | `slug`                                                  |
+
+### Check constraints
+
+| Name                                   | Definition                                     |
+| -------------------------------------- | ---------------------------------------------- |
+| `ck_post_published_not_before_created` | `published_utc >= created_utc`                 |
+| `ck_post_series_order_together`        | `(series_id IS NULL) = (series_order IS NULL)` |
+| `ck_post_updated_not_before_created`   | `updated_utc >= created_utc`                   |
+
+## Indexes
+
+```sql
+CREATE INDEX ix_post_cover_blob_id
+  ON blog.post
+  USING btree (cover_blob_id)
+  WHERE (cover_blob_id IS NOT NULL);
+
+CREATE INDEX ix_post_published_utc
+  ON blog.post
+  USING btree (published_utc DESC)
+  WHERE (published_utc IS NOT NULL);
+```
+
+## Relations
+
+### Foreign keys
+
+| Name                  | Columns         | Ref Table                          | Ref Columns | On Delete   | On Update   |
+| --------------------- | --------------- | ---------------------------------- | ----------- | ----------- | ----------- |
+| `fk_post__blob__blob` | `cover_blob_id` | [`blob.blob`][table:blob.blob]     | `blob_id`   | `NO ACTION` | `NO ACTION` |
+| `fk_post__series`     | `series_id`     | [`blog.series`][table:blog.series] | `series_id` | `NO ACTION` | `NO ACTION` |
+
+### Incoming foreign keys
+
+| Name                      | Columns   | Table                                              | Ref Columns | On Delete | On Update   |
+| ------------------------- | --------- | -------------------------------------------------- | ----------- | --------- | ----------- |
+| `fk_post__tag__tag__post` | `post_id` | [`blog.post__tag__tag`][table:blog.post__tag__tag] | `post_id`   | `CASCADE` | `NO ACTION` |
+
+### Diagram
+
+```mermaid
+erDiagram
+
+"blog.post" }o--o| "blob.blob" : "cover_blob_id"
+"blog.post" }o--o| "blog.series" : "series_id"
+"blog.post__tag__tag" }o--|| "blog.post" : "post_id"
+
+"blog.post" {
+  INTEGER post_id PK
+  text.kebab_case slug UK
+  text.trimmed title
+  text.trimmed summary
+  text.trimmed body
+  INTEGER cover_blob_id FK
+  INTEGER series_id FK
+  INTEGER series_order
+  text.url canonical_url
+  BOOLEAN is_featured
+  TIMESTAMPTZ published_utc
+  TIMESTAMPTZ updated_utc
+  TIMESTAMPTZ created_utc
+}
+
+"blob.blob" {
+  INTEGER blob_id PK
+  hash.sha256 sha256 UK
+  INTEGER mime_type_id FK
+  BIGINT byte_size
+  INTEGER width
+  INTEGER height
+  BYTEA thumbhash
+  text.trimmed original_file_name
+  TIMESTAMPTZ created_utc
+}
+
+"blog.series" {
+  INTEGER series_id PK
+  text.kebab_case slug UK
+  text.trimmed title
+  text.trimmed description
+  TIMESTAMPTZ created_utc
+}
+
+"blog.post__tag__tag" {
+  INTEGER post_id PK, FK
+  INTEGER tag_id PK, FK
+}
+```
+
+---
+
+> Generated by [scripts/schema-docs.cs](../../scripts/schema-docs.cs). Do not edit by hand.
+
+[domain:text.kebab_case]: domains.md#textkebab_case
+[domain:text.trimmed]: domains.md#texttrimmed
+[domain:text.url]: domains.md#texturl
+[pg:boolean]: https://www.postgresql.org/docs/19/datatype-boolean.html
+[pg:integer]: https://www.postgresql.org/docs/19/datatype-numeric.html#DATATYPE-INT
+[pg:timestamp-with-time-zone]: https://www.postgresql.org/docs/19/datatype-datetime.html
+[table:blob.blob]: blob.blob.md
+[table:blog.post__tag__tag]: blog.post__tag__tag.md
+[table:blog.series]: blog.series.md

@@ -2,24 +2,14 @@
 
 PostgreSQL 19 (release candidate). The migrations in `Database/Migrations` are the source of truth for structure. This document explains intent only. SQL conventions: `.claude/rules/sql.md`.
 
-## Schemas
+## Schema reference
 
-Migrations are ordered so each schema depends only on earlier ones.
+Tables, columns, constraints, indexes, and relation diagrams are generated from the running dev database by `scripts/schema-docs.cs` into [docs/schema/](schema/README.md): one page per table, plus [domains](schema/domains.md). Never edit those files by hand. Rationale in [ADR 0021](adr/0021-generated-schema-docs.md).
 
-| Migration | Schema | Contents |
-| - | - | - |
-| V001 | `temporal` | `year_optional_month` domain |
-| V002 | `text` | `trimmed`, `kebab_case`, `url`, `email` domains |
-| V003 | `color` | `hex` domain |
-| V004 | `jsonb` | `object` domain |
-| V005 | `hash` | `sha256` domain |
-| V006 | `blob` | `blob`, `mime_type`, `file_extension`, `mime_type__file_extension` |
-| V007 | `tag` | `tag`, `alias` |
-| V008 | `auth` | `user`, `user_email`, `identity`, `session` |
-| V009 | `form` | `contact` |
-| V010 | `resume` | JSON Resume superset, skills, `work__tag__tag`, `project__tag__tag`, `skill__tag__tag` |
-| V011 | `blog` | `series`, `post`, `post__tag__tag` |
-| R | `blob` | reference data upserts (mime types, extensions) |
+- **Regenerate** after changing a migration: `mise run schema:doc`. The dev database must be running with the migrations applied.
+- **Check for drift** with `mise run schema:check`. It regenerates into a temporary directory and exits non-zero when that differs from the committed docs. It reads the same catalogs as `psql`, so Postgres version changes show up only through the objects themselves. Run it before committing a migration change. Nothing runs it automatically yet.
+- **Type links** point built-in types at the PostgreSQL manual and domains at their section in `domains.md`. A type with no link (a less common built-in, or an enum) gets a warning when you regenerate; add it to `TypeDocs` in `scripts/schema-docs.cs`.
+- **Migration order** is filename order. Each schema depends only on earlier ones.
 
 ## Design notes
 

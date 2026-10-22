@@ -17,3 +17,19 @@ run = "podman compose -f compose.yaml -f compose.dev.yaml up -d tools"
 description = "Run waypoint in the tools container, e.g. mise run waypoint migrate"
 depends = ["tools:up"]
 run = "podman compose -f compose.yaml -f compose.dev.yaml exec tools waypoint"
+
+# scripts/schema-docs.cs reads the dev database through the POSTGRES_* settings in .env.
+# The database must be running with the migrations applied.
+[tasks."schema:doc"]
+description = "Regenerate docs/schema from the dev database"
+run = "dotnet run scripts/schema-docs.cs -- doc"
+
+[tasks."schema:doc".env]
+_.file = ".env"
+
+[tasks."schema:check"]
+description = "Fail if docs/schema differs from what the dev database would generate"
+run = "dotnet run scripts/schema-docs.cs -- check"
+
+[tasks."schema:check".env]
+_.file = ".env"

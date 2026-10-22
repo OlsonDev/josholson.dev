@@ -40,3 +40,4 @@ Template:
 - [0018](0018-dml-only-api-role.md): DML-only API role
 - [0019](0019-mise-for-tool-management.md): mise for tool management
 - [0020](0020-waypoint-in-a-dev-tools-container.md): Waypoint in a dev tools container
+- [0021](0021-generated-schema-docs.md): Generated schema docs

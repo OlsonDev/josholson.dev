@@ -17,6 +17,7 @@ Personal website for Josh Olson: www.josholson.dev (SvelteKit SSR) and api.josho
 - `compose.yaml`: production-safe. `compose.dev.yaml`: dev only, always load explicitly
 - `api/`, `web/`: 🚧 not created yet
 - `mise.toml`: pinned tools (bun, dotnet, gh) and tasks. `tools/`: image for the dev `tools` container, which runs Waypoint (no Windows build)
+- `docs/schema/`: generated from the dev database (a page per table, domains, Mermaid ER diagrams). Never edit by hand; run `mise run schema:doc`. `scripts/`: repo tooling as .NET file-based apps (`schema-docs.cs` builds those docs)
 - `.githooks/`: `commit-msg` hook (gitmoji format check), a .NET file-based app
 - `docs/`: architecture, database, seeding, product, and `adr/` decision records
 - `.claude/rules/`: conventions, loaded when matching files are touched
@@ -40,6 +41,13 @@ Apply migrations (starts the `tools` container on first use):
 
 ```
 mise run waypoint migrate
+```
+
+Regenerate the schema docs after changing migrations, and check them for drift (both read the running dev database):
+
+```
+mise run schema:doc
+mise run schema:check
 ```
 
 Enable the commit-msg hook (once per clone):
