@@ -20,3 +20,5 @@ Template:
 
 - [0001](0001-gitmoji-commit-messages.md): Gitmoji commit messages enforced by a hook
 - [0002](0002-claude-does-not-commit.md): Claude does not commit
+- [0003](0003-postgres-19-rc-on-debian-trixie.md): Postgres 19 RC on Debian trixie
+- [0004](0004-explicit-dev-compose-file.md): Explicit dev compose file

@@ -2,7 +2,7 @@ name: josholson-dev
 
 services:
   postgres:
-    image: docker.io/library/postgres:18
+    image: docker.io/library/postgres:19rc1-trixie
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-josholson}
