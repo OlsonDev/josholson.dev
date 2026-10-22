@@ -48,6 +48,7 @@ Test the hook's validator: `dotnet run .githooks/commit-msg.tests.cs`
 ## Ground rules
 
 - Formatting basics live in `.editorconfig`: UTF-8, LF, two spaces, no final newline.
+- YAML files use `.yaml`, never `.yml`. If a tool defaults to `.yml`, point it at the `.yaml` file explicitly.
 - SQL conventions are in `.claude/rules/sql.md`. Read it before writing any SQL.
 - Reference data (mime types, extensions) belongs in repeatable migrations, never in seeds.
 - Examples that illustrate a convention, in any rule, doc, or language (SQL, C#, TypeScript), use metasyntactic names (`foo`, `bar`, `baz`, `qux`, `quux`, `corge`, `grault`, `garply`, `waldo`, `fred`, `plugh`, `xyzzy`, `thud`) for tables, columns, types, and members. Real names go stale: a table may last for years while its definition changes, so an example must not snapshot it. Use a real name only when the example is unlikely to need maintenance, such as an ADR naming the thing it decides about. Real names otherwise belong in a clearly labeled reference, such as the domains list in `sql.md` or `docs/database.md`.
