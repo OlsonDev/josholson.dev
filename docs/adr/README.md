@@ -30,3 +30,6 @@ Template:
 - [0010](0010-global-tags-with-aliases.md): Global tags with aliases
 - [0011](0011-resumes-own-their-sections.md): Resumes own their sections
 - [0012](0012-enum-like-columns-as-smallint.md): Enum-like columns as `SMALLINT`
+- [0013](0013-single-postgres-server-with-template-databases.md): One Postgres server, template databases
+- [0014](0014-hierarchical-seed-layers-in-yaml.md): Hierarchical seed layers in YAML
+- [0015](0015-seed-id-blocks-and-sequence-cursor.md): Seed ID blocks and sequence cursor

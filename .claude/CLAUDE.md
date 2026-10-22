@@ -12,10 +12,11 @@ Personal website for Josh Olson: www.josholson.dev (SvelteKit SSR) and api.josho
 ## Layout
 
 - `Database/Migrations/`: Flyway-style `V#__name.sql` (versioned) and `R__name.sql` (repeatable)
+- `Database/Seeds/`: seed layers (🚧 tool not built yet)
 - `compose.yaml`: production-safe. `compose.dev.yaml`: dev only, always load explicitly
 - `api/`, `web/`: 🚧 not created yet
 - `.githooks/`: `commit-msg` hook (gitmoji format check), run by `dotnet-script`
-- `docs/`: architecture, product requirements, and `adr/` decision records
+- `docs/`: architecture, seeding, product requirements, and `adr/` decision records
 - `.claude/rules/`: conventions, loaded when matching files are touched
 - `.claude/settings.json` and `.claude/hooks/`: hooks that keep Claude from committing (see Commits)
 
@@ -42,7 +43,7 @@ dotnet script setup.csx
 
 Test the hook's validator: `dotnet script .githooks/commit-msg.tests.csx`
 
-🚧 Lint and test commands will go here.
+🚧 Seed, lint, and test commands will go here.
 
 ## Ground rules
 
@@ -69,5 +70,6 @@ The user makes every commit themselves; commits are signed with a Token2 hardwar
 Read these on demand; they are not loaded automatically.
 
 - [docs/architecture.md](../docs/architecture.md): containers, Caddy, deploy flow
+- [docs/seeding.md](../docs/seeding.md): seed tool design
 - [docs/product.md](../docs/product.md): site features and pages
 - [docs/adr/](../docs/adr/README.md): decision records

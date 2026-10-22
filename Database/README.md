@@ -1,6 +1,7 @@
 # Database
 
 - `Migrations/`: Waypoint migrations. `V#__schema.sql` are versioned, one per schema, applied in order. `R__*.sql` are repeatable and rerun when their contents change.
+- `Seeds/`: seed layers (🚧 tool not built yet). See [docs/seeding.md](../docs/seeding.md).
 
 Run against the dev database (start it first; see the root `CLAUDE.md`):
 
