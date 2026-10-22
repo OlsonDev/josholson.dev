@@ -42,3 +42,4 @@ paths:
 
 - One versioned migration per schema, named `V{n}__{schema}.sql`, ordered so a schema depends only on earlier ones.
 - Before the first deploy, existing migrations may be rewritten. After that they are immutable: Waypoint validates checksums.
+- Reference data lives in repeatable migrations as idempotent upserts (`ON CONFLICT`), not in seeds.

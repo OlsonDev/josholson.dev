@@ -48,6 +48,7 @@ Test the hook's validator: `dotnet script .githooks/commit-msg.tests.csx`
 
 - Formatting basics live in `.editorconfig`: UTF-8, LF, two spaces, no final newline.
 - SQL conventions are in `.claude/rules/sql.md`. Read it before writing any SQL.
+- Reference data (mime types, extensions) belongs in repeatable migrations, never in seeds.
 - Never load `compose.dev.yaml` on the server.
 - Record significant decisions as a new ADR in `docs/adr/` instead of expanding this file.
 

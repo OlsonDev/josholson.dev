@@ -25,3 +25,5 @@ Template:
 - [0005](0005-waypoint-for-migrations.md): Waypoint for migrations
 - [0006](0006-int-identity-always.md): `INT GENERATED ALWAYS` keys
 - [0007](0007-year-optional-month-domain.md): `year_optional_month` domain
+- [0008](0008-content-addressed-blobs.md): Content-addressed blobs
+- [0009](0009-reference-data-in-repeatable-migrations.md): Reference data in repeatable migrations
