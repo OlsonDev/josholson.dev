@@ -19,3 +19,4 @@ Template:
 ## Index
 
 - [0001](0001-gitmoji-commit-messages.md): Gitmoji commit messages enforced by a hook
+- [0002](0002-claude-does-not-commit.md): Claude does not commit
