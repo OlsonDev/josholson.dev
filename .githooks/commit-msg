@@ -1,2 +1,2 @@
 #!/bin/sh
-dotnet script .githooks/commit-msg.csx -- "$1"
+dotnet run .githooks/commit-msg.cs -- "$1"

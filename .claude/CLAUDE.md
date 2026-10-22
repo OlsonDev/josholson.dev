@@ -15,7 +15,7 @@ Personal website for Josh Olson: www.josholson.dev (SvelteKit SSR) and api.josho
 - `Database/Seeds/`: seed layers (🚧 tool not built yet)
 - `compose.yaml`: production-safe. `compose.dev.yaml`: dev only, always load explicitly
 - `api/`, `web/`: 🚧 not created yet
-- `.githooks/`: `commit-msg` hook (gitmoji format check), run by `dotnet-script`
+- `.githooks/`: `commit-msg` hook (gitmoji format check), a .NET file-based app
 - `docs/`: architecture, database, seeding, product, and `adr/` decision records
 - `.claude/rules/`: conventions, loaded when matching files are touched
 - `.claude/settings.json` and `.claude/hooks/`: hooks that keep Claude from committing (see Commits)
@@ -37,11 +37,10 @@ waypoint --url postgres://USER:PASSWORD@127.0.0.1:5432/DATABASE --locations Data
 Enable the commit-msg hook (once per clone):
 
 ```
-dotnet tool restore
-dotnet script setup.csx
+dotnet run setup.cs
 ```
 
-Test the hook's validator: `dotnet script .githooks/commit-msg.tests.csx`
+Test the hook's validator: `dotnet run .githooks/commit-msg.tests.cs`
 
 🚧 Seed, lint, and test commands will go here.
 

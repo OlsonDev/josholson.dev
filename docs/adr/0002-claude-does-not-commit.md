@@ -5,7 +5,7 @@
 
 ## Context
 
-Commits are signed with a Token2 hardware key (SSH signing, `commit.gpgsign=true`) that needs the user's touch, and the `commit-msg` hook ([format](../../.githooks/commit-msg.csx)) rejects messages that are not gitmoji-prefixed. The user wants to ask Claude for a commit message and make the commit themselves.
+Commits are signed with a Token2 hardware key (SSH signing, `commit.gpgsign=true`) that needs the user's touch, and the `commit-msg` hook ([format](../../.githooks/commit-msg.cs)) rejects messages that are not gitmoji-prefixed. The user wants to ask Claude for a commit message and make the commit themselves.
 
 ## Decision
 

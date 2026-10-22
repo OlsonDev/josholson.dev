@@ -1,19 +1,8 @@
-// Unit tests for commit-msg.csx
-// Run with: dotnet script .githooks/commit-msg.tests.csx
+#!/usr/bin/env dotnet
+// Unit tests for commit-msg.cs
+// Run with: dotnet run .githooks/commit-msg.tests.cs
 
-#load "commit-msg-validator.csx"
-
-internal record TestCase(string Name, string Input, bool ShouldPass, string ExpectedError = null) {
-  public string DisplayName => $"{(ShouldPass ? "Valid" : "Invalid")}: {Name}";
-}
-
-internal static class CommitMsg {
-  public static TestCase Valid(string name, string input)
-    => new(name, input, true);
-
-  public static TestCase Invalid(string name, string input, string expectedError)
-    => new(name, input, false, expectedError);
-}
+#:include commit-msg-validator.cs
 
 var tests = new List<TestCase> {
   // Valid cases
@@ -46,7 +35,7 @@ var countPassed = 0;
 var countFailed = 0;
 
 foreach (var test in tests) {
-  var (success, error) = ValidateCommitMessage(test.Input);
+  var (success, error) = CommitMessageValidator.ValidateCommitMessage(test.Input);
 
   bool testPassed;
   if (test.ShouldPass) {
@@ -71,3 +60,15 @@ Console.WriteLine();
 Console.WriteLine($"Results: {countPassed} passed, {countFailed} failed");
 
 return countFailed > 0 ? 1 : 0;
+
+internal record TestCase(string Name, string Input, bool ShouldPass, string? ExpectedError = null) {
+  public string DisplayName => $"{(ShouldPass ? "Valid" : "Invalid")}: {Name}";
+}
+
+internal static class CommitMsg {
+  public static TestCase Valid(string name, string input)
+    => new(name, input, true);
+
+  public static TestCase Invalid(string name, string input, string expectedError)
+    => new(name, input, false, expectedError);
+}
