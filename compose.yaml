@@ -22,7 +22,7 @@ services:
   # Placeholders until api/ and web/ exist.
   #
   # migrate:
-  #   build: ./migrations          # image with the Waypoint binary + SQL files
+  #   build: ./Database            # image with the Waypoint binary + Migrations/*.sql
   #   profiles: [tools]            # run on demand: podman compose run --rm migrate
   #   depends_on:
   #     postgres:

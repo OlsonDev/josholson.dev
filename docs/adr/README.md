@@ -22,3 +22,5 @@ Template:
 - [0002](0002-claude-does-not-commit.md): Claude does not commit
 - [0003](0003-postgres-19-rc-on-debian-trixie.md): Postgres 19 RC on Debian trixie
 - [0004](0004-explicit-dev-compose-file.md): Explicit dev compose file
+- [0005](0005-waypoint-for-migrations.md): Waypoint for migrations
+- [0006](0006-int-identity-always.md): `INT GENERATED ALWAYS` keys

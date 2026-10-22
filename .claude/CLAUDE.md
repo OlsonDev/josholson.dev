@@ -11,6 +11,7 @@ Personal website for Josh Olson: www.josholson.dev (SvelteKit SSR) and api.josho
 
 ## Layout
 
+- `Database/Migrations/`: Flyway-style `V#__name.sql` (versioned) and `R__name.sql` (repeatable)
 - `compose.yaml`: production-safe. `compose.dev.yaml`: dev only, always load explicitly
 - `api/`, `web/`: 🚧 not created yet
 - `.githooks/`: `commit-msg` hook (gitmoji format check), run by `dotnet-script`
@@ -24,6 +25,12 @@ Start the dev database (copy `.env.example` to `.env` first):
 
 ```
 podman compose -f compose.yaml -f compose.dev.yaml up -d
+```
+
+Apply migrations:
+
+```
+waypoint --url postgres://USER:PASSWORD@127.0.0.1:5432/DATABASE --locations Database/Migrations migrate
 ```
 
 Enable the commit-msg hook (once per clone):
@@ -40,6 +47,7 @@ Test the hook's validator: `dotnet script .githooks/commit-msg.tests.csx`
 ## Ground rules
 
 - Formatting basics live in `.editorconfig`: UTF-8, LF, two spaces, no final newline.
+- SQL conventions are in `.claude/rules/sql.md`. Read it before writing any SQL.
 - Never load `compose.dev.yaml` on the server.
 - Record significant decisions as a new ADR in `docs/adr/` instead of expanding this file.
 
