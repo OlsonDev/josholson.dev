@@ -30,6 +30,7 @@ paths:
 - Primary key: `id INT NOT NULL GENERATED ALWAYS AS IDENTITY`.
 - Foreign key columns are `{table}_id`. Booleans are `is_*`. Timestamps are `TIMESTAMPTZ` named `*_utc`.
 - Partial dates use `temporal.year_optional_month`.
+- Enum-like columns are `SMALLINT` (Postgres has no `TINYINT`) holding a 1-based C# enum value, with a range check named `ck_{table}_{column}_range` (`BETWEEN 1 AND n`). The C# enum is authoritative. Never reuse a retired number.
 - Constraints are named, and sit at the end of `CREATE TABLE`:
   - `pk_{table}`, `uq_{table}_{columns}`, `fk_{table}_{referenced}` (the FK column without `_id`), `ck_{table}_{rule}`
   - `DEFAULT`, `NOT NULL`, and identity stay inline on the column, because Postgres cannot name them.

@@ -28,3 +28,5 @@ Template:
 - [0008](0008-content-addressed-blobs.md): Content-addressed blobs
 - [0009](0009-reference-data-in-repeatable-migrations.md): Reference data in repeatable migrations
 - [0010](0010-global-tags-with-aliases.md): Global tags with aliases
+- [0011](0011-resumes-own-their-sections.md): Resumes own their sections
+- [0012](0012-enum-like-columns-as-smallint.md): Enum-like columns as `SMALLINT`
