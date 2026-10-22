@@ -12,6 +12,7 @@ Personal website for Josh Olson: www.josholson.dev (SvelteKit SSR) and api.josho
 ## Layout
 
 - `Database/Migrations/`: Flyway-style `V#__name.sql` (versioned) and `R__name.sql` (repeatable)
+- `Database/Provisioning/`: one-off scripts run as the owner after migrations (API role; needs a password, so not a migration)
 - `Database/Seeds/`: seed layers (🚧 tool not built yet)
 - `compose.yaml`: production-safe. `compose.dev.yaml`: dev only, always load explicitly
 - `api/`, `web/`: 🚧 not created yet
@@ -49,6 +50,7 @@ Test the hook's validator: `dotnet run .githooks/commit-msg.tests.cs`
 - Formatting basics live in `.editorconfig`: UTF-8, LF, two spaces, no final newline.
 - SQL conventions are in `.claude/rules/sql.md`. Read it before writing any SQL.
 - Reference data (mime types, extensions) belongs in repeatable migrations, never in seeds.
+- Examples that illustrate a convention, in any rule, doc, or language (SQL, C#, TypeScript), use metasyntactic names (`foo`, `bar`, `baz`, `qux`, `quux`, `corge`, `grault`, `garply`, `waldo`, `fred`, `plugh`, `xyzzy`, `thud`) for tables, columns, types, and members. Real names go stale: a table may last for years while its definition changes, so an example must not snapshot it. Use a real name only when the example is unlikely to need maintenance, such as an ADR naming the thing it decides about. Real names otherwise belong in a clearly labeled reference, such as the domains list in `sql.md` or `docs/database.md`.
 - Never load `compose.dev.yaml` on the server.
 - Record significant decisions as a new ADR in `docs/adr/` instead of expanding this file.
 
