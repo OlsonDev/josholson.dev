@@ -29,6 +29,7 @@ paths:
 - snake_case everywhere. Always schema-qualify objects.
 - Primary key: `id INT NOT NULL GENERATED ALWAYS AS IDENTITY`.
 - Foreign key columns are `{table}_id`. Booleans are `is_*`. Timestamps are `TIMESTAMPTZ` named `*_utc`.
+- Partial dates use `temporal.year_optional_month`.
 - Constraints are named, and sit at the end of `CREATE TABLE`:
   - `pk_{table}`, `uq_{table}_{columns}`, `fk_{table}_{referenced}` (the FK column without `_id`), `ck_{table}_{rule}`
   - `DEFAULT`, `NOT NULL`, and identity stay inline on the column, because Postgres cannot name them.

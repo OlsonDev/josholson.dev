@@ -24,3 +24,4 @@ Template:
 - [0004](0004-explicit-dev-compose-file.md): Explicit dev compose file
 - [0005](0005-waypoint-for-migrations.md): Waypoint for migrations
 - [0006](0006-int-identity-always.md): `INT GENERATED ALWAYS` keys
+- [0007](0007-year-optional-month-domain.md): `year_optional_month` domain
