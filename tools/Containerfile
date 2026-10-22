@@ -1,0 +1,26 @@
+# Dev tools image: Waypoint only (it has no Windows build). Everything else comes from mise.
+FROM docker.io/library/debian:trixie-slim AS fetch
+ARG WAYPOINT_VERSION=0.8.1
+ARG TARGETARCH
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends ca-certificates curl \
+ && rm -rf /var/lib/apt/lists/*
+WORKDIR /out
+RUN archive="waypoint-v${WAYPOINT_VERSION}-linux-${TARGETARCH}.tar.gz" \
+ && base="https://github.com/tensorbee/waypoint/releases/download/v${WAYPOINT_VERSION}" \
+ && curl -fsSLO "${base}/${archive}" \
+ && curl -fsSLO "${base}/SHA256SUMS" \
+ && grep " ${archive}\$" SHA256SUMS | sha256sum -c - \
+ && tar xzf "${archive}" waypoint
+
+FROM docker.io/library/debian:trixie-slim
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends ca-certificates \
+ && rm -rf /var/lib/apt/lists/*
+COPY --from=fetch /out/waypoint /usr/local/libexec/waypoint
+# `waypoint <command>` then needs no connection flags: the URL comes from the
+# POSTGRES_* variables compose.dev.yaml sets, and migrations are mounted at /migrations.
+# The sed strips CRs in case Git on Windows checked the script out with CRLF.
+COPY waypoint.sh /usr/local/bin/waypoint
+RUN sed -i 's/\r$//' /usr/local/bin/waypoint \
+ && chmod +x /usr/local/bin/waypoint

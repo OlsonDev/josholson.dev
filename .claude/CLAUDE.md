@@ -16,6 +16,7 @@ Personal website for Josh Olson: www.josholson.dev (SvelteKit SSR) and api.josho
 - `Database/Seeds/`: seed layers (🚧 tool not built yet)
 - `compose.yaml`: production-safe. `compose.dev.yaml`: dev only, always load explicitly
 - `api/`, `web/`: 🚧 not created yet
+- `mise.toml`: pinned tools (bun, dotnet, gh) and tasks. `tools/`: image for the dev `tools` container, which runs Waypoint (no Windows build)
 - `.githooks/`: `commit-msg` hook (gitmoji format check), a .NET file-based app
 - `docs/`: architecture, database, seeding, product, and `adr/` decision records
 - `.claude/rules/`: conventions, loaded when matching files are touched
@@ -29,10 +30,16 @@ Start the dev database (copy `.env.example` to `.env` first):
 podman compose -f compose.yaml -f compose.dev.yaml up -d
 ```
 
-Apply migrations:
+Install the pinned tools (needs [mise](https://mise.jdx.dev) and Podman; run `mise activate` in your shell config for bare commands, or use `mise run` without it):
 
 ```
-waypoint --url postgres://USER:PASSWORD@127.0.0.1:5432/DATABASE --locations Database/Migrations migrate
+mise install
+```
+
+Apply migrations (starts the `tools` container on first use):
+
+```
+mise run waypoint migrate
 ```
 
 Enable the commit-msg hook (once per clone):

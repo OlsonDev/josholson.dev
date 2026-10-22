@@ -34,7 +34,7 @@ Internet -> Caddy (separate server) -> Proxmox guest (Podman compose)
 
 1. Build or pull new `api` and `web` images, tagged by git SHA.
 2. Take a `pg_dump`.
-3. Run migrations as a one-shot job (`migrate` service under a `tools` profile): `podman compose run --rm migrate`.
+3. Run migrations with Waypoint against the production database. 🚧 The server-side job is not defined yet; the dev `tools` container (`compose.dev.yaml`) must never be loaded on the server.
 4. `podman compose up -d api web`. Only services whose image changed are recreated; `postgres` keeps running.
 
 Migrations are not run on API startup, so the order stays under our control. Write them backward compatible (add before remove), because the old API briefly runs against the new schema.

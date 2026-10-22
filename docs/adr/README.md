@@ -38,3 +38,5 @@ Template:
 - [0016](0016-table-prefixed-keys-and-junction-names.md): Table-prefixed keys and `__` in compound names
 - [0017](0017-domains-by-kind.md): Domains for repeated validation, one schema per kind
 - [0018](0018-dml-only-api-role.md): DML-only API role
+- [0019](0019-mise-for-tool-management.md): mise for tool management
+- [0020](0020-waypoint-in-a-dev-tools-container.md): Waypoint in a dev tools container

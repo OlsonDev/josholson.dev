@@ -1,0 +1,19 @@
+[tools]
+bun = "1.4.3"
+dotnet = "10.0.402"
+gh = "2.102.0"
+
+[env]
+PODMAN_COMPOSE_WARNING_LOGS = "false"
+
+# Podman is not installed by mise: install it separately.
+# Waypoint has no Windows build, so it runs in the tools container (tools/Containerfile).
+
+[tasks."tools:up"]
+description = "Start the tools container (builds the image on first use)"
+run = "podman compose -f compose.yaml -f compose.dev.yaml up -d tools"
+
+[tasks.waypoint]
+description = "Run waypoint in the tools container, e.g. mise run waypoint migrate"
+depends = ["tools:up"]
+run = "podman compose -f compose.yaml -f compose.dev.yaml exec tools waypoint"

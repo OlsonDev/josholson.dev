@@ -14,3 +14,23 @@ services:
       - full_page_writes=off
       - -c
       - max_connections=200
+
+  # Waypoint, kept running so commands use `exec` instead of a fresh container.
+  # Use it through mise: mise run waypoint migrate
+  tools:
+    build:
+      context: ./tools
+      dockerfile: Containerfile
+    command: [sleep, infinity]
+    init: true
+    environment:
+      # Waypoint's table output miscounts the width of colored cells.
+      NO_COLOR: "1"
+      POSTGRES_USER: ${POSTGRES_USER:-josholson}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:-josholson}
+    volumes:
+      - ./Database/Migrations:/migrations:ro
+    depends_on:
+      postgres:
+        condition: service_healthy

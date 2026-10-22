@@ -21,13 +21,6 @@ services:
 
   # Placeholders until api/ and web/ exist.
   #
-  # migrate:
-  #   build: ./Database            # image with the Waypoint binary + Migrations/*.sql
-  #   profiles: [tools]            # run on demand: podman compose run --rm migrate
-  #   depends_on:
-  #     postgres:
-  #       condition: service_healthy
-  #
   # api:
   #   build: ./api
   #   restart: unless-stopped
