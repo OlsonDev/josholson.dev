@@ -5,7 +5,7 @@
 
 ## Context
 
-A migration that generates identity values (for example splitting a skill into several) produces different IDs depending on the rows already present. Diffing a migrated child against a migrated parent by primary key then compares unrelated rows.
+A migration that generates identity values (for example splitting one row into several) produces different IDs depending on the rows already present. Diffing a migrated child against a migrated parent by primary key then compares unrelated rows.
 
 ## Decision
 

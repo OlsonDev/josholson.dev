@@ -2,6 +2,8 @@
 
 One decision per file, numbered, never rewritten. To change a decision, add a new ADR and mark the old one `Superseded by NNNN`.
 
+Examples in ADRs follow the metasyntactic-names rule in [CLAUDE.md](../../.claude/CLAUDE.md). Name a real thing only where the ADR decides about it.
+
 Template:
 
 ```
@@ -33,3 +35,6 @@ Template:
 - [0013](0013-single-postgres-server-with-template-databases.md): One Postgres server, template databases
 - [0014](0014-hierarchical-seed-layers-in-yaml.md): Hierarchical seed layers in YAML
 - [0015](0015-seed-id-blocks-and-sequence-cursor.md): Seed ID blocks and sequence cursor
+- [0016](0016-table-prefixed-keys-and-junction-names.md): Table-prefixed keys and `__` in compound names
+- [0017](0017-domains-by-kind.md): Domains for repeated validation, one schema per kind
+- [0018](0018-dml-only-api-role.md): DML-only API role

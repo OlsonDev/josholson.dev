@@ -21,4 +21,4 @@ Store them as `SMALLINT` with a range check, `BETWEEN 1 AND n`, named `ck_{table
 
 - Values are numbers in `psql`, DBeaver, and seed YAML. Keep the mapping table up to date.
 - Adding a value needs a migration that widens the range. Never reuse a retired number.
-- `auth.identity.provider` is still `TEXT`. It is a candidate to convert if its set of providers becomes fixed.
+- A `TEXT` column whose set of values becomes fixed is a candidate to convert.
