@@ -1,0 +1,7 @@
+---
+paths:
+  - "**/*.ts"
+  - "**/*.svelte"
+---
+
+# 🚧 TypeScript

@@ -1,69 +1,38 @@
-# Project
+# josholson.dev
 
-- Personal website for Josh Olson
-- www.josholson.dev
-- api.josholson.dev
+Personal website for Josh Olson: www.josholson.dev (SvelteKit SSR) and api.josholson.dev (C# API).
 
-# Tech
+## Stack
 
-- Proxmox, Linux
-- Caddy proxy
-- Podman
-- PostgreSQL
-- C# / .NET
-  - Structured logging
-  - OpenTelemetry
-  - Dapper
-  - Waypoint CLI migrations
-- Bun
-  - TypeScript
-  - SvelteKit
-  - Playwright
+- Proxmox (Linux) guest running Podman; Caddy reverse proxy on a separate server
+- PostgreSQL; migrations with Waypoint CLI
+- C# / .NET API: structured logging, OpenTelemetry, Dapper
+- Bun: TypeScript, SvelteKit, Playwright
 
-# Podman
+## Layout
 
-- compose.yaml
-- PostgresSQL
-- C# API
-- SvelteKit SSR
+- `compose.yaml`: production-safe. `compose.dev.yaml`: dev only, always load explicitly
+- `api/`, `web/`: 🚧 not created yet
+- `docs/`: product requirements
+- `.claude/rules/`: conventions, loaded when matching files are touched
 
-# Database tables - superset of JSON Resume
+## Commands
 
-- Basics
-- Work
-- Education
-- Skill
-- Project
-- Language
-- Interest
-- Reference
+Start the dev database (copy `.env.example` to `.env` first):
 
-# User experience
-- Homepage
-  - Avatar photo
-  - Skill highlights
-- Résumé
-  - HTML version
-  - PDF version
-  - JSON Resume version
-  - Single source of truth
-    - CSS for differences
-- Skills
-  - Card list page with filters
-    - Name
-    - Icon
-    - Years used
-    - Versions used (freeform)
-    - 5-star rating (half stars allowed)
-    - Tags
-    - Notes
-- Projects
-- Contact page
-  - Obfuscated email address
-  - Contact form
-    - Stored in database
-    - Email sent to me
-- Secret admin page
-  - Secure auth
-  - Contact form submission list page
-  - Editors for JSON Resume
+```
+podman compose -f compose.yaml -f compose.dev.yaml up -d
+```
+
+🚧 Lint and test commands will go here.
+
+## Ground rules
+
+- Formatting basics live in `.editorconfig`: UTF-8, LF, two spaces, no final newline.
+- Never load `compose.dev.yaml` on the server.
+
+## Docs
+
+Read these on demand; they are not loaded automatically.
+
+- [docs/product.md](../docs/product.md): site features and pages
