@@ -27,3 +27,4 @@ Template:
 - [0007](0007-year-optional-month-domain.md): `year_optional_month` domain
 - [0008](0008-content-addressed-blobs.md): Content-addressed blobs
 - [0009](0009-reference-data-in-repeatable-migrations.md): Reference data in repeatable migrations
+- [0010](0010-global-tags-with-aliases.md): Global tags with aliases
