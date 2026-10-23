@@ -1,0 +1,14 @@
+{
+  "recommendations": [
+    "editorconfig.editorconfig",
+    "ms-azuretools.vscode-containers",
+    "ms-dotnettools.csdevkit",
+    "ms-dotnettools.vscode-dotnet-runtime",
+    "ms-ossdata.vscode-pgsql",
+    "ms-playwright.playwright",
+    "redhat.vscode-yaml",
+    "svelte.svelte-vscode",
+    "vscode-icons-team.vscode-icons",
+    "yzhang.markdown-all-in-one"
+  ]
+}
