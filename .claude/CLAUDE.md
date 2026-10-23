@@ -18,7 +18,7 @@ Personal website for Josh Olson: www.josholson.dev (SvelteKit SSR) and api.josho
 - `api/`, `web/`: 🚧 not created yet
 - `mise.toml`: pinned tools (bun, dotnet, gh) and tasks. `tools/`: image for the dev `tools` container, which runs Waypoint (no Windows build)
 - `docs/schema/`: generated from the dev database (a page per table, domains, Mermaid ER diagrams). Never edit by hand; run `mise run schema:doc`. `scripts/`: repo tooling as .NET file-based apps (`schema-docs.cs` builds those docs)
-- `.githooks/`: `commit-msg` hook (gitmoji format check), a .NET file-based app
+- `.githooks/`: `commit-msg` (gitmoji format check) and `pre-commit` (branch name check) hooks, .NET file-based apps
 - `docs/`: architecture, database, seeding, product, and `adr/` decision records
 - `.claude/rules/`: conventions, loaded when matching files are touched
 - `.claude/settings.json` and `.claude/hooks/`: hooks that keep Claude from committing (see Commits)
@@ -50,13 +50,13 @@ mise run schema:doc
 mise run schema:check
 ```
 
-Enable the commit-msg hook (once per clone):
+Enable the git hooks (once per clone):
 
 ```
 dotnet run setup.cs
 ```
 
-Test the hook's validator: `dotnet run .githooks/commit-msg.tests.cs`
+Test the hooks' validators: `dotnet run .githooks/commit-msg.tests.cs` and `dotnet run .githooks/pre-commit.tests.cs`
 
 🚧 Seed, lint, and test commands will go here.
 
@@ -91,4 +91,5 @@ Read these on demand; they are not loaded automatically.
 - [docs/database.md](../docs/database.md): schemas, resume model, design notes
 - [docs/seeding.md](../docs/seeding.md): seed tool design
 - [docs/product.md](../docs/product.md): site features and pages
+- [docs/security.md](../docs/security.md): secrets, transport, authorization, injection
 - [docs/adr/](../docs/adr/README.md): decision records
