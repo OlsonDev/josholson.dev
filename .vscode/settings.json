@@ -1,0 +1,11 @@
+{
+  "explorer.autoReveal": false,
+  "explorer.incrementalNaming": "smart",
+  "files.insertFinalNewline": true,
+  "files.readonlyInclude": {
+    "docs/schema/**": true
+  },
+  "files.trimTrailingWhitespace": true,
+  "git.rebaseWhenSync": true,
+  "zenMode.centerLayout": false,
+}
