@@ -71,7 +71,11 @@ CREATE INDEX ix_bar_corge_quux_id
 
 ## Naming
 
-- snake_case everywhere. Always schema-qualify objects.
+- snake_case everywhere.
+- Always schema-qualify objects (tables, views, functions, types). Reasons:
+  - `search_path` safety: an unqualified name resolves through `search_path`, which a role or session can change, so another schema's object of the same name could shadow yours. Qualified names cannot be shadowed.
+  - Plan reuse: a cached plan is tied to the `search_path` it was built under, and Postgres replans when that changes. Qualified names remove the dependency. The effect is small, and plans are cached per connection, not shared.
+  - Searchability: `grep foo.bar` finds every use.
 - Primary key: `{table}_id`.
 - Foreign key columns keep the referenced key's name (`baz_id`), with a role prefix when needed (`corge_baz_id`).
 - Booleans: `is_*`.
