@@ -173,6 +173,7 @@ Combining conditions:
   - `search_path` safety: an unqualified name resolves through `search_path`, which a role or session can change, so another schema's object of the same name could shadow yours. Qualified names cannot be shadowed.
   - Plan reuse: a cached plan is tied to the `search_path` it was built under, and Postgres replans when that changes. Qualified names remove the dependency. The effect is small, and plans are cached per connection, not shared.
   - Searchability: `grep foo.bar` finds every use.
+- Exception: objects in `pg_catalog` (system tables such as `pg_class`, and built-in functions and types such as `format_type` and `now()`) are written unqualified. Postgres searches `pg_catalog` first unless a path explicitly places it later, so they cannot be shadowed. `information_schema` views are still qualified.
 - Primary key: `{table}_id`.
 - Foreign key columns keep the referenced key's name (`baz_id`), with a role prefix when needed (`corge_baz_id`).
 - Booleans: `is_*`.
