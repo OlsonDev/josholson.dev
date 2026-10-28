@@ -1,0 +1,85 @@
+using JoshOlson.Api.Common.Testing;
+using Npgsql;
+using Xunit;
+
+namespace JoshOlson.Api.Tags;
+
+public class TagRepositoryTests {
+  private static TagRequest NewRequest() {
+    var slug = $"test-{Guid.NewGuid():N}";
+    return new() {
+      Name = slug,
+      Slug = slug,
+      Description = null,
+      Color = null,
+    };
+  }
+
+  [Fact]
+  public async Task Lifecycle_CreatesReadsUpdatesAndDeletes() {
+    var cancellationToken = TestContext.Current.CancellationToken;
+    await using var connection = new NpgsqlConnection(TestDatabase.ConnectionString);
+    await connection.OpenAsync(cancellationToken);
+    var repository = new TagRepository(connection);
+    var request = NewRequest();
+
+    var tagId = await repository.CreateAsync(request, cancellationToken);
+    try {
+      var created = await repository.GetAsync(tagId, cancellationToken);
+      Assert.NotNull(created);
+      Assert.Equal(request.Slug, created.Slug);
+      Assert.Null(created.Description);
+      Assert.Contains(await repository.GetAllAsync(cancellationToken), t => t.TagId == tagId);
+
+      Assert.True(await repository.UpdateAsync(tagId, request with { Description = "foo" }, cancellationToken));
+      Assert.Equal("foo", (await repository.GetAsync(tagId, cancellationToken))?.Description);
+    } finally {
+      Assert.True(await repository.DeleteAsync(tagId, CancellationToken.None));
+    }
+
+    Assert.Null(await repository.GetAsync(tagId, cancellationToken));
+    Assert.False(await repository.UpdateAsync(tagId, request, cancellationToken));
+    Assert.False(await repository.DeleteAsync(tagId, cancellationToken));
+  }
+
+  // Repositories sharing one open connection take part in whatever transaction is open on it,
+  // and a transaction that is disposed without CommitAsync rolls back.
+  [Fact]
+  public async Task UncommittedTransaction_RollsBack() {
+    var cancellationToken = TestContext.Current.CancellationToken;
+    await using var connection = new NpgsqlConnection(TestDatabase.ConnectionString);
+    await connection.OpenAsync(cancellationToken);
+    var repository = new TagRepository(connection);
+    int tagId;
+
+    await using (await connection.BeginTransactionAsync(cancellationToken)) {
+      tagId = await repository.CreateAsync(NewRequest(), cancellationToken);
+      Assert.NotNull(await repository.GetAsync(tagId, cancellationToken));
+      await using var otherConnection = new NpgsqlConnection(TestDatabase.ConnectionString);
+      await otherConnection.OpenAsync(cancellationToken);
+      Assert.Null(await new TagRepository(otherConnection).GetAsync(tagId, cancellationToken));
+    }
+
+    Assert.Null(await repository.GetAsync(tagId, cancellationToken));
+  }
+
+  [Fact]
+  public async Task CommittedTransaction_Persists() {
+    var cancellationToken = TestContext.Current.CancellationToken;
+    await using var connection = new NpgsqlConnection(TestDatabase.ConnectionString);
+    await connection.OpenAsync(cancellationToken);
+    var repository = new TagRepository(connection);
+    int tagId;
+
+    await using (var transaction = await connection.BeginTransactionAsync(cancellationToken)) {
+      tagId = await repository.CreateAsync(NewRequest(), cancellationToken);
+      await transaction.CommitAsync(cancellationToken);
+    }
+
+    try {
+      Assert.NotNull(await repository.GetAsync(tagId, cancellationToken));
+    } finally {
+      await repository.DeleteAsync(tagId, CancellationToken.None);
+    }
+  }
+}

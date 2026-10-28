@@ -1,5 +1,6 @@
 using Dapper;
 using JoshOlson.Api.Common.Db;
+using JoshOlson.Api.Common.DependencyInjection;
 using JoshOlson.Api.Common.Errors;
 
 namespace JoshOlson.Api;
@@ -37,6 +38,7 @@ public sealed class Program {
     builder.Services.AddProblemDetails();
     builder.Services.AddExceptionHandler<PostgresExceptionHandler>();
     builder.Services.AddDatabase(builder.Configuration);
+    builder.Services.AddServicesAndRepositories();
 
     var app = builder.Build();
 
