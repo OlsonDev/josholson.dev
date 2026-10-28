@@ -1,3 +1,5 @@
 .env
 .claude/allow-commit
+bin/
+obj/
 docs/open-decisions
