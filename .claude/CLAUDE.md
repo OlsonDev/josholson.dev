@@ -15,7 +15,8 @@ Personal website for Josh Olson: www.josholson.dev (SvelteKit SSR) and api.josho
 - `Database/Provisioning/`: one-off scripts run as the owner after migrations (API role; needs a password, so not a migration)
 - `Database/Seeds/`: seed layers (🚧 tool not built yet)
 - `compose.yaml`: production-safe. `compose.dev.yaml`: dev only, always load explicitly
-- `api/`, `web/`: 🚧 not created yet
+- `api/`: the .NET solution (`JoshOlson.slnx`) with one project, `JoshOlson.Api`, in feature folders (one per feature, plus `Common/` for cross-cutting code). Tests sit beside the code as `*.Tests.cs` ([ADR 0023](../docs/adr/0023-api-feature-folders-and-colocated-tests.md))
+- `web/`: 🚧 not created yet
 - `mise.toml`: pinned tools (bun, dotnet, gh) and tasks. `tools/`: image for the dev `tools` container, which runs Waypoint (no Windows build)
 - `docs/schema/`: generated from the dev database (a page per table, domains, Mermaid ER diagrams). Never edit by hand; run `mise run schema:doc`. `scripts/`: repo tooling as .NET file-based apps (`schema-docs.cs` builds those docs)
 - `.githooks/`: `commit-msg` (gitmoji format check) and `pre-commit` (branch name check) hooks, .NET file-based apps
@@ -56,9 +57,19 @@ Enable the git hooks (once per clone):
 dotnet run setup.cs
 ```
 
+Run the API tests (needs the dev database running; reads `.env`), against a Release build, and list source files with no sibling test:
+
+```
+mise run test
+mise run test:release
+mise run test:missing
+```
+
+Publish the API with `-p:IncludeTests=false` so no test code ships.
+
 Test the hooks' validators: `dotnet run .githooks/commit-msg.tests.cs` and `dotnet run .githooks/pre-commit.tests.cs`
 
-🚧 Seed, lint, and test commands will go here.
+🚧 Seed and lint commands will go here.
 
 ## Ground rules
 
