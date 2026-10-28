@@ -162,7 +162,7 @@ Combining conditions:
 ### Select list
 
 - Comma-first, one column per line, the first column on the line after `SELECT`.
-- `AS` is two spaces after the longest line of any column. A multi-line column (a subquery) ends with `)` at the column's own indentation, and its `AS` joins the same column.
+- `AS` is two spaces after the longest line that carries an `AS`: a column that fits on one line, however complex, or the closing `)` line of a multi-line column (a subquery). The interior lines of a multi-line column do not count, so they may run past the `AS` column. The closing `)` sits at the column's own indentation, and its `AS` joins the same column.
 - Every column of a query's outermost `SELECT` has an `AS`, even when the alias repeats the column name. The `AS` column becomes the list of result names, readable in one pass. Without it, unaliased columns sit at the far left and aliased ones at the far right, and the eye zigzags.
 - Subqueries are indented two spaces from where the expression starts. Their `FROM`, `JOIN`, and `WHERE` follow the same rules.
 
