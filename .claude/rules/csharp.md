@@ -21,7 +21,8 @@ Formatting lives in `.editorconfig`. This file covers choices it cannot express.
 - Raw string literals (`"""`) for multi-line text, especially embedded SQL.
 - `foreach`, not `List<T>.ForEach`. LINQ is for queries and transformations, never side effects (such as in `.Select()` or `.Where()`).
 - Lambda parameters are named for what they are, not `x`. A short abbreviation is fine in a short lambda where the type is obvious, e.g. `fooBars.Select(fb => fb.BarId)`.
-- Private fields are `_camelCase`. No `this.` unless required. `System` usings first, then the rest, each group alphabetical.
+- Private instance fields are `_camelCase`. Private static and const fields are `_PascalCase`: the underscore says private, the capital says shared by every instance. Public and internal members are `PascalCase`; locals and parameters are `camelCase`. No `this.` unless required. `System` usings first, then the rest, each group alphabetical.
+- Keep lines to about 120 columns and wrap longer ones. This is a guideline, not enforced by a tool.
 - Several lookups in a loop need a `Dictionary` or `ILookup`, not a scan per iteration. Compute an aggregate once into a named variable.
 
 ## Data access
