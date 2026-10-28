@@ -84,27 +84,57 @@ record Domain(string Schema, string Name, string Base, bool NotNull, string? Def
 }
 
 record Model(List<Table> Tables, List<Domain> Domains, Dictionary<string, string> SchemaComments) {
-  const string Tables_ = """
-    SELECT c.oid::bigint, n.nspname AS schema, c.relname AS name, obj_description(c.oid, 'pg_class') AS comment
-    FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
-    WHERE c.relkind IN ('r', 'p') AND n.nspname NOT IN ('pg_catalog', 'information_schema', 'public') AND n.nspname NOT LIKE 'pg\_%'
+  // The tables to document: ordinary and partitioned tables outside the system schemas and public.
+  const string TablesFrom = """
+    FROM (SELECT) AS _
+    JOIN pg_class      AS c  ON c.relkind IN ('r', 'p')
+    JOIN pg_namespace  AS n  ON n.oid      = c.relnamespace
+                            AND n.nspname NOT IN ('pg_catalog', 'information_schema', 'public')
+                            AND n.nspname NOT LIKE 'pg\_%'
+    """;
+
+  // The same tables, reduced to the oid.
+  const string TablesCte = $"""
+    WITH tables AS (
+      SELECT c.oid
+      {TablesFrom}
+    )
     """;
 
   public static async Task<Model> Load(NpgsqlConnection connection) {
     // With only pg_catalog on the path, format_type qualifies every other type with its schema.
     await new NpgsqlCommand("SET search_path TO pg_catalog", connection).ExecuteNonQueryAsync();
 
-    var tables = await Query(connection, $"{Tables_} ORDER BY 2, 3", r =>
+    var tables = await Query(connection, $"""
+      SELECT
+          c.oid::bigint                       AS table_id
+        , n.nspname                           AS schema
+        , c.relname                           AS name
+        , obj_description(c.oid, 'pg_class')  AS comment
+      {TablesFrom}
+      ORDER BY n.nspname, c.relname;
+      """, r =>
       new Table(r.GetInt64(0), r.GetString(1), r.GetString(2), r.IsDBNull(3) ? null : r.GetString(3), [], [], []));
     var byId = tables.ToDictionary(t => t.Id);
 
     var columns = await Query(connection, $"""
-      WITH tables AS ({Tables_})
-      SELECT a.attrelid::bigint, a.attname::text, format_type(a.atttypid, a.atttypmod), NOT a.attnotnull,
-             a.attidentity::text, a.attgenerated::text, pg_get_expr(d.adbin, d.adrelid), col_description(a.attrelid, a.attnum)
-      FROM pg_attribute a LEFT JOIN pg_attrdef d ON d.adrelid = a.attrelid AND d.adnum = a.attnum
-      WHERE a.attrelid IN (SELECT oid FROM tables) AND a.attnum > 0 AND NOT a.attisdropped
-      ORDER BY a.attrelid, a.attnum
+      {TablesCte}
+      SELECT
+          a.attrelid::bigint                     AS table_id
+        , a.attname::text                        AS name
+        , format_type(a.atttypid, a.atttypmod)   AS type
+        , NOT a.attnotnull                       AS is_nullable
+        , a.attidentity::text                    AS identity
+        , a.attgenerated::text                   AS generated
+        , pg_get_expr(d.adbin, d.adrelid)        AS default_expression
+        , col_description(a.attrelid, a.attnum)  AS comment
+      FROM (SELECT) AS _
+      JOIN pg_attribute     AS a  ON a.attnum  >  0
+                                 AND NOT a.attisdropped
+      JOIN tables           AS t  ON t.oid      = a.attrelid
+      LEFT JOIN pg_attrdef  AS d  ON d.adrelid  = a.attrelid
+                                 AND d.adnum    = a.attnum
+      ORDER BY a.attrelid, a.attnum;
       """, r => {
       var expression = r.IsDBNull(6) ? null : r.GetString(6);
       var generated = r.GetString(5) == "s";
@@ -116,46 +146,90 @@ record Model(List<Table> Tables, List<Domain> Domains, Dictionary<string, string
     foreach (var (table, column) in columns) byId[table].Columns.Add(column);
 
     var constraints = await Query(connection, $"""
-      WITH tables AS ({Tables_})
-      SELECT con.conrelid::bigint, con.conname::text, con.contype::text, pg_get_constraintdef(con.oid),
-             COALESCE((SELECT array_agg(a.attname::text ORDER BY k.ord) FROM unnest(con.conkey) WITH ORDINALITY k(attnum, ord)
-                       JOIN pg_attribute a ON a.attrelid = con.conrelid AND a.attnum = k.attnum), ARRAY[]::text[]),
-             con.confrelid::bigint,
-             COALESCE((SELECT array_agg(a.attname::text ORDER BY k.ord) FROM unnest(con.confkey) WITH ORDINALITY k(attnum, ord)
-                       JOIN pg_attribute a ON a.attrelid = con.confrelid AND a.attnum = k.attnum), ARRAY[]::text[]),
-             con.confupdtype::text, con.confdeltype::text, con.condeferrable, con.condeferred
-      FROM pg_constraint con
-      WHERE con.conrelid IN (SELECT oid FROM tables) AND con.contype IN ('p', 'u', 'c', 'f')
-      ORDER BY con.conrelid, con.conname
+      {TablesCte}
+      SELECT
+          con.conrelid::bigint           AS table_id
+        , con.conname::text              AS name
+        , con.contype::text              AS kind
+        , pg_get_constraintdef(con.oid)  AS definition
+        , COALESCE((
+            SELECT array_agg(a.attname::text ORDER BY k.ord)
+            FROM (SELECT) AS _
+            JOIN pg_attribute                        AS a                ON a.attrelid  = con.conrelid
+            JOIN unnest(con.conkey) WITH ORDINALITY  AS k (attnum, ord)  ON k.attnum    = a.attnum
+          ), ARRAY[]::text[])            AS columns
+        , con.confrelid::bigint          AS ref_table_id
+        , COALESCE((
+            SELECT array_agg(a.attname::text ORDER BY k.ord)
+            FROM (SELECT) AS _
+            JOIN pg_attribute                         AS a                ON a.attrelid  = con.confrelid
+            JOIN unnest(con.confkey) WITH ORDINALITY  AS k (attnum, ord)  ON k.attnum    = a.attnum
+          ), ARRAY[]::text[])            AS ref_columns
+        , con.confupdtype::text          AS on_update
+        , con.confdeltype::text          AS on_delete
+        , con.condeferrable              AS is_deferrable
+        , con.condeferred                AS is_deferred
+      FROM (SELECT) AS _
+      JOIN pg_constraint  AS con  ON con.contype IN ('p', 'u', 'c', 'f')
+      JOIN tables         AS t    ON t.oid        = con.conrelid
+      ORDER BY con.conrelid, con.conname;
       """, r => (Table: r.GetInt64(0), Constraint: new Constraint(r.GetString(1), r.GetString(2)[0], r.GetString(3),
         r.GetFieldValue<string[]>(4), r.GetInt64(5), r.GetFieldValue<string[]>(6), r.GetString(7)[0], r.GetString(8)[0],
         r.GetBoolean(9), r.GetBoolean(10))));
     foreach (var (table, constraint) in constraints) byId[table].Constraints.Add(constraint);
 
     var indexes = await Query(connection, $"""
-      WITH tables AS ({Tables_})
-      SELECT i.indrelid::bigint, ic.relname::text, pg_get_indexdef(i.indexrelid),
-             EXISTS (SELECT 1 FROM pg_constraint k WHERE k.conindid = i.indexrelid AND k.contype IN ('p', 'u', 'x'))
-      FROM pg_index i JOIN pg_class ic ON ic.oid = i.indexrelid
-      WHERE i.indrelid IN (SELECT oid FROM tables)
-      ORDER BY i.indrelid, ic.relname
+      {TablesCte}
+      SELECT
+          i.indrelid::bigint             AS table_id
+        , ic.relname::text               AS name
+        , pg_get_indexdef(i.indexrelid)  AS definition
+        , EXISTS (
+            SELECT 1
+            FROM (SELECT) AS _
+            JOIN pg_constraint  AS k  ON k.conindid  = i.indexrelid
+                                     AND k.contype  IN ('p', 'u', 'x')
+          )                              AS backs_constraint
+      FROM (SELECT) AS _
+      JOIN pg_index  AS i   ON TRUE
+      JOIN tables    AS t   ON t.oid   = i.indrelid
+      JOIN pg_class  AS ic  ON ic.oid  = i.indexrelid
+      ORDER BY i.indrelid, ic.relname;
       """, r => (Table: r.GetInt64(0), Index: new Index(r.GetString(1), r.GetString(2), r.GetBoolean(3))));
     foreach (var (table, index) in indexes) byId[table].Indexes.Add(index);
 
     var checks = (await Query(connection, """
-      SELECT contypid::bigint, conname::text, pg_get_constraintdef(oid) FROM pg_constraint WHERE contypid <> 0 ORDER BY conname
+      SELECT
+          con.contypid::bigint           AS domain_id
+        , con.conname::text              AS name
+        , pg_get_constraintdef(con.oid)  AS definition
+      FROM (SELECT) AS _
+      JOIN pg_constraint  AS con  ON con.contypid != 0
+      ORDER BY con.conname;
       """, r => (Domain: r.GetInt64(0), Name: r.GetString(1), Definition: r.GetString(2)))).ToLookup(c => c.Domain);
     var domains = await Query(connection, """
-      SELECT t.oid::bigint, n.nspname, t.typname, format_type(t.typbasetype, t.typtypmod), t.typnotnull, t.typdefault,
-             obj_description(t.oid, 'pg_type')
-      FROM pg_type t JOIN pg_namespace n ON n.oid = t.typnamespace
-      WHERE t.typtype = 'd' AND n.nspname NOT IN ('pg_catalog', 'information_schema', 'public')
-      ORDER BY 2, 3
+      SELECT
+          t.oid::bigint                            AS domain_id
+        , n.nspname                                AS schema
+        , t.typname                                AS name
+        , format_type(t.typbasetype, t.typtypmod)  AS base
+        , t.typnotnull                             AS is_not_null
+        , t.typdefault                             AS default_expression
+        , obj_description(t.oid, 'pg_type')        AS comment
+      FROM (SELECT) AS _
+      JOIN pg_type       AS t  ON t.typtype  = 'd'
+      JOIN pg_namespace  AS n  ON n.oid      = t.typnamespace
+                              AND n.nspname NOT IN ('pg_catalog', 'information_schema', 'public')
+      ORDER BY n.nspname, t.typname;
       """, r => new Domain(r.GetString(1), r.GetString(2), r.GetString(3), r.GetBoolean(4), r.IsDBNull(5) ? null : r.GetString(5),
       r.IsDBNull(6) ? null : r.GetString(6), checks[r.GetInt64(0)].Select(c => (c.Name, c.Definition)).ToList()));
 
     var schemaComments = (await Query(connection, """
-      SELECT nspname::text, obj_description(oid, 'pg_namespace') FROM pg_namespace WHERE obj_description(oid, 'pg_namespace') IS NOT NULL
+      SELECT
+          n.nspname::text                         AS name
+        , obj_description(n.oid, 'pg_namespace')  AS comment
+      FROM (SELECT) AS _
+      JOIN pg_namespace  AS n  ON obj_description(n.oid, 'pg_namespace') IS NOT NULL;
       """, r => (Name: r.GetString(0), Comment: r.GetString(1)))).ToDictionary(c => c.Name, c => c.Comment);
 
     return new Model(tables, domains, schemaComments);
