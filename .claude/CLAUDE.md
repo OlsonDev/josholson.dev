@@ -62,7 +62,7 @@ Test the hooks' validators: `dotnet run .githooks/commit-msg.tests.cs` and `dotn
 
 ## Ground rules
 
-- Formatting basics live in `.editorconfig`: UTF-8, LF, two spaces, final newline.
+- Formatting basics live in `.editorconfig`: UTF-8, LF, two spaces, no trailing whitespace, and every file ends with a final newline.
 - YAML files use `.yaml`, never `.yml`. If a tool defaults to `.yml`, point it at the `.yaml` file explicitly.
 - SQL conventions are in `.claude/rules/sql.md`. Read it before writing any SQL.
 - Reference data (mime types, extensions) belongs in repeatable migrations, never in seeds.
