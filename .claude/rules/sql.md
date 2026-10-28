@@ -69,6 +69,103 @@ CREATE INDEX ix_bar_corge_quux_id
 - No quoted identifiers. Reserved words such as `user` work unquoted when schema-qualified (`foo.user`); a bare `user` means `CURRENT_USER`.
 - No comments in migrations yet. This is a deliberate choice for now.
 
+## Queries
+
+Formatting for `SELECT`. `INSERT`, `UPDATE`, and `DELETE` are still to be decided. The `Formatting` rules above also apply here.
+
+This one example shows every rule below. Study all of it before reading the rules, and look back at it while writing a query.
+
+```sql
+-- Bars with no grault, or whose grault is retired
+SELECT
+    b.bar_id     AS bar_id
+  , b.name       AS name
+  , z.name       AS baz_name
+  , g.grault_id  AS grault_id
+  , EXISTS (
+      SELECT 1
+      FROM (SELECT) AS _
+      JOIN foo.qux  AS q  ON q.bar_id   = b.bar_id
+                         AND q.is_thud  = TRUE
+    )            AS has_qux
+FROM (SELECT) AS _
+JOIN foo.bar          AS b  ON b.status     IN (1, 2)
+                           AND b.sort_order <  10
+                           AND (    (     b.corge_status   = 1
+                                      AND b.garply_status IN (2, 3)
+                                    )
+                                 OR (     b.waldo_updated_utc <  b.plugh_updated_utc
+                                      AND b.is_thud
+                                 )
+                                 OR b.fred_note LIKE 'xyzzy%'
+                           )
+JOIN foo.baz          AS z  ON z.baz_id      = b.baz_id
+                           AND z.name       != 'corge'
+                           AND (z.is_thud OR z.status = 3)
+LEFT JOIN foo.grault  AS g  ON g.bar_id      = b.bar_id
+                           AND g.waldo_id    = z.waldo_id
+WHERE g.grault_id IS NULL
+   OR ( g.retired_utc  <  b.plugh_updated_utc
+    AND g.corge_status IN (4, 5, 6)
+    AND g.fred_note    LIKE 'xyzzy%'
+    AND g.waldo_id     != z.waldo_id
+   )
+ORDER BY b.sort_order, b.bar_id;
+```
+
+### Structure
+
+- Comments are sentence cased: `-- Tables`, not `-- tables`.
+- `FROM`, `JOIN`, `WHERE`, `GROUP BY`, and `ORDER BY` start at the statement's indentation. Nothing under `FROM` is indented. `ON` stays on its `JOIN` line.
+- The `FROM` is always `FROM (SELECT) AS _`, a throwaway row. Every real source is a `JOIN`.
+  - A condition goes in the first `ON` it can, beside the source it filters. Without the throwaway `FROM`, the first source has no `ON`, so its filters would go in a `WHERE`, far from the source in a long query. Reordering the sources would then mean moving filters between the `WHERE` and an `ON`.
+  - Commenting out a `JOIN` is one operation.
+  - A source with no condition of its own takes `ON TRUE`.
+- `WHERE` only where a condition cannot live in an `ON`, such as checking that a `LEFT JOIN` found nothing (`WHERE g.grault_id IS NULL`). Any other `WHERE` on a left-joined table silently makes it an inner join.
+- Write `JOIN` and `LEFT JOIN`, never `INNER JOIN` or `LEFT OUTER JOIN`.
+- Banned:
+  - `NATURAL JOIN` joins on every column the tables share. A new column, such as `name`, changes what the query means, and reordering the `JOIN`s changes it too, because it considers every earlier source.
+  - `USING` cannot be combined with `ON`. The moment a query needs one more condition, the whole `USING` becomes an `ON`, and the diff is far larger than the change.
+  - `CROSS JOIN` and comma joins. Use `JOIN ... ON TRUE`.
+- Every source has `AS` and an alias, subqueries and functions included.
+
+### Alignment
+
+Alignment is per `FROM` block, across all its `JOIN`s.
+
+- `AS` is two spaces after the longest `JOIN ... source`. `ON` is two spaces after the longest alias, which includes a column list (`k (attnum, ord)`).
+- A continued condition goes on its own line, and `AND`/`OR` is right-aligned with the `N` of `ON`. `AND` starts one column left of `ON`, and `OR` directly under it.
+- In every condition, the left side names the `JOIN`'s own alias first and earlier aliases second (`z.baz_id = b.baz_id` in the `baz` join), so the aliases repeat down the page.
+- Operators sit in a two-character column, one space after the longest left side in the block:
+  - `=` is right-aligned (` =`).
+  - `<` and `>` are left-aligned (`< `), which leaves a space after them.
+  - `!=`, `<=`, `>=`, and `IN` fill the column.
+- Everything else is not aligned:
+  - Longer operators (`NOT IN`, `LIKE`, `NOT LIKE`) start in the same column and run past it. Their right side sits further right.
+  - Conditions without a left-right shape (`NOT a.is_thud`, `x IS NULL`, `TRUE`) start where a left side would.
+
+Combining conditions:
+
+- Parenthesize any mix of `AND` and `OR`. A group has one connective, so never nest a group inside a group with the same one; merge it into the parent.
+- A plain group holds no group and sits in no group. It stays on one line, unaligned inside, when the whole line fits in 120 columns (the `baz` join).
+- A plain group that does not fit is laid out like `ON`, with `(` in the place of `ON` (the `WHERE`):
+  - The first condition follows `( `.
+  - `AND`/`OR` is right-aligned with the `(`.
+- A nested group holds a group or sits in one (the `bar` join). It is always multi-line, however short:
+  - `AND`/`OR` starts one space after the `(`, and each condition follows one space after it. A group has a single connective, so the conditions line up.
+  - The first condition is padded to start in the same column, and a nested `(` opens in that column too.
+- In every group, operators align in a column of their own, sized to the longest left side in that group.
+- `)` goes on its own line, under the first letter of the word before the `(`: `ON`, `WHERE`, `HAVING`, `AND`, or `OR`, so it points back to the connective that introduced the group. A group that opens its parent group has no such word, so `)` goes under its own `(`.
+- `WHERE` and `HAVING` work like `ON`, but right-align `AND`/`OR` with their own last letter: the `E` of `WHERE`, the `G` of `HAVING`. Conditions follow `WHERE ` or `HAVING `, and their operators align in a column of their own, sized to the longest left side in that clause. `OR` can start a continued condition there, as it can in an `ON`; the example's `WHERE` does.
+- Adding a nested group to a plain group, or removing the last one, re-lays out the groups around it. That is a whitespace-only change; keep it apart from changes to the logic.
+
+### Select list
+
+- Comma-first, one column per line, the first column on the line after `SELECT`.
+- `AS` is two spaces after the longest line of any column. A multi-line column (a subquery) ends with `)` at the column's own indentation, and its `AS` joins the same column.
+- Every column of a query's outermost `SELECT` has an `AS`, even when the alias repeats the column name. The `AS` column becomes the list of result names, readable in one pass. Without it, unaliased columns sit at the far left and aliased ones at the far right, and the eye zigzags.
+- Subqueries are indented two spaces from where the expression starts. Their `FROM`, `JOIN`, and `WHERE` follow the same rules.
+
 ## Naming
 
 - snake_case everywhere except C# @parameterValues, which are camelCase.
