@@ -33,3 +33,23 @@ run = "dotnet run scripts/schema-docs.cs -- check"
 
 [tasks."schema:check".env]
 _.file = ".env"
+
+# The test tasks read .env for the dev database (POSTGRES_*), so start it first (see CLAUDE.md).
+# Tests live beside the code as *.Tests.cs and are compiled in for Debug (see api/JoshOlson.Api/JoshOlson.Api.csproj).
+[tasks.test]
+description = "Run the API tests (Debug build, tests compiled in)"
+run = "dotnet test --project api/JoshOlson.Api"
+
+[tasks.test.env]
+_.file = ".env"
+
+[tasks."test:release"]
+description = "Run the API tests against a Release build"
+run = "dotnet test --project api/JoshOlson.Api -c Release -p:IncludeTests=true"
+
+[tasks."test:release".env]
+_.file = ".env"
+
+[tasks."test:missing"]
+description = "List api source files with no sibling *.Tests.cs"
+run = "dotnet run scripts/missing-tests.cs"
