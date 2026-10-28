@@ -134,7 +134,7 @@ record Model(List<Table> Tables, List<Domain> Domains, Dictionary<string, string
       JOIN tables           AS t  ON t.oid      = a.attrelid
       LEFT JOIN pg_attrdef  AS d  ON d.adrelid  = a.attrelid
                                  AND d.adnum    = a.attnum
-      ORDER BY a.attrelid, a.attnum;
+      ORDER BY table_id, a.attnum;
       """, r => {
       var expression = r.IsDBNull(6) ? null : r.GetString(6);
       var generated = r.GetString(5) == "s";
@@ -172,7 +172,7 @@ record Model(List<Table> Tables, List<Domain> Domains, Dictionary<string, string
       FROM (SELECT) AS _
       JOIN pg_constraint  AS con  ON con.contype IN ('p', 'u', 'c', 'f')
       JOIN tables         AS t    ON t.oid        = con.conrelid
-      ORDER BY con.conrelid, con.conname;
+      ORDER BY table_id, name;
       """, r => (Table: r.GetInt64(0), Constraint: new Constraint(r.GetString(1), r.GetString(2)[0], r.GetString(3),
         r.GetFieldValue<string[]>(4), r.GetInt64(5), r.GetFieldValue<string[]>(6), r.GetString(7)[0], r.GetString(8)[0],
         r.GetBoolean(9), r.GetBoolean(10))));
@@ -194,7 +194,7 @@ record Model(List<Table> Tables, List<Domain> Domains, Dictionary<string, string
       JOIN pg_index  AS i   ON TRUE
       JOIN tables    AS t   ON t.oid   = i.indrelid
       JOIN pg_class  AS ic  ON ic.oid  = i.indexrelid
-      ORDER BY i.indrelid, ic.relname;
+      ORDER BY table_id, name;
       """, r => (Table: r.GetInt64(0), Index: new Index(r.GetString(1), r.GetString(2), r.GetBoolean(3))));
     foreach (var (table, index) in indexes) byId[table].Indexes.Add(index);
 
@@ -205,7 +205,7 @@ record Model(List<Table> Tables, List<Domain> Domains, Dictionary<string, string
         , pg_get_constraintdef(con.oid)  AS definition
       FROM (SELECT) AS _
       JOIN pg_constraint  AS con  ON con.contypid != 0
-      ORDER BY con.conname;
+      ORDER BY name;
       """, r => (Domain: r.GetInt64(0), Name: r.GetString(1), Definition: r.GetString(2)))).ToLookup(c => c.Domain);
     var domains = await Query(connection, """
       SELECT

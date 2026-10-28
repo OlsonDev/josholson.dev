@@ -117,6 +117,12 @@ ORDER BY b.sort_order, b.bar_id;
 
 - Comments are sentence cased: `-- Tables`, not `-- tables`.
 - `FROM`, `JOIN`, `WHERE`, `GROUP BY`, and `ORDER BY` start at the statement's indentation. Nothing under `FROM` is indented. `ON` stays on its `JOIN` line.
+- `ORDER BY` and `GROUP BY` name what the select list shows, never a select-list position (`ORDER BY 2, 3`).
+  - A column the select list takes as it is stays a source column (`ORDER BY b.sort_order`). A column that is not selected is also a source column.
+  - An expression in the select list is named by its alias (`ORDER BY baz_label`), not repeated.
+  - A position changes meaning when someone edits the select list, and the reader must scroll back to the `SELECT` to see which column the number means.
+  - An alias must stand alone, because Postgres does not allow one inside an expression (`ORDER BY baz_label + 1` fails). It must not be the name of a column in any source of the query. `ORDER BY` prefers the alias and `GROUP BY` prefers the column, so a shared name would mean two different things.
+  - Ordering by an alias orders by the expression's value. That can differ from ordering by the column under it. For example, a cast to `text` changes the collation.
 - The `FROM` is always `FROM (SELECT) AS _`, a throwaway row. Every real source is a `JOIN`.
   - A condition goes in the first `ON` it can, beside the source it filters. Without the throwaway `FROM`, the first source has no `ON`, so its filters would go in a `WHERE`, far from the source in a long query. Reordering the sources would then mean moving filters between the `WHERE` and an `ON`.
   - Commenting out a `JOIN` is one operation.
