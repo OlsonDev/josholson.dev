@@ -43,3 +43,4 @@ Template:
 - [0021](0021-generated-schema-docs.md): Generated schema docs
 - [0022](0022-branch-names-enforced-by-a-hook.md): Branch names enforced by a hook
 - [0023](0023-api-feature-folders-and-colocated-tests.md): API feature folders and colocated tests
+- [0024](0024-scoped-open-connection-per-request.md): One open connection per request

@@ -28,6 +28,7 @@ Formatting lives in `.editorconfig`. This file covers choices it cannot express.
 ## Data access
 
 - Dapper with Npgsql, SQL written inline. No `Dapper.Contrib`.
+- Repositories take the scoped `NpgsqlConnection` (opened once per request in `AddDatabase`) and never open or dispose it. A service that needs atomicity begins a transaction on that connection and calls `CommitAsync`; disposing it uncommitted rolls back. Repositories on the same connection join it automatically.
 - Repository classes only run queries. Logic that isn't a query belongs in a service.
 - Pass the `CancellationToken` through a `CommandDefinition`.
 - Call `DefaultTypeMap.MatchNamesWithUnderscores = true` once at startup so `bar_id` fills `BarId`.
