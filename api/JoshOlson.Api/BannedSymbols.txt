@@ -1,0 +1,67 @@
+// Read by Microsoft.CodeAnalysis.BannedApiAnalyzers (RS0030). One entry per line: <doc-comment ID>;<message>.
+// There are no wildcards, and a method ID without a parameter list matches only the parameterless overload, so
+// every overload is listed with its full signature. A type ban (T:) catches static access, `new`, and generic
+// arguments, but not a bare declaration (field, parameter, return type) of the type.
+// To allow one use, put `#pragma warning disable RS0030` around it, with a reason.
+
+// Project rules (.claude/rules/csharp.md)
+M:System.Collections.Generic.List`1.ForEach(System.Action{`0});Use foreach
+N:Dapper.Contrib;Write the SQL inline
+
+// Controllers, not minimal APIs (ADR 0026)
+M:Microsoft.AspNetCore.Builder.EndpointRouteBuilderExtensions.Map(Microsoft.AspNetCore.Routing.IEndpointRouteBuilder,Microsoft.AspNetCore.Routing.Patterns.RoutePattern,Microsoft.AspNetCore.Http.RequestDelegate);Use a controller (ADR 0026)
+M:Microsoft.AspNetCore.Builder.EndpointRouteBuilderExtensions.Map(Microsoft.AspNetCore.Routing.IEndpointRouteBuilder,Microsoft.AspNetCore.Routing.Patterns.RoutePattern,System.Delegate);Use a controller (ADR 0026)
+M:Microsoft.AspNetCore.Builder.EndpointRouteBuilderExtensions.Map(Microsoft.AspNetCore.Routing.IEndpointRouteBuilder,System.String,Microsoft.AspNetCore.Http.RequestDelegate);Use a controller (ADR 0026)
+M:Microsoft.AspNetCore.Builder.EndpointRouteBuilderExtensions.Map(Microsoft.AspNetCore.Routing.IEndpointRouteBuilder,System.String,System.Delegate);Use a controller (ADR 0026)
+M:Microsoft.AspNetCore.Builder.EndpointRouteBuilderExtensions.MapGet(Microsoft.AspNetCore.Routing.IEndpointRouteBuilder,System.String,Microsoft.AspNetCore.Http.RequestDelegate);Use a controller (ADR 0026)
+M:Microsoft.AspNetCore.Builder.EndpointRouteBuilderExtensions.MapGet(Microsoft.AspNetCore.Routing.IEndpointRouteBuilder,System.String,System.Delegate);Use a controller (ADR 0026)
+M:Microsoft.AspNetCore.Builder.EndpointRouteBuilderExtensions.MapPost(Microsoft.AspNetCore.Routing.IEndpointRouteBuilder,System.String,Microsoft.AspNetCore.Http.RequestDelegate);Use a controller (ADR 0026)
+M:Microsoft.AspNetCore.Builder.EndpointRouteBuilderExtensions.MapPost(Microsoft.AspNetCore.Routing.IEndpointRouteBuilder,System.String,System.Delegate);Use a controller (ADR 0026)
+M:Microsoft.AspNetCore.Builder.EndpointRouteBuilderExtensions.MapPut(Microsoft.AspNetCore.Routing.IEndpointRouteBuilder,System.String,Microsoft.AspNetCore.Http.RequestDelegate);Use a controller (ADR 0026)
+M:Microsoft.AspNetCore.Builder.EndpointRouteBuilderExtensions.MapPut(Microsoft.AspNetCore.Routing.IEndpointRouteBuilder,System.String,System.Delegate);Use a controller (ADR 0026)
+M:Microsoft.AspNetCore.Builder.EndpointRouteBuilderExtensions.MapPatch(Microsoft.AspNetCore.Routing.IEndpointRouteBuilder,System.String,Microsoft.AspNetCore.Http.RequestDelegate);Use a controller (ADR 0026)
+M:Microsoft.AspNetCore.Builder.EndpointRouteBuilderExtensions.MapPatch(Microsoft.AspNetCore.Routing.IEndpointRouteBuilder,System.String,System.Delegate);Use a controller (ADR 0026)
+M:Microsoft.AspNetCore.Builder.EndpointRouteBuilderExtensions.MapDelete(Microsoft.AspNetCore.Routing.IEndpointRouteBuilder,System.String,Microsoft.AspNetCore.Http.RequestDelegate);Use a controller (ADR 0026)
+M:Microsoft.AspNetCore.Builder.EndpointRouteBuilderExtensions.MapDelete(Microsoft.AspNetCore.Routing.IEndpointRouteBuilder,System.String,System.Delegate);Use a controller (ADR 0026)
+M:Microsoft.AspNetCore.Builder.EndpointRouteBuilderExtensions.MapMethods(Microsoft.AspNetCore.Routing.IEndpointRouteBuilder,System.String,System.Collections.Generic.IEnumerable{System.String},Microsoft.AspNetCore.Http.RequestDelegate);Use a controller (ADR 0026)
+M:Microsoft.AspNetCore.Builder.EndpointRouteBuilderExtensions.MapMethods(Microsoft.AspNetCore.Routing.IEndpointRouteBuilder,System.String,System.Collections.Generic.IEnumerable{System.String},System.Delegate);Use a controller (ADR 0026)
+
+// Blocking on async work
+P:System.Threading.Tasks.Task`1.Result;Await the task
+M:System.Threading.Tasks.Task.Wait(System.Int32,System.Threading.CancellationToken);Await the task
+M:System.Threading.Tasks.Task.Wait(System.Int32);Await the task
+M:System.Threading.Tasks.Task.Wait(System.Threading.CancellationToken);Await the task
+M:System.Threading.Tasks.Task.Wait(System.TimeSpan,System.Threading.CancellationToken);Await the task
+M:System.Threading.Tasks.Task.Wait(System.TimeSpan);Await the task
+M:System.Threading.Tasks.Task.Wait;Await the task
+M:System.Threading.Tasks.Task.WaitAll(System.Collections.Generic.IEnumerable{System.Threading.Tasks.Task},System.Threading.CancellationToken);Await Task.WhenAll
+M:System.Threading.Tasks.Task.WaitAll(System.ReadOnlySpan{System.Threading.Tasks.Task});Await Task.WhenAll
+M:System.Threading.Tasks.Task.WaitAll(System.Threading.Tasks.Task[],System.Int32,System.Threading.CancellationToken);Await Task.WhenAll
+M:System.Threading.Tasks.Task.WaitAll(System.Threading.Tasks.Task[],System.Int32);Await Task.WhenAll
+M:System.Threading.Tasks.Task.WaitAll(System.Threading.Tasks.Task[],System.Threading.CancellationToken);Await Task.WhenAll
+M:System.Threading.Tasks.Task.WaitAll(System.Threading.Tasks.Task[],System.TimeSpan);Await Task.WhenAll
+M:System.Threading.Tasks.Task.WaitAll(System.Threading.Tasks.Task[]);Await Task.WhenAll
+M:System.Threading.Tasks.Task.WaitAny(System.Threading.Tasks.Task[],System.Int32,System.Threading.CancellationToken);Await Task.WhenAny
+M:System.Threading.Tasks.Task.WaitAny(System.Threading.Tasks.Task[],System.Int32);Await Task.WhenAny
+M:System.Threading.Tasks.Task.WaitAny(System.Threading.Tasks.Task[],System.Threading.CancellationToken);Await Task.WhenAny
+M:System.Threading.Tasks.Task.WaitAny(System.Threading.Tasks.Task[],System.TimeSpan);Await Task.WhenAny
+M:System.Threading.Tasks.Task.WaitAny(System.Threading.Tasks.Task[]);Await Task.WhenAny
+M:System.Runtime.CompilerServices.TaskAwaiter.GetResult;Await the task
+M:System.Runtime.CompilerServices.TaskAwaiter`1.GetResult;Await the task
+M:System.Threading.Thread.Sleep(System.Int32);Use Task.Delay
+M:System.Threading.Thread.Sleep(System.TimeSpan);Use Task.Delay
+
+// Time is NodaTime (ADR 0029): Instant, LocalDate, and an injected IClock
+T:System.DateTime;Use NodaTime (ADR 0029)
+T:System.DateTimeOffset;Use NodaTime (ADR 0029)
+T:System.DateOnly;Use NodaTime LocalDate (ADR 0029)
+T:System.TimeOnly;Use NodaTime LocalTime (ADR 0029)
+T:System.TimeZoneInfo;Use NodaTime DateTimeZone (ADR 0029)
+T:System.TimeProvider;Inject NodaTime IClock (ADR 0029)
+
+// Host and process
+T:System.Console;Use ILogger
+M:System.Environment.Exit(System.Int32);Let the host shut down
+M:System.Net.Http.HttpClient.#ctor;Use IHttpClientFactory
+M:System.Net.Http.HttpClient.#ctor(System.Net.Http.HttpMessageHandler);Use IHttpClientFactory
+M:System.Net.Http.HttpClient.#ctor(System.Net.Http.HttpMessageHandler,System.Boolean);Use IHttpClientFactory
