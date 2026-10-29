@@ -69,8 +69,8 @@ public sealed class TagRepository {
 
   public async Task<bool> UpdateAsync(int tagId, TagRequest request, CancellationToken cancellationToken) {
     var sql = """
-      UPDATE tag.tag
-      SET name         = @name
+      UPDATE tag.tag SET
+          name         = @name
         , slug         = @slug
         , description  = @description
         , color        = @color

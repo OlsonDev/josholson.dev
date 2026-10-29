@@ -71,7 +71,7 @@ CREATE INDEX ix_bar_corge_quux_id
 
 ## Queries
 
-Formatting for `SELECT`. `INSERT`, `UPDATE`, and `DELETE` are still to be decided. The `Formatting` rules above also apply here.
+Formatting for `SELECT`; `INSERT`, `UPDATE`, and `DELETE` follow in Data changes. The `Formatting` rules above also apply here.
 
 This one example shows every rule below. Study all of it before reading the rules, and look back at it while writing a query.
 
@@ -171,6 +171,38 @@ Combining conditions:
 - `AS` is two spaces after the longest line that carries an `AS`: a column that fits on one line, however complex, or the closing `)` line of a multi-line column (a subquery). The interior lines of a multi-line column do not count, so they may run past the `AS` column. The closing `)` sits at the column's own indentation, and its `AS` joins the same column.
 - Every column of a query's outermost `SELECT` has an `AS`, even when the alias repeats the column name. The `AS` column becomes the list of result names, readable in one pass. Without it, unaliased columns sit at the far left and aliased ones at the far right, and the eye zigzags.
 - Subqueries are indented two spaces from where the expression starts. Their `FROM`, `JOIN`, and `WHERE` follow the same rules.
+
+## Data changes
+
+Layouts for joined `UPDATE`/`DELETE`, multi-row `VALUES`, `ON CONFLICT`, and `MERGE` are not decided yet.
+
+```sql
+INSERT INTO foo.bar (
+    baz_id
+  , name
+  , note
+) VALUES (
+    @bazId
+  , @name
+  , @note
+)
+RETURNING bar_id;
+
+UPDATE foo.bar SET
+    name   = @name
+  , note   = @note
+WHERE bar_id = @barId;
+
+DELETE FROM foo.bar
+WHERE bar_id = @barId;
+```
+
+- `INSERT`: the column list and the `VALUES` list are comma-first, one item per line, the first indented to line up with the others. The middle line is `) VALUES (`, and the closing `)` sits at the statement's indentation.
+- `UPDATE`: `SET` ends the first line, after the table. The assignments follow comma-first, one per line, with `=` two spaces after the longest column name.
+- `DELETE FROM` is one line, and its `WHERE` is the next.
+- `WHERE` follows the `SELECT` rules for conditions.
+- `RETURNING` names the key and nothing else unless the caller needs something unavailable to them (a computed column, for example) (the API does not echo what it was sent, [ADR 0026](../../docs/adr/0026-rest-json-with-controllers.md)).
+- Postgres does not put the target of an `UPDATE` or `DELETE` in the `FROM`/`USING` list, so a `JOIN ... ON` cannot refer to it ("invalid reference to FROM-clause entry"). The condition that ties the other sources to the target goes in `WHERE`. This is an exception to "`WHERE` only where a condition cannot live in an `ON`". `SET` columns are never qualified with the table or alias.
 
 ## Naming
 
