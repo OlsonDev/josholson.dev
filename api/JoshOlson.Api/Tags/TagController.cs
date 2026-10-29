@@ -4,10 +4,10 @@ namespace JoshOlson.Api.Tags;
 
 [ApiController]
 [Route("tags")]
-public sealed class TagsController : ControllerBase {
+public sealed class TagController : ControllerBase {
   private readonly TagService _tagService;
 
-  public TagsController(TagService tagService)
+  public TagController(TagService tagService)
     => _tagService = tagService;
 
   [HttpGet]

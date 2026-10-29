@@ -6,7 +6,7 @@ using Xunit;
 
 namespace JoshOlson.Api.Tags;
 
-public class TagsControllerTests {
+public class TagControllerTests {
   private static WebApplicationFactory<Program> CreateFactory()
     => new WebApplicationFactory<Program>().WithWebHostBuilder(
       builder => builder.UseSetting("ConnectionStrings:Default", TestDatabase.ConnectionString));
