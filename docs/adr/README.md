@@ -45,3 +45,4 @@ Template:
 - [0023](0023-api-feature-folders-and-colocated-tests.md): API feature folders and colocated tests
 - [0024](0024-scoped-open-connection-per-request.md): One open connection per request
 - [0025](0025-camelcase-dapper-parameters.md): camelCase Dapper parameters
+- [0026](0026-rest-json-with-controllers.md): REST and JSON with Controllers

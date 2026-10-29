@@ -12,7 +12,7 @@
 Run Waypoint in a long-running `tools` service in `compose.dev.yaml`, built from `tools/Containerfile`:
 
 - The image downloads one pinned Waypoint release for the build architecture and verifies it against the release `SHA256SUMS`. The version is the `WAYPOINT_VERSION` build argument.
-- Inside the container, `waypoint` is a wrapper that adds `--url` and `--locations`. The URL is built from the `POSTGRES_*` variables, percent-encoded, with the host `postgres` on the compose network. `Database/Migrations` is mounted read-only at `/migrations`.
+- Inside the container, `waypoint` is a wrapper that adds `--url` and `--locations`. The URL is built from the `POSTGRES_*` variables, percent-encoded, with the host `postgres` on the `compose` network. `Database/Migrations` is mounted read-only at `/migrations`.
 - The container sleeps and commands use `exec`, so there is no container creation cost per command.
 - It is used through `mise run waypoint <args>`, which starts the container first if needed.
 - `NO_COLOR=1` is set because Waypoint's `info` table misaligns when a cell is colored. Its `comfy-table` dependency lacks the `custom_styling` feature, so it counts ANSI escape bytes as visible width. Remove the setting once that is fixed upstream.

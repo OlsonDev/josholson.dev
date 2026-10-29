@@ -58,6 +58,13 @@ public async Task<IReadOnlyList<Bar>> GetCorgesAsync(int barId, CancellationToke
 }
 ```
 
+## Controllers
+
+- `[ApiController]`, attribute routing, async actions taking a `CancellationToken`, and no logic: call a service and return an `ActionResult`. Not minimal APIs ([ADR 0026](../../docs/adr/0026-rest-json-with-controllers.md)).
+- The constructor takes what most actions use. A dependency only one action needs is a `[FromServices]` parameter on that action.
+- Validation: the service has `Validate{Operation}Async` taking the operation's arguments and returning `ValidationErrors`; the action calls it first and returns `UnprocessableEntity(errors.ToProblemDetails())` (422) when `errors.Any`. Common rules are attributes on the payload (DataAnnotations, plus `[Trimmed]`, `[KebabCase]`, `[HexColor]` for our database domains), run by `PayloadValidator`; write code only for what attributes cannot express, such as uniqueness. A payload type needs `[ValidatableType]` or the validator throws. `Get` and `Delete` have nothing to validate: a missing row is a `404`.
+- Create returns `201` with a `Location` header and no body. Update and delete return `204`, or `404` when the row does not exist. Errors are `ProblemDetails`, with no try/catch for database constraint violations: `PostgresExceptionHandler` maps them.
+
 ## SQL in C#
 
 SQL in a string follows [sql.md](sql.md) for formatting, naming, and style, the same as a `.sql` file.

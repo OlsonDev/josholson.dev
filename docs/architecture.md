@@ -14,7 +14,7 @@ Internet -> Caddy (separate server) -> Proxmox guest (Podman compose)
 - Caddy terminates TLS and `reverse_proxy`s each domain to a mapped host port on the guest:
   - `www.josholson.dev` to `web`
   - `api.josholson.dev` to `api`
-- `web` calls `api` over the compose network for server-side rendering. Browser calls to `api.josholson.dev` need CORS for the www origin.
+- `web` calls `api` over the `compose` network for server-side rendering. Browser calls to `api.josholson.dev` need CORS for the www origin.
 - Firewall the mapped ports to Caddy's IP only.
 
 ## Compose files
