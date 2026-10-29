@@ -61,7 +61,7 @@ public class TagControllerTests {
 
       Assert.Equal(HttpStatusCode.UnprocessableEntity, duplicate.StatusCode);
       var details = await duplicate.Content.ReadFromJsonAsync<ValidationProblemDetails>(cancellationToken);
-      Assert.Equal(["name", "slug"], details!.Errors.Keys.Order());
+      Assert.Equal(["name", "slug"], details!.Errors.Keys.Order(StringComparer.Ordinal));
     } finally {
       await client.DeleteAsync(url, CancellationToken.None);
     }
@@ -78,7 +78,7 @@ public class TagControllerTests {
 
     Assert.Equal(HttpStatusCode.UnprocessableEntity, response.StatusCode);
     var details = await response.Content.ReadFromJsonAsync<ValidationProblemDetails>(cancellationToken);
-    Assert.Equal(["color", "name", "slug"], details!.Errors.Keys.Order());
+    Assert.Equal(["color", "name", "slug"], details!.Errors.Keys.Order(StringComparer.Ordinal));
   }
 
   [Fact]

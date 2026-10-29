@@ -18,8 +18,8 @@ public class ConventionRegistrationTests {
   public void RegistersMatchingClassesAsScopedSelf() {
     var services = new ServiceCollection().AddServicesAndRepositories([typeof(FooService), typeof(BarRepository)]);
 
-    Assert.Contains(services, d => d.ServiceType == typeof(BarRepository) && d.Lifetime == ServiceLifetime.Scoped);
-    Assert.Contains(services, d => d.ServiceType == typeof(FooService) && d.Lifetime == ServiceLifetime.Scoped);
+    Assert.Contains(services, d => d.ServiceType == typeof(BarRepository) && d.Lifetime is ServiceLifetime.Scoped);
+    Assert.Contains(services, d => d.ServiceType == typeof(FooService) && d.Lifetime is ServiceLifetime.Scoped);
   }
 
   [Fact]

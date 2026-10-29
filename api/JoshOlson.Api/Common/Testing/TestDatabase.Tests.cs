@@ -1,3 +1,4 @@
+using System.Globalization;
 using Npgsql;
 
 namespace JoshOlson.Api.Common.Testing;
@@ -10,7 +11,7 @@ public static class TestDatabase {
 
   public static string ConnectionString { get; } = new NpgsqlConnectionStringBuilder {
     Host = "127.0.0.1",
-    Port = int.Parse(Setting("POSTGRES_PORT") ?? "5432"),
+    Port = int.Parse(Setting("POSTGRES_PORT") ?? "5432", CultureInfo.InvariantCulture),
     Username = "josholson_api",
     Password = Setting("POSTGRES_API_PASSWORD")
       ?? throw new InvalidOperationException(

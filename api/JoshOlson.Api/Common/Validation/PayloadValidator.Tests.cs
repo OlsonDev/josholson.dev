@@ -43,7 +43,7 @@ public class PayloadValidatorTests {
     var errors = await validator.ValidateAsync(foo, TestContext.Current.CancellationToken);
 
     var details = errors.ToProblemDetails();
-    Assert.Equal(["bar.label", "bars[0].label", "level", "name"], details.Errors.Keys.Order());
+    Assert.Equal(["bar.label", "bars[0].label", "level", "name"], details.Errors.Keys.Order(StringComparer.Ordinal));
     Assert.Contains("minimum length of 2", Assert.Single(details.Errors["name"]));
   }
 

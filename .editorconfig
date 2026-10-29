@@ -161,6 +161,19 @@ dotnet_diagnostic.IDE0390.severity = warning
 dotnet_diagnostic.IDE0391.severity = warning
 dotnet_diagnostic.IDE0410.severity = warning
 
+## Meziantou.Analyzer
+dotnet_diagnostic.MA0004.severity = none
+dotnet_diagnostic.MA0016.severity = none
+dotnet_diagnostic.MA0026.severity = none
+MA0002.report_only_non_ordinal = true
+dotnet_diagnostic.MA0032.severity = warning
+dotnet_diagnostic.MA0121.severity = warning
+dotnet_diagnostic.MA0141.severity = warning
+dotnet_diagnostic.MA0142.severity = warning
+dotnet_diagnostic.MA0148.severity = warning
+dotnet_diagnostic.MA0149.severity = warning
+dotnet_diagnostic.MA0155.severity = warning
+
 ## Parentheses (drop redundant ones)
 dotnet_style_parentheses_in_arithmetic_binary_operators = never_if_unnecessary:warning
 dotnet_style_parentheses_in_relational_binary_operators = never_if_unnecessary:warning
@@ -262,3 +275,7 @@ dotnet_naming_symbols.public_async_methods.required_modifiers = async
 dotnet_naming_rule.public_async_methods.symbols = public_async_methods
 dotnet_naming_rule.public_async_methods.style = async_style
 dotnet_naming_rule.public_async_methods.severity = none
+
+# A file with several types is {Name}.{Plural}.cs (Tag.Payloads.cs, Domain.Attributes.cs), and tests are Foo.Tests.cs
+[*.*s.cs]
+dotnet_diagnostic.MA0048.severity = none

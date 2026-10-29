@@ -1,7 +1,7 @@
 #!/usr/bin/env dotnet
 // Lists api source files that have no sibling *.Tests.cs, so gaps show up without opening every folder.
 // Run through mise: mise run test:missing. Pass --strict to exit 1 when anything is missing.
-// Data-only and wiring files (`*Payloads.cs`, `*Registration.cs`, `Program.cs`) need no test.
+// Data-only and wiring files (`*.Payloads.cs`, `*Registration.cs`, `Program.cs`) need no test.
 using System.Text.RegularExpressions;
 
 var strict = args.Contains("--strict");

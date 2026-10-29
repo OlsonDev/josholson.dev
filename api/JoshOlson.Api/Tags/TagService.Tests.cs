@@ -39,7 +39,7 @@ public class TagServiceTests {
 
     var errors = await tagService.ValidateCreateAsync(request, cancellationToken);
 
-    Assert.Equal(["color", "description", "name", "slug"], errors.ToProblemDetails().Errors.Keys.Order());
+    Assert.Equal(["color", "description", "name", "slug"], errors.ToProblemDetails().Errors.Keys.Order(StringComparer.Ordinal));
   }
 
   [Fact]
@@ -53,7 +53,7 @@ public class TagServiceTests {
     try {
       var errors = await tagService.ValidateCreateAsync(request with { Name = request.Name.ToUpperInvariant() }, cancellationToken);
 
-      Assert.Equal(["name", "slug"], errors.ToProblemDetails().Errors.Keys.Order());
+      Assert.Equal(["name", "slug"], errors.ToProblemDetails().Errors.Keys.Order(StringComparer.Ordinal));
     } finally {
       await tagService.DeleteAsync(tagId, CancellationToken.None);
     }
