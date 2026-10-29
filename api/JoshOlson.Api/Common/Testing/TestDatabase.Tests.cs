@@ -2,19 +2,21 @@ using Npgsql;
 
 namespace JoshOlson.Api.Common.Testing;
 
-// Tests run against the dev database. POSTGRES_* come from the environment (`mise run test` loads them),
-// falling back to the repo's `.env` so IDE test runners work without any setup.
+// Tests run against the dev database as the DML-only `josholson_api` role, the way the API does (ADR 0018), so a
+// missing grant fails here and not in production. `mise run db:provision` creates the role. POSTGRES_* come from the
+// environment (`mise run test` loads them), falling back to the repo's `.env` so IDE test runners work without setup.
 public static class TestDatabase {
   private static readonly Dictionary<string, string> _DotEnv = ReadDotEnv();
 
   public static string ConnectionString { get; } = new NpgsqlConnectionStringBuilder {
     Host = "127.0.0.1",
     Port = int.Parse(Setting("POSTGRES_PORT") ?? "5432"),
-    Username = Setting("POSTGRES_USER") ?? "josholson",
-    Password = Setting("POSTGRES_PASSWORD")
-      ?? throw new InvalidOperationException("POSTGRES_PASSWORD is not set in the environment or in `.env`."),
+    Username = "josholson_api",
+    Password = Setting("POSTGRES_API_PASSWORD")
+      ?? throw new InvalidOperationException(
+        "POSTGRES_API_PASSWORD is not set in the environment or in `.env`. Add it, then run `mise run db:provision`."),
     Database = Setting("POSTGRES_DB") ?? "josholson",
-    SslMode = SslMode.Disable
+    SslMode = SslMode.Disable,
   }.ToString();
 
   private static string? Setting(string name)

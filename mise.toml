@@ -34,7 +34,17 @@ run = "dotnet run scripts/schema-docs.cs -- check"
 [tasks."schema:check".env]
 _.file = ".env"
 
-# The test tasks read .env for the dev database (POSTGRES_*), so start it first (see CLAUDE.md).
+# Creates or updates the DML-only josholson_api role in the dev database (ADR 0018). Safe to rerun, and it must be
+# rerun after a migration adds a schema. The password comes from POSTGRES_API_PASSWORD in .env.
+[tasks."db:provision"]
+description = "Create or update the DML-only API role in the dev database"
+run = "podman compose -f compose.yaml -f compose.dev.yaml exec -T postgres psql -U $POSTGRES_USER -d $POSTGRES_DB -v ON_ERROR_STOP=1 -v api_password=$POSTGRES_API_PASSWORD < Database/Provisioning/api_role.sql"
+
+[tasks."db:provision".env]
+_.file = ".env"
+
+# The test tasks read .env for the dev database (POSTGRES_*) and run as the josholson_api role, so start the database
+# and run db:provision first (see CLAUDE.md).
 # Tests live beside the code as *.Tests.cs and are compiled in for Debug (see api/JoshOlson.Api/JoshOlson.Api.csproj).
 [tasks.test]
 description = "Run the API tests (Debug build, tests compiled in)"

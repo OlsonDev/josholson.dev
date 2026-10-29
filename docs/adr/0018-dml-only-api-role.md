@@ -22,3 +22,4 @@ The script is a provisioning step, not a migration, because it needs a password.
 
 - Code that truncates or alters tables, such as the seed tool, connects as the owner.
 - Default privileges only apply to objects created by the role that ran the script.
+- In dev, `mise run db:provision` runs the script against the dev container, and the API tests connect as this role. A missing grant, such as access to a new schema, fails a test instead of production. `ApiRoleTests` asserts the role can change rows but not create, alter, drop, or truncate anything.

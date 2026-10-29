@@ -44,6 +44,12 @@ Apply migrations (starts the `tools` container on first use):
 mise run waypoint migrate
 ```
 
+Create or update the DML-only API role in the dev database (needs `POSTGRES_API_PASSWORD` in `.env`). Rerun it after a migration adds a schema. The API tests connect as this role:
+
+```
+mise run db:provision
+```
+
 Regenerate the schema docs after changing migrations, and check them for drift (both read the running dev database):
 
 ```
@@ -57,7 +63,7 @@ Enable the git hooks (once per clone):
 dotnet run setup.cs
 ```
 
-Run the API tests (needs the dev database running; reads `.env`), against a Release build, and list source files with no sibling test:
+Run the API tests (needs the dev database running and provisioned; reads `.env`), against a Release build, and list source files with no sibling test:
 
 ```
 mise run test
