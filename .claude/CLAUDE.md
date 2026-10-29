@@ -104,3 +104,4 @@ Read these on demand; they are not loaded automatically.
 - [docs/product.md](../docs/product.md): site features and pages
 - [docs/security.md](../docs/security.md): secrets, transport, authorization, injection
 - [docs/adr/](../docs/adr/README.md): decision records
+- [docs/open-decisions/](../docs/open-decisions/README.md): decisions still to make before and while building `api/` and `web/`. These are only tracked locally, never committed.
