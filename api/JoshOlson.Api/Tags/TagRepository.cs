@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using Dapper;
 using Npgsql;
 
@@ -44,38 +45,16 @@ public sealed class TagRepository {
 
   // Both uniqueness checks in one round trip: up to two statements, each an equality lookup on its own unique index
   // (uq_tag_slug, ux_tag_name_lower). Pass null for a field that is not worth checking and its statement is left out.
-  // exceptTagId is the tag being updated, so it does not collide with itself; identity ids start at 1, so pass 0 for
-  // none. Names are unique ignoring case.
+  // exceptTagId is the tag being updated, so it does not collide with itself; null means no tag is excluded (a create).
+  // Names are unique ignoring case.
   public async Task<(bool IsSlugTaken, bool IsNameTaken)> CheckTakenAsync(
-    string? slugToCheck, string? nameToCheck, int exceptTagId, CancellationToken cancellationToken
+    string? slugToCheck, string? nameToCheck, int? exceptTagId, CancellationToken cancellationToken
   ) {
-    const string SlugSql = """
-      SELECT
-          EXISTS (
-            SELECT 1
-            FROM (SELECT)  AS _
-            JOIN tag.tag   AS t  ON t.slug    = @slugToCheck
-                                AND t.tag_id != @exceptTagId
-          )  AS is_slug_taken;
-      """;
-    const string NameSql = """
-      SELECT
-          EXISTS (
-            SELECT 1
-            FROM (SELECT)  AS _
-            JOIN tag.tag   AS t  ON lower(t.name::text) = lower(@nameToCheck::text)
-                                AND t.tag_id           != @exceptTagId
-          )  AS is_name_taken;
-      """;
+    if (slugToCheck is null && nameToCheck is null) return (false, false);
 
-    var sql = (slugToCheck, nameToCheck) switch {
-      (null, null) => null,
-      (not null, null) => SlugSql,
-      (null, not null) => NameSql,
-      _ => SlugSql + "\n" + NameSql,
-    };
-    if (sql is null) return (false, false);
-
+    var sql = _CheckTakenSql.GetOrAdd(
+      (slugToCheck is not null, nameToCheck is not null, exceptTagId is not null),
+      static key => BuildCheckTakenSql(key.CheckSlug, key.CheckName, key.ExceptTag));
     var parameters = new {
       slugToCheck,
       nameToCheck,
@@ -83,9 +62,42 @@ public sealed class TagRepository {
     };
     var cmd = new CommandDefinition(sql, parameters, cancellationToken: cancellationToken);
     using var data = await _connection.QueryMultipleAsync(cmd);
+    // The results come back in the order the statements were built: slug first, then name.
     var isSlugTaken = slugToCheck is not null && await data.ReadSingleAsync<bool>();
     var isNameTaken = nameToCheck is not null && await data.ReadSingleAsync<bool>();
     return (isSlugTaken, isNameTaken);
+  }
+
+  // The SQL for each combination is built once and reused, so repeated calls share one string and one prepared plan.
+  private static readonly ConcurrentDictionary<(bool CheckSlug, bool CheckName, bool ExceptTag), string> _CheckTakenSql = [];
+
+  internal static string BuildCheckTakenSql(bool checkSlug, bool checkName, bool exceptTag) {
+    List<string> statements = [];
+    if (checkSlug) statements.Add(BuildTakenSql("slug", ignoreCase: false, exceptTag));
+    if (checkName) statements.Add(BuildTakenSql("name", ignoreCase: true, exceptTag));
+    return string.Join('\n', statements);
+  }
+
+  // The field is one of our own column names, never request data, so it is safe in the SQL text. The AND line is
+  // right-aligned with the ON and the operators are aligned, as sql.md lays out a handwritten query.
+  private static string BuildTakenSql(string field, bool ignoreCase, bool exceptTag) {
+    const string ExceptColumn = "t.tag_id";
+    const int AndIndent = 26;
+    var column = $"t.{field}";
+    var parameter = $"@{field}ToCheck";
+    var left = ignoreCase ? $"lower({column}::text)" : column;
+    var right = ignoreCase ? $"lower({parameter}::text)" : parameter;
+    var width = exceptTag ? Math.Max(left.Length, ExceptColumn.Length) : left.Length;
+    var conditions = $"{left.PadRight(width)}  = {right}";
+    if (exceptTag) conditions += $"\n{new string(' ', AndIndent)}AND {ExceptColumn.PadRight(width)} != @exceptTagId";
+    return $"""
+      SELECT
+          EXISTS (
+            SELECT 1
+            FROM (SELECT)  AS _
+            JOIN tag.tag   AS t  ON {conditions}
+          )  AS is_{field}_taken;
+      """;
   }
 
   public async Task<int> CreateAsync(TagRequest request, CancellationToken cancellationToken) {

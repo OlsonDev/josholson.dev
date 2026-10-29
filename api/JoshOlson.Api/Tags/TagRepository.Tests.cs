@@ -53,17 +53,37 @@ public class TagRepositoryTests {
     try {
       var other = $"test-{Guid.NewGuid():N}";
 
-      Assert.Equal((true, true), await tagRepository.CheckTakenAsync(request.Slug, request.Name, 0, cancellationToken));
-      Assert.Equal((true, false), await tagRepository.CheckTakenAsync(request.Slug, other, 0, cancellationToken));
-      Assert.Equal((false, true), await tagRepository.CheckTakenAsync(other, request.Name.ToUpperInvariant(), 0, cancellationToken));
-      Assert.Equal((false, false), await tagRepository.CheckTakenAsync(other, other, 0, cancellationToken));
-      Assert.Equal((true, false), await tagRepository.CheckTakenAsync(request.Slug, null, 0, cancellationToken));
-      Assert.Equal((false, true), await tagRepository.CheckTakenAsync(null, request.Name, 0, cancellationToken));
-      Assert.Equal((false, false), await tagRepository.CheckTakenAsync(null, null, 0, cancellationToken));
+      Assert.Equal((true, true), await tagRepository.CheckTakenAsync(request.Slug, request.Name, null, cancellationToken));
+      Assert.Equal((true, false), await tagRepository.CheckTakenAsync(request.Slug, other, null, cancellationToken));
+      Assert.Equal((false, true), await tagRepository.CheckTakenAsync(other, request.Name.ToUpperInvariant(), null, cancellationToken));
+      Assert.Equal((false, false), await tagRepository.CheckTakenAsync(other, other, null, cancellationToken));
+      Assert.Equal((true, false), await tagRepository.CheckTakenAsync(request.Slug, null, null, cancellationToken));
+      Assert.Equal((false, true), await tagRepository.CheckTakenAsync(null, request.Name, null, cancellationToken));
+      Assert.Equal((false, false), await tagRepository.CheckTakenAsync(null, null, null, cancellationToken));
+      // Excluding the tag itself, for each combination of fields checked.
       Assert.Equal((false, false), await tagRepository.CheckTakenAsync(request.Slug, request.Name, tagId, cancellationToken));
+      Assert.Equal((false, false), await tagRepository.CheckTakenAsync(request.Slug, null, tagId, cancellationToken));
+      Assert.Equal((false, false), await tagRepository.CheckTakenAsync(null, request.Name, tagId, cancellationToken));
+      // 0 is an id like any other, not "none".
+      Assert.Equal((true, true), await tagRepository.CheckTakenAsync(request.Slug, request.Name, 0, cancellationToken));
     } finally {
       await tagRepository.DeleteAsync(tagId, CancellationToken.None);
     }
+  }
+
+  [Fact]
+  public void BuildCheckTakenSql_LeavesOutWhatIsNotRequested() {
+    var slugOnly = TagRepository.BuildCheckTakenSql(checkSlug: true, checkName: false, exceptTag: false);
+    var nameExcept = TagRepository.BuildCheckTakenSql(checkSlug: false, checkName: true, exceptTag: true);
+    var both = TagRepository.BuildCheckTakenSql(checkSlug: true, checkName: true, exceptTag: true);
+
+    Assert.Contains("is_slug_taken", slugOnly);
+    Assert.DoesNotContain("is_name_taken", slugOnly);
+    Assert.DoesNotContain("@exceptTagId", slugOnly);
+    Assert.Contains("is_name_taken", nameExcept);
+    Assert.DoesNotContain("is_slug_taken", nameExcept);
+    Assert.Contains("AND t.tag_id", nameExcept);
+    Assert.Equal(2, both.Split("EXISTS").Length - 1);
   }
 
   // Repositories sharing one open connection take part in whatever transaction is open on it,
