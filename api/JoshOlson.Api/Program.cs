@@ -2,6 +2,7 @@ using Dapper;
 using JoshOlson.Api.Common.Db;
 using JoshOlson.Api.Common.DependencyInjection;
 using JoshOlson.Api.Common.Errors;
+using JoshOlson.Api.Common.Validation;
 
 namespace JoshOlson.Api;
 
@@ -34,7 +35,10 @@ public sealed class Program {
 
     var builder = WebApplication.CreateBuilder(args);
 
-    builder.Services.AddControllers();
+    // Validation attributes run once, in PayloadValidator (a failure is 422). MVC's own validation would reject the
+    // same request with 400 before the action runs. Binding errors (bad JSON) are still 400.
+    builder.Services.AddControllers(options => options.ModelValidatorProviders.Clear());
+    builder.Services.AddPayloadValidation();
     builder.Services.AddProblemDetails();
     builder.Services.AddExceptionHandler<PostgresExceptionHandler>();
     builder.Services.AddDatabase(builder.Configuration);

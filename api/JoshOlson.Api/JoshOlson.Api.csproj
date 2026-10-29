@@ -9,6 +9,11 @@
     <IncludeTests Condition="'$(IncludeTests)' == ''">$([System.String]::Equals('$(Configuration)', 'Debug'))</IncludeTests>
   </PropertyGroup>
 
+  <!-- Microsoft.Extensions.Validation is experimental in .NET 10 (ASP0029). Only PayloadValidator and [ValidatableType] touch it. -->
+  <PropertyGroup>
+    <NoWarn>$(NoWarn);ASP0029</NoWarn>
+  </PropertyGroup>
+
   <ItemGroup>
     <Compile Remove="**/*.Tests.cs" Condition="'$(IncludeTests)' != 'true'" />
   </ItemGroup>
