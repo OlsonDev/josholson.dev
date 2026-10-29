@@ -22,13 +22,20 @@ public sealed class TagsController : ControllerBase {
 
   [HttpPost]
   public async Task<IActionResult> Create(TagRequest request, CancellationToken cancellationToken) {
+    var errors = await _service.ValidateCreateAsync(request, cancellationToken);
+    if (errors.Any) return UnprocessableEntity(errors.ToProblemDetails());
+
     var tagId = await _service.CreateAsync(request, cancellationToken);
     return CreatedAtAction(nameof(Get), new { tagId }, null);
   }
 
   [HttpPut("{tagId:int}")]
-  public async Task<IActionResult> Update(int tagId, TagRequest request, CancellationToken cancellationToken)
-    => await _service.UpdateAsync(tagId, request, cancellationToken) ? NoContent() : NotFound();
+  public async Task<IActionResult> Update(int tagId, TagRequest request, CancellationToken cancellationToken) {
+    var errors = await _service.ValidateUpdateAsync(tagId, request, cancellationToken);
+    if (errors.Any) return UnprocessableEntity(errors.ToProblemDetails());
+
+    return await _service.UpdateAsync(tagId, request, cancellationToken) ? NoContent() : NotFound();
+  }
 
   [HttpDelete("{tagId:int}")]
   public async Task<IActionResult> Delete(int tagId, CancellationToken cancellationToken)

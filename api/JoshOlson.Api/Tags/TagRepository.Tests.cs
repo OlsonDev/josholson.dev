@@ -42,6 +42,30 @@ public class TagRepositoryTests {
     Assert.False(await repository.DeleteAsync(tagId, cancellationToken));
   }
 
+  [Fact]
+  public async Task CheckTakenAsync_ReportsEachFieldIndependently() {
+    var cancellationToken = TestContext.Current.CancellationToken;
+    await using var connection = new NpgsqlConnection(TestDatabase.ConnectionString);
+    await connection.OpenAsync(cancellationToken);
+    var repository = new TagRepository(connection);
+    var request = NewRequest();
+    var tagId = await repository.CreateAsync(request, cancellationToken);
+    try {
+      var other = $"test-{Guid.NewGuid():N}";
+
+      Assert.Equal((true, true), await repository.CheckTakenAsync(request.Slug, request.Name, 0, cancellationToken));
+      Assert.Equal((true, false), await repository.CheckTakenAsync(request.Slug, other, 0, cancellationToken));
+      Assert.Equal((false, true), await repository.CheckTakenAsync(other, request.Name.ToUpperInvariant(), 0, cancellationToken));
+      Assert.Equal((false, false), await repository.CheckTakenAsync(other, other, 0, cancellationToken));
+      Assert.Equal((true, false), await repository.CheckTakenAsync(request.Slug, null, 0, cancellationToken));
+      Assert.Equal((false, true), await repository.CheckTakenAsync(null, request.Name, 0, cancellationToken));
+      Assert.Equal((false, false), await repository.CheckTakenAsync(null, null, 0, cancellationToken));
+      Assert.Equal((false, false), await repository.CheckTakenAsync(request.Slug, request.Name, tagId, cancellationToken));
+    } finally {
+      await repository.DeleteAsync(tagId, CancellationToken.None);
+    }
+  }
+
   // Repositories sharing one open connection take part in whatever transaction is open on it,
   // and a transaction that is disposed without CommitAsync rolls back.
   [Fact]

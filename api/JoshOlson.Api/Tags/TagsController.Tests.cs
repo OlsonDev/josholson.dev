@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
 using JoshOlson.Api.Common.Testing;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Xunit;
 
@@ -50,7 +51,7 @@ public class TagsControllerTests {
   }
 
   [Fact]
-  public async Task Create_DuplicateSlug_ReturnsConflict() {
+  public async Task Create_DuplicateSlug_ReturnsUnprocessable() {
     var cancellationToken = TestContext.Current.CancellationToken;
     await using var factory = CreateFactory();
     using var client = factory.CreateClient();
@@ -59,19 +60,54 @@ public class TagsControllerTests {
     try {
       var duplicate = await client.PostAsJsonAsync("/tags", request, cancellationToken);
 
-      Assert.Equal(HttpStatusCode.Conflict, duplicate.StatusCode);
+      Assert.Equal(HttpStatusCode.UnprocessableEntity, duplicate.StatusCode);
+      var details = await duplicate.Content.ReadFromJsonAsync<ValidationProblemDetails>(cancellationToken);
+      Assert.Equal(["name", "slug"], details!.Errors.Keys.Order());
     } finally {
       await client.DeleteAsync(url, CancellationToken.None);
     }
   }
 
   [Fact]
-  public async Task Create_InvalidSlug_ReturnsBadRequest() {
+  public async Task Create_InvalidFields_ReturnsEveryError() {
     var cancellationToken = TestContext.Current.CancellationToken;
     await using var factory = CreateFactory();
     using var client = factory.CreateClient();
+    var request = new TagRequest { Name = " foo", Slug = "Not Kebab Case", Description = null, Color = "red" };
 
-    var response = await client.PostAsJsonAsync("/tags", NewRequest("Not Kebab Case"), cancellationToken);
+    var response = await client.PostAsJsonAsync("/tags", request, cancellationToken);
+
+    Assert.Equal(HttpStatusCode.UnprocessableEntity, response.StatusCode);
+    var details = await response.Content.ReadFromJsonAsync<ValidationProblemDetails>(cancellationToken);
+    Assert.Equal(["color", "name", "slug"], details!.Errors.Keys.Order());
+  }
+
+  [Fact]
+  public async Task Update_SlugOfAnotherTag_ReturnsUnprocessable() {
+    var cancellationToken = TestContext.Current.CancellationToken;
+    await using var factory = CreateFactory();
+    using var client = factory.CreateClient();
+    var first = NewRequest();
+    var firstUrl = await CreateTagAsync(client, first, cancellationToken);
+    var secondUrl = await CreateTagAsync(client, NewRequest(), cancellationToken);
+    try {
+      var response = await client.PutAsJsonAsync(secondUrl, NewRequest(first.Slug), cancellationToken);
+
+      Assert.Equal(HttpStatusCode.UnprocessableEntity, response.StatusCode);
+    } finally {
+      await client.DeleteAsync(firstUrl, CancellationToken.None);
+      await client.DeleteAsync(secondUrl, CancellationToken.None);
+    }
+  }
+
+  [Fact]
+  public async Task Create_MalformedJson_ReturnsBadRequest() {
+    var cancellationToken = TestContext.Current.CancellationToken;
+    await using var factory = CreateFactory();
+    using var client = factory.CreateClient();
+    using var content = new StringContent("{ not json", System.Text.Encoding.UTF8, "application/json");
+
+    var response = await client.PostAsync("/tags", content, cancellationToken);
 
     Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
   }

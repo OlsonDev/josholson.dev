@@ -20,7 +20,7 @@ public sealed class PostgresExceptionHandler : IExceptionHandler {
       PostgresException { SqlState: PostgresErrorCodes.UniqueViolation or PostgresErrorCodes.ForeignKeyViolation }
         => (StatusCodes.Status409Conflict, "The request conflicts with existing data."),
       PostgresException { SqlState: PostgresErrorCodes.CheckViolation }
-        => (StatusCodes.Status400BadRequest, "A value is not valid."),
+        => (StatusCodes.Status422UnprocessableEntity, "A value is not valid."),
       _ => (0, "")
     };
     if (status is 0) return false;
