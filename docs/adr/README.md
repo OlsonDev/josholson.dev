@@ -44,3 +44,4 @@ Template:
 - [0022](0022-branch-names-enforced-by-a-hook.md): Branch names enforced by a hook
 - [0023](0023-api-feature-folders-and-colocated-tests.md): API feature folders and colocated tests
 - [0024](0024-scoped-open-connection-per-request.md): One open connection per request
+- [0025](0025-camelcase-dapper-parameters.md): camelCase Dapper parameters
