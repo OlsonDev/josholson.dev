@@ -6,10 +6,10 @@ namespace JoshOlson.Api.Common.Errors;
 // Maps constraint failures to 4xx ProblemDetails so services and controllers need no try/catch.
 // The Postgres message is not sent to the client: it names constraints and values.
 public sealed class PostgresExceptionHandler : IExceptionHandler {
-  private readonly IProblemDetailsService _problemDetails;
+  private readonly IProblemDetailsService _problemDetailsService;
 
-  public PostgresExceptionHandler(IProblemDetailsService problemDetails)
-    => _problemDetails = problemDetails;
+  public PostgresExceptionHandler(IProblemDetailsService problemDetailsService)
+    => _problemDetailsService = problemDetailsService;
 
   public async ValueTask<bool> TryHandleAsync(
     HttpContext httpContext,
@@ -26,7 +26,7 @@ public sealed class PostgresExceptionHandler : IExceptionHandler {
     if (status is 0) return false;
 
     httpContext.Response.StatusCode = status;
-    return await _problemDetails.TryWriteAsync(new() {
+    return await _problemDetailsService.TryWriteAsync(new() {
       HttpContext = httpContext,
       Exception = exception,
       ProblemDetails = { Status = status, Title = title }

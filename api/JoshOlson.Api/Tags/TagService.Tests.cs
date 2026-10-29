@@ -36,10 +36,10 @@ public class TagServiceTests {
     var cancellationToken = TestContext.Current.CancellationToken;
     await using var provider = CreateProvider();
     using var scope = provider.CreateScope();
-    var service = scope.ServiceProvider.GetRequiredService<TagService>();
+    var tagService = scope.ServiceProvider.GetRequiredService<TagService>();
     var request = new TagRequest { Name = " foo", Slug = "Not Kebab", Description = "", Color = "red" };
 
-    var errors = await service.ValidateCreateAsync(request, cancellationToken);
+    var errors = await tagService.ValidateCreateAsync(request, cancellationToken);
 
     Assert.Equal(["color", "description", "name", "slug"], errors.ToProblemDetails().Errors.Keys.Order());
   }
@@ -49,15 +49,15 @@ public class TagServiceTests {
     var cancellationToken = TestContext.Current.CancellationToken;
     await using var provider = CreateProvider();
     using var scope = provider.CreateScope();
-    var service = scope.ServiceProvider.GetRequiredService<TagService>();
+    var tagService = scope.ServiceProvider.GetRequiredService<TagService>();
     var request = NewRequest();
-    var tagId = await service.CreateAsync(request, cancellationToken);
+    var tagId = await tagService.CreateAsync(request, cancellationToken);
     try {
-      var errors = await service.ValidateCreateAsync(request with { Name = request.Name.ToUpperInvariant() }, cancellationToken);
+      var errors = await tagService.ValidateCreateAsync(request with { Name = request.Name.ToUpperInvariant() }, cancellationToken);
 
       Assert.Equal(["name", "slug"], errors.ToProblemDetails().Errors.Keys.Order());
     } finally {
-      await service.DeleteAsync(tagId, CancellationToken.None);
+      await tagService.DeleteAsync(tagId, CancellationToken.None);
     }
   }
 
@@ -66,17 +66,17 @@ public class TagServiceTests {
     var cancellationToken = TestContext.Current.CancellationToken;
     await using var provider = CreateProvider();
     using var scope = provider.CreateScope();
-    var service = scope.ServiceProvider.GetRequiredService<TagService>();
+    var tagService = scope.ServiceProvider.GetRequiredService<TagService>();
     var request = NewRequest();
-    var tagId = await service.CreateAsync(request, cancellationToken);
+    var tagId = await tagService.CreateAsync(request, cancellationToken);
     try {
-      var own = await service.ValidateUpdateAsync(tagId, request with { Description = "foo" }, cancellationToken);
-      var other = await service.ValidateUpdateAsync(tagId + 1, request, cancellationToken);
+      var own = await tagService.ValidateUpdateAsync(tagId, request with { Description = "foo" }, cancellationToken);
+      var other = await tagService.ValidateUpdateAsync(tagId + 1, request, cancellationToken);
 
       Assert.False(own.Any);
       Assert.True(other.Has("slug"));
     } finally {
-      await service.DeleteAsync(tagId, CancellationToken.None);
+      await tagService.DeleteAsync(tagId, CancellationToken.None);
     }
   }
 }
