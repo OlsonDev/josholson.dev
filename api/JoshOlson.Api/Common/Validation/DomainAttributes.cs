@@ -13,7 +13,7 @@ public abstract class DomainPatternAttribute : ValidationAttribute {
     => _regex = new(pattern, RegexOptions.Singleline | RegexOptions.CultureInvariant, TimeSpan.FromSeconds(1));
 
   public override bool IsValid(object? value)
-    => value is null || (value is string text && _regex.IsMatch(text));
+    => value is null || value is string text && _regex.IsMatch(text);
 }
 
 // text.trimmed

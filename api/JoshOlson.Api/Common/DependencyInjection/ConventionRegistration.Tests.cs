@@ -1,4 +1,3 @@
-using Microsoft.Extensions.DependencyInjection;
 using JoshOlson.Api.Tags;
 using Xunit;
 

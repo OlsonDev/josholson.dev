@@ -1,4 +1,3 @@
-using System.ComponentModel.DataAnnotations;
 using Xunit;
 
 namespace JoshOlson.Api.Common.Validation;

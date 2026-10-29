@@ -1,4 +1,3 @@
-using System.ComponentModel.DataAnnotations;
 using JoshOlson.Api.Common.Extensions;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Validation;

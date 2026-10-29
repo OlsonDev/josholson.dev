@@ -6,7 +6,7 @@ paths:
 
 # C#
 
-Formatting lives in `.editorconfig`. This file covers choices it cannot express. Examples use metasyntactic names (see CLAUDE.md).
+Formatting, language style, and naming live in `.editorconfig` (`[*.cs]`) and are enforced by `dotnet format --verify-no-changes --severity warn` from `api/` ([ADR 0028](../../docs/adr/0028-editorconfig-enforces-csharp-style.md)). This file covers choices it cannot express and records the intent behind some of them. Examples use metasyntactic names (see CLAUDE.md).
 
 ## Language
 
@@ -14,7 +14,8 @@ Formatting lives in `.editorconfig`. This file covers choices it cannot express.
 - No primary constructors on classes: a parameter can't be `readonly` or named `_field`. Use a constructor and `private readonly` fields.
 - `x is null` and `x is not null`, never `== null`, even for `Nullable<T>`.
 - Compare enums with `is`: `x is Foo.Bar or Foo.Baz`, even if there's a single comparison.
-- File-scoped namespaces.
+- File-scoped namespaces. `Program.cs` uses top-level statements.
+- `async` methods end in `Async`, except public methods in controllers (`*Controller.cs`) and tests: actions are named for the route, and MVC strips the suffix from action names anyway. Local constants are PascalCase.
 - Expression-bodied members (`=>`) wherever the body is a single expression or statement: constructors, methods, properties. Put the `=>` on its own line below the signature, indented one level (`public Foo(Bar bar)` / `  => _bar = bar;`).
 - Prefer `switch` expressions and property patterns (`list is { Count: > 0 }`) where they read better.
 - `var` for locals. Target-typed `new()` for fields, properties, and arguments.

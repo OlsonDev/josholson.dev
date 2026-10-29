@@ -2,8 +2,6 @@ using JoshOlson.Api.Common.Db;
 using JoshOlson.Api.Common.DependencyInjection;
 using JoshOlson.Api.Common.Testing;
 using JoshOlson.Api.Common.Validation;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
 namespace JoshOlson.Api.Tags;
