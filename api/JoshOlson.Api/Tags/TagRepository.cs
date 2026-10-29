@@ -1,5 +1,5 @@
-using System.Collections.Concurrent;
 using Dapper;
+using JoshOlson.Api.Common.Db;
 using Npgsql;
 
 namespace JoshOlson.Api.Tags;
@@ -52,9 +52,7 @@ public sealed class TagRepository {
   ) {
     if (slugToCheck is null && nameToCheck is null) return (false, false);
 
-    var sql = _CheckTakenSql.GetOrAdd(
-      (slugToCheck is not null, nameToCheck is not null, exceptTagId is not null),
-      static key => BuildCheckTakenSql(key.CheckSlug, key.CheckName, key.ExceptTag));
+    var sql = _CheckTakenSql.ForValues(slugToCheck is not null, nameToCheck is not null, exceptTagId is not null);
     var parameters = new {
       slugToCheck,
       nameToCheck,
@@ -68,15 +66,12 @@ public sealed class TagRepository {
     return (isSlugTaken, isNameTaken);
   }
 
-  // The SQL for each combination is built once and reused, so repeated calls share one string and one prepared plan.
-  private static readonly ConcurrentDictionary<(bool CheckSlug, bool CheckName, bool ExceptTag), string> _CheckTakenSql = [];
-
-  internal static string BuildCheckTakenSql(bool checkSlug, bool checkName, bool exceptTag) {
+  private static readonly SqlMemoizer<bool, bool, bool> _CheckTakenSql = new((checkSlug, checkName, exceptTag) => {
     List<string> statements = [];
     if (checkSlug) statements.Add(BuildTakenSql("slug", ignoreCase: false, exceptTag));
     if (checkName) statements.Add(BuildTakenSql("name", ignoreCase: true, exceptTag));
     return string.Join('\n', statements);
-  }
+  });
 
   // The field is one of our own column names, never request data, so it is safe in the SQL text. The AND line is
   // right-aligned with the ON and the operators are aligned, as sql.md lays out a handwritten query.

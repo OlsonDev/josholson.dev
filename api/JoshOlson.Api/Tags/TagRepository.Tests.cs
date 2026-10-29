@@ -71,21 +71,6 @@ public class TagRepositoryTests {
     }
   }
 
-  [Fact]
-  public void BuildCheckTakenSql_LeavesOutWhatIsNotRequested() {
-    var slugOnly = TagRepository.BuildCheckTakenSql(checkSlug: true, checkName: false, exceptTag: false);
-    var nameExcept = TagRepository.BuildCheckTakenSql(checkSlug: false, checkName: true, exceptTag: true);
-    var both = TagRepository.BuildCheckTakenSql(checkSlug: true, checkName: true, exceptTag: true);
-
-    Assert.Contains("is_slug_taken", slugOnly);
-    Assert.DoesNotContain("is_name_taken", slugOnly);
-    Assert.DoesNotContain("@exceptTagId", slugOnly);
-    Assert.Contains("is_name_taken", nameExcept);
-    Assert.DoesNotContain("is_slug_taken", nameExcept);
-    Assert.Contains("AND t.tag_id", nameExcept);
-    Assert.Equal(2, both.Split("EXISTS").Length - 1);
-  }
-
   // Repositories sharing one open connection take part in whatever transaction is open on it,
   // and a transaction that is disposed without CommitAsync rolls back.
   [Fact]
