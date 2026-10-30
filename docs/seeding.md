@@ -29,7 +29,7 @@ Status: design only. The tool is not built yet. Seeds are dev and test data; ref
 
 ## Migrating seeds
 
-A schema stamp (`Database/Seeds/.schema-version`) records the version the seeds were written against. `migrate-seeds`, parent first, for each node:
+A schema stamp (`database/seeds/.schema-version`) records the version the seeds were written against. `migrate-seeds`, parent first, for each node:
 
 1. Build the old-schema database (Waypoint `--target <stamp>`) and apply the chain root to node.
 2. Run the new migrations on it. The result is the node's migrated full state.

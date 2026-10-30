@@ -1,6 +1,6 @@
 # Database
 
-PostgreSQL 19 (release candidate). The migrations in `Database/Migrations` are the source of truth for structure. This document explains intent only. SQL conventions: `.claude/rules/sql.md`.
+PostgreSQL 19 (release candidate). The migrations in `database/migrations` are the source of truth for structure. This document explains intent only. SQL conventions: `.claude/rules/sql.md`.
 
 ## Schema reference
 
@@ -19,7 +19,7 @@ Tables, columns, constraints, indexes, and relation diagrams are generated from 
 - **Tags.** One global list in `tag.tag` with `tag.alias` for alternate names. Junction tables live with the entity they tag (`resume.skill__tag__tag`, `resume.work__tag__tag`, `resume.project__tag__tag`, `blog.post__tag__tag`). Pages list only the tags in use for that entity. See [ADR 0010](adr/0010-global-tags-with-aliases.md).
 - **Blobs.** `blob.blob` holds metadata only, including an optional `thumbhash` (raw bytes; encode at the API boundary) for image placeholders. Files live on a server volume, named by SHA-256, so they are immutable and shared. Referencing foreign keys are `RESTRICT`; an unreferenced-blob sweep is still to be written. See [ADR 0008](adr/0008-content-addressed-blobs.md).
 - **Domains.** Repeated validation lives in domains, one schema per kind of value: `text.trimmed` on every text column, plus `text.kebab_case`, `text.url`, `text.email`, `color.hex`, `jsonb.object`, and `hash.sha256`. Nullable text is `NULL` or has content, never `''`. See [ADR 0017](adr/0017-domains-by-kind.md).
-- **API role.** The API connects as a DML-only role created by `Database/Provisioning/api_role.sql` (run as the owner after migrations, with `-v api_password=...`; re-run when a schema is added). See [ADR 0018](adr/0018-dml-only-api-role.md).
+- **API role.** The API connects as a DML-only role created by `database/provisioning/api_role.sql` (run as the owner after migrations, with `-v api_password=...`; re-run when a schema is added). See [ADR 0018](adr/0018-dml-only-api-role.md).
 - **Partial dates.** `temporal.year_optional_month` is `YYYY` or `YYYY-MM`. Open end dates are `NULL`, meaning present. The `end_date >= start_date` checks compare years only. See [ADR 0007](adr/0007-year-optional-month-domain.md).
 - **Keys.** `{table}_id INT GENERATED ALWAYS AS IDENTITY` everywhere. Loaders must use `OVERRIDING SYSTEM VALUE` and then `setval`. See [ADR 0006](adr/0006-int-identity-always.md) and [ADR 0016](adr/0016-table-prefixed-keys-and-junction-names.md).
 - **Enum-like columns** are `SMALLINT` holding a 1-based C# enum value, with a range check ([ADR 0012](adr/0012-enum-like-columns-as-smallint.md)). The C# enum is authoritative; this table mirrors the initial mapping:

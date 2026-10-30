@@ -17,7 +17,7 @@ Added 2026-10-22. Commit regenerated output under the emoji that matches what ch
 
 | Emoji | What changed |
 | - | - |
-| 🗃️ | `Database/Migrations`, and `docs/schema` from `mise run schema:doc` |
+| 🗃️ | `database/migrations`, and `docs/schema` from `mise run schema:doc` |
 | 🌱 | Seed data, and its generated output (seed tool not built yet) |
 | 🧙🏻 | Any other generated code, such as an API client (none yet) |
 

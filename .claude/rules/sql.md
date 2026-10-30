@@ -1,6 +1,6 @@
 ---
 paths:
-  - "Database/**/*.sql"
+  - "database/**/*.sql"
 ---
 
 # SQL

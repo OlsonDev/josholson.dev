@@ -9,9 +9,9 @@ Migrations run as the database owner. The API needs to read and write rows but n
 
 ## Decision
 
-The API connects as `josholson_api`, created by `Database/Provisioning/api_role.sql`. It has `CONNECT`, `USAGE` on every application schema, `SELECT, INSERT, UPDATE, DELETE` on tables, and `USAGE` on sequences. It owns nothing and cannot create objects. `ALTER DEFAULT PRIVILEGES` covers tables the owner creates later.
+The API connects as `josholson_api`, created by `database/provisioning/api_role.sql`. It has `CONNECT`, `USAGE` on every application schema, `SELECT, INSERT, UPDATE, DELETE` on tables, and `USAGE` on sequences. It owns nothing and cannot create objects. `ALTER DEFAULT PRIVILEGES` covers tables the owner creates later.
 
-The script is a provisioning step, not a migration, because it needs a password. Run it as the owner, after migrations, with `psql -v api_password=... -f Database/Provisioning/api_role.sql`. It is idempotent and must be re-run when a migration adds a schema.
+The script is a provisioning step, not a migration, because it needs a password. Run it as the owner, after migrations, with `psql -v api_password=... -f database/provisioning/api_role.sql`. It is idempotent and must be re-run when a migration adds a schema.
 
 ## Alternatives considered
 

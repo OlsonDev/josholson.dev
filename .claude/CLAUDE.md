@@ -11,9 +11,9 @@ Personal website for Josh Olson: www.josholson.dev (SvelteKit SSR) and api.josho
 
 ## Layout
 
-- `Database/Migrations/`: Flyway-style `V#__name.sql` (versioned) and `R__name.sql` (repeatable)
-- `Database/Provisioning/`: one-off scripts run as the owner after migrations (API role; needs a password, so not a migration)
-- `Database/Seeds/`: seed layers (🚧 tool not built yet)
+- `database/migrations/`: Flyway-style `V#__name.sql` (versioned) and `R__name.sql` (repeatable)
+- `database/provisioning/`: one-off scripts run as the owner after migrations (API role; needs a password, so not a migration)
+- `database/seeds/`: seed layers (🚧 tool not built yet)
 - `compose.yaml`: production-safe. `compose.dev.yaml`: dev only, always load explicitly
 - `api/`: the .NET solution (`JoshOlson.slnx`) with one project, `JoshOlson.Api`, in feature folders (one per feature, plus `Common/` for cross-cutting code). Tests sit beside the code as `*.Tests.cs` ([ADR 0023](../docs/adr/0023-api-feature-folders-and-colocated-tests.md))
 - `web/`: 🚧 not created yet

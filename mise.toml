@@ -38,7 +38,7 @@ _.file = ".env"
 # rerun after a migration adds a schema. The password comes from POSTGRES_API_PASSWORD in .env.
 [tasks."db:provision"]
 description = "Create or update the DML-only API role in the dev database"
-run = "podman compose -f compose.yaml -f compose.dev.yaml exec -T postgres psql -U $POSTGRES_USER -d $POSTGRES_DB -v ON_ERROR_STOP=1 -v api_password=$POSTGRES_API_PASSWORD < Database/Provisioning/api_role.sql"
+run = "podman compose -f compose.yaml -f compose.dev.yaml exec -T postgres psql -U $POSTGRES_USER -d $POSTGRES_DB -v ON_ERROR_STOP=1 -v api_password=$POSTGRES_API_PASSWORD < database/provisioning/api_role.sql"
 
 [tasks."db:provision".env]
 _.file = ".env"

@@ -30,7 +30,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
       POSTGRES_DB: ${POSTGRES_DB:-josholson}
     volumes:
-      - ./Database/Migrations:/migrations:ro
+      - ./database/migrations:/migrations:ro
     depends_on:
       postgres:
         condition: service_healthy
