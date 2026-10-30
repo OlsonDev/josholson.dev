@@ -174,7 +174,7 @@ Combining conditions:
 
 ## Data changes
 
-Layouts for joined `UPDATE`/`DELETE`, multi-row `VALUES`, `ON CONFLICT`, and `MERGE` are not decided yet.
+Layouts for `ON CONFLICT` beyond the example below and for `MERGE` are not decided yet.
 
 ```sql
 INSERT INTO foo.bar (
@@ -188,18 +188,67 @@ INSERT INTO foo.bar (
 )
 RETURNING bar_id;
 
-UPDATE foo.bar SET
+UPDATE foo.bar AS b SET
     name   = @name
   , note   = @note
-WHERE bar_id = @barId;
+WHERE b.bar_id = @barId;
 
-DELETE FROM foo.bar
-WHERE bar_id = @barId;
+DELETE FROM foo.bar AS b
+WHERE b.bar_id = @barId;
+
+-- Joined: the sources join with ON, and only the tie to the target is in WHERE
+UPDATE foo.bar AS b SET
+    status = z.status
+FROM (SELECT) AS _
+JOIN foo.baz AS z  ON z.is_thud = TRUE
+WHERE z.baz_id = b.baz_id;
+
+DELETE FROM foo.bar AS b
+USING (SELECT) AS _
+JOIN foo.baz AS z  ON z.is_thud = TRUE
+WHERE z.baz_id = b.baz_id;
+
+-- Multi-row VALUES, compact: every line is 120 characters or fewer
+INSERT INTO foo.bar AS fb
+       (corge, grault, plugh  , garply)
+VALUES ( 12.4,     42, 'sh'   , 'ort' )
+     , (  5.6,   1337, 'abcde', 'f'   )
+ON CONFLICT (grault) DO UPDATE SET
+    plugh  = EXCLUDED.plugh
+  , garply = EXCLUDED.garply
+WHERE fb.corge IS DISTINCT FROM EXCLUDED.corge;
+
+-- Multi-row VALUES, expanded: any line of the compact form would pass 120 characters
+INSERT INTO foo.bar AS fb (
+    corge
+  , grault
+  , plugh
+  , garply
+) VALUES (
+    12.4
+  , 42
+  , 'pretend-this-row-is-longer-than-120-characters-in-total'
+  , 'k'
+) , (
+    5.6
+  , 1337
+  , 'abcde'
+  , 'f'
+)
+ON CONFLICT (grault) DO UPDATE SET
+    plugh  = EXCLUDED.plugh
+  , garply = EXCLUDED.garply
+WHERE fb.corge IS DISTINCT FROM EXCLUDED.corge;
 ```
 
 - `INSERT`: the column list and the `VALUES` list are comma-first, one item per line, the first indented to line up with the others. The middle line is `) VALUES (`, and the closing `)` sits at the statement's indentation.
-- `UPDATE`: `SET` ends the first line, after the table. The assignments follow comma-first, one per line, with `=` two spaces after the longest column name.
-- `DELETE FROM` is one line, and its `WHERE` is the next.
+- `UPDATE`: the target always takes `AS` and an alias, as every `SELECT` source does, and its columns are qualified in `WHERE` and `RETURNING`. `SET` ends the first line, after the alias. The assignments follow comma-first, one per line, with `=` two spaces after the longest column name. `SET` columns are never qualified; Postgres rejects it.
+- `DELETE FROM` takes `AS` and an alias too. It is one line, and its `WHERE` is the next.
+- `INSERT` takes an alias only when `ON CONFLICT DO UPDATE` needs one to name the existing row.
+- Multi-row `VALUES`: one tuple per line, with the columns aligned. The column names take part in the alignment.
+  - Each column is as wide as its longest cell, column name included. Names and strings are left-aligned. Numbers are aligned on the decimal point, and integers, which have none, are right-aligned. The `,` after a cell sits right after the column's padding, and the last cell is padded before `)`.
+  - Compact form (above) holds while every line is 120 characters or fewer. If any line would pass 120, the whole statement switches to the expanded form: the column list and every tuple get one value per line, with `) , (` between tuples.
+- `RETURNING *` is banned. `RETURNING` names its columns.
 - `WHERE` follows the `SELECT` rules for conditions.
 - `RETURNING` names the key and nothing else unless the caller needs something unavailable to them (a computed column, for example) (the API does not echo what it was sent, [ADR 0026](../../docs/adr/0026-rest-json-with-controllers.md)).
 - Postgres does not put the target of an `UPDATE` or `DELETE` in the `FROM`/`USING` list, so a `JOIN ... ON` cannot refer to it ("invalid reference to FROM-clause entry"). The condition that ties the other sources to the target goes in `WHERE`. This is an exception to "`WHERE` only where a condition cannot live in an `ON`". `SET` columns are never qualified with the table or alias.
