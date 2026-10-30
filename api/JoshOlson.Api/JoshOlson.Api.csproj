@@ -28,6 +28,7 @@
     <PackageReference Include="Microsoft.CodeAnalysis.BannedApiAnalyzers" PrivateAssets="all" />
     <PackageReference Include="Npgsql" />
     <PackageReference Include="Npgsql.DependencyInjection" />
+    <PackageReference Include="Roslynator.Analyzers" PrivateAssets="all" />
   </ItemGroup>
 
   <PropertyGroup Condition="'$(IncludeTests)' == 'true'">

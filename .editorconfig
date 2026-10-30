@@ -174,6 +174,61 @@ dotnet_diagnostic.MA0148.severity = warning
 dotnet_diagnostic.MA0149.severity = warning
 dotnet_diagnostic.MA0155.severity = warning
 
+## Roslynator.Analyzers: everything on, minus what contradicts a decision above or overlaps IDE/Meziantou options
+dotnet_analyzer_diagnostic.category-roslynator.severity = warning
+# Braces are not enforced (IDE0011), so neither direction of these
+dotnet_diagnostic.RCS1001.severity = none
+dotnet_diagnostic.RCS1002.severity = none
+dotnet_diagnostic.RCS1003.severity = none
+dotnet_diagnostic.RCS1004.severity = none
+dotnet_diagnostic.RCS1007.severity = none
+dotnet_diagnostic.RCS1126.severity = none
+# Contradicts `var` everywhere, redundant parentheses removed, named locals, and `//` comments
+dotnet_diagnostic.RCS1118.severity = none
+dotnet_diagnostic.RCS1123.severity = none
+dotnet_diagnostic.RCS1124.severity = none
+dotnet_diagnostic.RCS1181.severity = none
+dotnet_diagnostic.RCS1217.severity = none
+dotnet_diagnostic.RCS1264.severity = none
+# Contradicts the ternary, `=> await`, and guard-clause style
+dotnet_diagnostic.RCS1073.severity = none
+dotnet_diagnostic.RCS1084.severity = none
+dotnet_diagnostic.RCS1174.severity = none
+dotnet_diagnostic.RCS1208.severity = none
+# Contradicts the Async-suffix, ConfigureAwait, and file-per-type exceptions
+dotnet_diagnostic.RCS1046.severity = none
+dotnet_diagnostic.RCS1060.severity = none
+dotnet_diagnostic.RCS1090.severity = none
+# Unused parameters are only a suggestion (controllers and interface members)
+dotnet_diagnostic.RCS1163.severity = suggestion
+# Mutually exclusive or option-driven style rules that IDE rules already own
+dotnet_diagnostic.RCS1013.severity = none
+dotnet_diagnostic.RCS1014.severity = none
+dotnet_diagnostic.RCS1016.severity = none
+dotnet_diagnostic.RCS1018.severity = none
+dotnet_diagnostic.RCS1019.severity = none
+dotnet_diagnostic.RCS1050.severity = none
+dotnet_diagnostic.RCS1051.severity = none
+dotnet_diagnostic.RCS1052.severity = none
+dotnet_diagnostic.RCS1056.severity = none
+dotnet_diagnostic.RCS1078.severity = none
+dotnet_diagnostic.RCS1081.severity = none
+dotnet_diagnostic.RCS1094.severity = none
+dotnet_diagnostic.RCS1096.severity = none
+dotnet_diagnostic.RCS1111.severity = none
+dotnet_diagnostic.RCS1162.severity = none
+dotnet_diagnostic.RCS1198.severity = none
+dotnet_diagnostic.RCS1207.severity = none
+dotnet_diagnostic.RCS1223.severity = none
+dotnet_diagnostic.RCS1224.severity = none
+dotnet_diagnostic.RCS1231.severity = none
+dotnet_diagnostic.RCS1248.severity = none
+dotnet_diagnostic.RCS1250.severity = none
+dotnet_diagnostic.RCS1252.severity = none
+dotnet_diagnostic.RCS1253.severity = none
+dotnet_diagnostic.RCS1255.severity = none
+dotnet_diagnostic.RCS1260.severity = none
+
 ## Parentheses (drop redundant ones)
 dotnet_style_parentheses_in_arithmetic_binary_operators = never_if_unnecessary:warning
 dotnet_style_parentheses_in_relational_binary_operators = never_if_unnecessary:warning

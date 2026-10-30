@@ -31,7 +31,7 @@ public class PayloadValidatorTests {
 
   [Fact]
   public async Task ValidateAsync_ReportsEveryErrorUnderTheJsonNames() {
-    using var provider = CreateProvider();
+    await using var provider = CreateProvider();
     var validator = provider.GetRequiredService<PayloadValidator>();
     var foo = new Foo {
       Name = "x",
@@ -49,7 +49,7 @@ public class PayloadValidatorTests {
 
   [Fact]
   public async Task ValidateAsync_ValidPayload_HasNoErrors() {
-    using var provider = CreateProvider();
+    await using var provider = CreateProvider();
     var validator = provider.GetRequiredService<PayloadValidator>();
 
     var errors = await validator.ValidateAsync(new Foo { Name = "ok", Level = 1 }, TestContext.Current.CancellationToken);
@@ -59,7 +59,7 @@ public class PayloadValidatorTests {
 
   [Fact]
   public async Task ValidateAsync_UnmarkedType_Throws() {
-    using var provider = CreateProvider();
+    await using var provider = CreateProvider();
     var validator = provider.GetRequiredService<PayloadValidator>();
 
     await Assert.ThrowsAsync<InvalidOperationException>(

@@ -3,7 +3,7 @@ using Xunit;
 namespace JoshOlson.Api.Common.Db;
 
 public class SqlMemoizerTests {
-  public enum Foo { Bar, Baz }
+  public enum Foo { Bar = 1, Baz = 2 }
 
   [Fact]
   public void ForValues_OneValue_BuildsOncePerValue() {

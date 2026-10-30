@@ -59,7 +59,7 @@ public sealed class TagRepository {
       exceptTagId,
     };
     var cmd = new CommandDefinition(sql, parameters, cancellationToken: cancellationToken);
-    using var data = await _connection.QueryMultipleAsync(cmd);
+    await using var data = await _connection.QueryMultipleAsync(cmd);
     // The results come back in the order the statements were built: slug first, then name.
     var isSlugTaken = slugToCheck is not null && await data.ReadSingleAsync<bool>();
     var isNameTaken = nameToCheck is not null && await data.ReadSingleAsync<bool>();
