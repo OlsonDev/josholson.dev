@@ -9,7 +9,7 @@ using System.Text;
 using System.Text.RegularExpressions;
 using Npgsql;
 
-const string docPath = "docs/schema";
+const string DocPath = "docs/schema";
 
 var mode = args.FirstOrDefault();
 if (mode is not ("doc" or "check")) {
@@ -19,7 +19,7 @@ if (mode is not ("doc" or "check")) {
 
 var connectionString = new NpgsqlConnectionStringBuilder {
   Host = "127.0.0.1",
-  Port = int.Parse(Environment.GetEnvironmentVariable("POSTGRES_PORT") ?? "5432"),
+  Port = int.Parse(Environment.GetEnvironmentVariable("POSTGRES_PORT") ?? "5432", System.Globalization.CultureInfo.InvariantCulture),
   Username = Environment.GetEnvironmentVariable("POSTGRES_USER") ?? "josholson",
   Password = Environment.GetEnvironmentVariable("POSTGRES_PASSWORD"),
   Database = Environment.GetEnvironmentVariable("POSTGRES_DB") ?? "josholson",
@@ -28,8 +28,8 @@ var connectionString = new NpgsqlConnectionStringBuilder {
 
 Model model;
 await using (var connection = new NpgsqlConnection(connectionString)) {
-  await connection.OpenAsync();
-  model = await Model.Load(connection);
+  await connection.OpenAsync(CancellationToken.None);
+  model = await Model.LoadAsync(connection);
 }
 
 var work = Path.Combine(Path.GetTempPath(), "schema-docs-" + Guid.NewGuid().ToString("N"));
@@ -40,52 +40,54 @@ try {
     File.WriteAllText(Path.Combine(generated, name), content, new UTF8Encoding(false));
   }
 
-  if (mode == "doc") {
-    if (Directory.Exists(docPath)) Directory.Delete(docPath, true);
-    Directory.CreateDirectory(docPath);
-    foreach (var file in Directory.GetFiles(generated)) File.Copy(file, Path.Combine(docPath, Path.GetFileName(file)));
-    Console.WriteLine($"Wrote {docPath}");
+  if (string.Equals(mode, "doc", StringComparison.Ordinal)) {
+    if (Directory.Exists(DocPath)) Directory.Delete(DocPath, true);
+    Directory.CreateDirectory(DocPath);
+    foreach (var file in Directory.GetFiles(generated)) File.Copy(file, Path.Combine(DocPath, Path.GetFileName(file)));
+    Console.WriteLine($"Wrote {DocPath}");
     return 0;
   }
 
-  if (!Directory.Exists(docPath)) {
-    Console.Error.WriteLine($"{docPath} does not exist. Run: mise run schema:doc");
+  if (!Directory.Exists(DocPath)) {
+    Console.Error.WriteLine($"{DocPath} does not exist. Run: mise run schema:doc");
     return 1;
   }
   var diff = Process.Start(new ProcessStartInfo {
     FileName = "git",
-    ArgumentList = { "diff", "--no-index", "--exit-code", docPath, generated },
+    ArgumentList = { "diff", "--no-index", "--exit-code", DocPath, generated },
     UseShellExecute = false
   })!;
   diff.WaitForExit();
-  if (diff.ExitCode == 0) Console.WriteLine($"{docPath} is up to date.");
-  else if (diff.ExitCode == 1) Console.Error.WriteLine($"{docPath} is out of date. Run: mise run schema:doc");
+  if (diff.ExitCode is 0) Console.WriteLine($"{DocPath} is up to date.");
+  else if (diff.ExitCode is 1) Console.Error.WriteLine($"{DocPath} is out of date. Run: mise run schema:doc");
   return diff.ExitCode;
 } finally {
   Directory.Delete(work, true);
 }
 
-record Column(string Name, string Type, bool Nullable, string? Default, string? Comment);
+internal record Column(string Name, string Type, bool Nullable, string? Default, string? Comment);
 
 // Kind is the pg_constraint code: p primary key, u unique, c check, f foreign key.
-record Constraint(string Name, char Kind, string Definition, string[] Columns, long RefTable, string[] RefColumns,
+internal record Constraint(string Name, char Kind, string Definition, string[] Columns, long RefTable, string[] RefColumns,
   char OnUpdate, char OnDelete, bool Deferrable, bool Deferred);
 
-record Index(string Name, string Definition, bool BacksConstraint);
+internal record Index(string Name, string Definition, bool BacksConstraint);
 
-record Table(long Id, string Schema, string Name, string? Comment, List<Column> Columns, List<Constraint> Constraints,
+internal record Table(long Id, string Schema, string Name, string? Comment, List<Column> Columns, List<Constraint> Constraints,
   List<Index> Indexes) {
-  public string FullName => $"{Schema}.{Name}";
+  public string FullName
+    => $"{Schema}.{Name}";
 }
 
-record Domain(string Schema, string Name, string Base, bool NotNull, string? Default, string? Comment,
+internal record Domain(string Schema, string Name, string Base, bool NotNull, string? Default, string? Comment,
   List<(string Name, string Definition)> Checks) {
-  public string FullName => $"{Schema}.{Name}";
+  public string FullName
+    => $"{Schema}.{Name}";
 }
 
-record Model(List<Table> Tables, List<Domain> Domains, Dictionary<string, string> SchemaComments) {
+internal record Model(List<Table> Tables, List<Domain> Domains, Dictionary<string, string> SchemaComments) {
   // The tables to document: ordinary and partitioned tables outside the system schemas and public.
-  const string TablesFrom = """
+  private const string _TablesFrom = """
     FROM (SELECT) AS _
     JOIN pg_class      AS c  ON c.relkind IN ('r', 'p')
     JOIN pg_namespace  AS n  ON n.oid      = c.relnamespace
@@ -94,31 +96,31 @@ record Model(List<Table> Tables, List<Domain> Domains, Dictionary<string, string
     """;
 
   // The same tables, reduced to the oid.
-  const string TablesCte = $"""
+  private const string _TablesCte = $"""
     WITH tables AS (
       SELECT c.oid
-      {TablesFrom}
+      {_TablesFrom}
     )
     """;
 
-  public static async Task<Model> Load(NpgsqlConnection connection) {
+  public static async Task<Model> LoadAsync(NpgsqlConnection connection) {
     // With only pg_catalog on the path, format_type qualifies every other type with its schema.
-    await new NpgsqlCommand("SET search_path TO pg_catalog", connection).ExecuteNonQueryAsync();
+    await new NpgsqlCommand("SET search_path TO pg_catalog", connection).ExecuteNonQueryAsync(CancellationToken.None);
 
-    var tables = await Query(connection, $"""
+    var tables = await QueryAsync(connection, $"""
       SELECT
           c.oid::bigint                       AS table_id
         , n.nspname                           AS schema
         , c.relname                           AS name
         , obj_description(c.oid, 'pg_class')  AS comment
-      {TablesFrom}
+      {_TablesFrom}
       ORDER BY n.nspname, c.relname;
       """, r =>
       new Table(r.GetInt64(0), r.GetString(1), r.GetString(2), r.IsDBNull(3) ? null : r.GetString(3), [], [], []));
     var byId = tables.ToDictionary(t => t.Id);
 
-    var columns = await Query(connection, $"""
-      {TablesCte}
+    var columns = await QueryAsync(connection, $"""
+      {_TablesCte}
       SELECT
           a.attrelid::bigint                     AS table_id
         , a.attname::text                        AS name
@@ -137,7 +139,7 @@ record Model(List<Table> Tables, List<Domain> Domains, Dictionary<string, string
       ORDER BY table_id, a.attnum;
       """, r => {
       var expression = r.IsDBNull(6) ? null : r.GetString(6);
-      var generated = r.GetString(5) == "s";
+      var generated = string.Equals(r.GetString(5), "s", StringComparison.Ordinal);
       var identity = r.GetString(4) switch { "a" => "GENERATED ALWAYS AS IDENTITY", "d" => "GENERATED BY DEFAULT AS IDENTITY", _ => null };
       var defaultValue = generated ? $"GENERATED ALWAYS AS ({expression}) STORED" : identity ?? expression;
       return (Table: r.GetInt64(0), Column: new Column(r.GetString(1), r.GetString(2), r.GetBoolean(3), defaultValue,
@@ -145,8 +147,8 @@ record Model(List<Table> Tables, List<Domain> Domains, Dictionary<string, string
     });
     foreach (var (table, column) in columns) byId[table].Columns.Add(column);
 
-    var constraints = await Query(connection, $"""
-      {TablesCte}
+    var constraints = await QueryAsync(connection, $"""
+      {_TablesCte}
       SELECT
           con.conrelid::bigint           AS table_id
         , con.conname::text              AS name
@@ -178,8 +180,8 @@ record Model(List<Table> Tables, List<Domain> Domains, Dictionary<string, string
         r.GetBoolean(9), r.GetBoolean(10))));
     foreach (var (table, constraint) in constraints) byId[table].Constraints.Add(constraint);
 
-    var indexes = await Query(connection, $"""
-      {TablesCte}
+    var indexes = await QueryAsync(connection, $"""
+      {_TablesCte}
       SELECT
           i.indrelid::bigint             AS table_id
         , ic.relname::text               AS name
@@ -198,7 +200,7 @@ record Model(List<Table> Tables, List<Domain> Domains, Dictionary<string, string
       """, r => (Table: r.GetInt64(0), Index: new Index(r.GetString(1), r.GetString(2), r.GetBoolean(3))));
     foreach (var (table, index) in indexes) byId[table].Indexes.Add(index);
 
-    var checks = (await Query(connection, """
+    var checks = (await QueryAsync(connection, """
       SELECT
           con.contypid::bigint           AS domain_id
         , con.conname::text              AS name
@@ -207,7 +209,7 @@ record Model(List<Table> Tables, List<Domain> Domains, Dictionary<string, string
       JOIN pg_constraint  AS con  ON con.contypid != 0
       ORDER BY name;
       """, r => (Domain: r.GetInt64(0), Name: r.GetString(1), Definition: r.GetString(2)))).ToLookup(c => c.Domain);
-    var domains = await Query(connection, """
+    var domains = await QueryAsync(connection, """
       SELECT
           t.oid::bigint                            AS domain_id
         , n.nspname                                AS schema
@@ -222,9 +224,9 @@ record Model(List<Table> Tables, List<Domain> Domains, Dictionary<string, string
                               AND n.nspname NOT IN ('pg_catalog', 'information_schema', 'public')
       ORDER BY n.nspname, t.typname;
       """, r => new Domain(r.GetString(1), r.GetString(2), r.GetString(3), r.GetBoolean(4), r.IsDBNull(5) ? null : r.GetString(5),
-      r.IsDBNull(6) ? null : r.GetString(6), checks[r.GetInt64(0)].Select(c => (c.Name, c.Definition)).ToList()));
+      r.IsDBNull(6) ? null : r.GetString(6), [.. checks[r.GetInt64(0)].Select(c => (c.Name, c.Definition))]));
 
-    var schemaComments = (await Query(connection, """
+    var schemaComments = (await QueryAsync(connection, """
       SELECT
           n.nspname::text                         AS name
         , obj_description(n.oid, 'pg_namespace')  AS comment
@@ -235,10 +237,10 @@ record Model(List<Table> Tables, List<Domain> Domains, Dictionary<string, string
     return new Model(tables, domains, schemaComments);
   }
 
-  static async Task<List<T>> Query<T>(NpgsqlConnection connection, string sql, Func<NpgsqlDataReader, T> map) {
-    await using var reader = await new NpgsqlCommand(sql, connection).ExecuteReaderAsync();
+  private static async Task<List<T>> QueryAsync<T>(NpgsqlConnection connection, string sql, Func<NpgsqlDataReader, T> map) {
+    await using var reader = await new NpgsqlCommand(sql, connection).ExecuteReaderAsync(CancellationToken.None);
     var rows = new List<T>();
-    while (await reader.ReadAsync()) rows.Add(map(reader));
+    while (await reader.ReadAsync(CancellationToken.None)) rows.Add(map(reader));
     return rows;
   }
 }
@@ -247,32 +249,33 @@ record Model(List<Table> Tables, List<Domain> Domains, Dictionary<string, string
 //   pg:{type}        the PostgreSQL documentation for a built-in type
 //   domain:{name}    a domain's section in domains.md
 //   table:{name}     a table's page
-class Page {
-  readonly List<string> lines = [];
-  readonly SortedDictionary<string, string> links = new(StringComparer.Ordinal);
+internal class Page {
+  private readonly List<string> _lines = [];
+  private readonly SortedDictionary<string, string> _links = new(StringComparer.Ordinal);
 
-  public void Add(params string[] added) => lines.AddRange(added);
+  public void Add(params string[] added)
+    => _lines.AddRange(added);
 
   public string Link(string text, string label, string url) {
-    links[label] = url;
+    _links[label] = url;
     return $"[{text}][{label}]";
   }
 
   public string Render() {
-    var result = new List<string>(lines) { "", "---", "", "> Generated by [scripts/schema-docs.cs](../../scripts/schema-docs.cs). Do not edit by hand." };
-    if (links.Count > 0) {
+    var result = new List<string>(_lines) { "", "---", "", "> Generated by [scripts/schema-docs.cs](../../scripts/schema-docs.cs). Do not edit by hand." };
+    if (_links.Count > 0) {
       result.Add("");
-      result.AddRange(links.Select(l => $"[{l.Key}]: {l.Value}"));
+      result.AddRange(_links.Select(l => $"[{l.Key}]: {l.Value}"));
     }
     return string.Join('\n', result) + "\n";
   }
 }
 
-static class Renderer {
+internal static class Renderer {
   // Documentation for the version we run; bump with ADR 0003.
-  const string Docs = "https://www.postgresql.org/docs/19/";
+  private const string _Docs = "https://www.postgresql.org/docs/19/";
 
-  static readonly Dictionary<string, string> TypeDocs = new() {
+  private static readonly Dictionary<string, string> _TypeDocs = new() {
     ["smallint"] = "datatype-numeric.html#DATATYPE-INT",
     ["integer"] = "datatype-numeric.html#DATATYPE-INT",
     ["bigint"] = "datatype-numeric.html#DATATYPE-INT",
@@ -298,7 +301,7 @@ static class Renderer {
     ["xml"] = "datatype-xml.html"
   };
 
-  static readonly Dictionary<string, string> ShortNames = new() {
+  private static readonly Dictionary<string, string> _ShortNames = new() {
     ["timestamp with time zone"] = "TIMESTAMPTZ",
     ["timestamp without time zone"] = "TIMESTAMP",
     ["time with time zone"] = "TIMETZ",
@@ -308,10 +311,14 @@ static class Renderer {
     ["double precision"] = "FLOAT8"
   };
 
-  static readonly HashSet<string> Unlinked = [];
+  private static readonly HashSet<string> _Unlinked = [];
 
-  static readonly Dictionary<char, string> Actions = new() {
-    ['a'] = "NO ACTION", ['r'] = "RESTRICT", ['c'] = "CASCADE", ['n'] = "SET NULL", ['d'] = "SET DEFAULT"
+  private static readonly Dictionary<char, string> _Actions = new() {
+    ['a'] = "NO ACTION",
+    ['r'] = "RESTRICT",
+    ['c'] = "CASCADE",
+    ['n'] = "SET NULL",
+    ['d'] = "SET DEFAULT"
   };
 
   public static IEnumerable<(string Name, string Content)> Render(Model model) {
@@ -321,13 +328,13 @@ static class Renderer {
     yield return ("README.md", IndexPage(model, tables));
   }
 
-  static string IndexPage(Model model, Dictionary<long, Table> tables) {
+  private static string IndexPage(Model model, Dictionary<long, Table> tables) {
     var page = new Page();
     page.Add("# josholson", "");
     foreach (var group in model.Tables.GroupBy(t => t.Schema)) {
       page.Add($"## {group.Key}", "");
       if (model.SchemaComments.TryGetValue(group.Key, out var comment)) page.Add(comment, "");
-      var showComment = group.Any(t => t.Comment != null);
+      var showComment = group.Any(t => t.Comment is not null);
       string[] headers = showComment ? ["Table", "Columns", "Comment"] : ["Table", "Columns"];
       page.Add(MdTable(headers, group.Select(t => {
         var row = new List<string> { TableLink(page, t.FullName), t.Columns.Count.ToString() };
@@ -351,15 +358,15 @@ static class Renderer {
     return page.Render();
   }
 
-  static string DomainsPage(Model model) {
+  private static string DomainsPage(Model model) {
     var page = new Page();
     page.Add("# Domains", "", "Domains hold validation that repeats across tables ([ADR 0017](../adr/0017-domains-by-kind.md)).");
     foreach (var domain in model.Domains) {
       page.Add("", $"## {domain.FullName}", "");
-      if (domain.Comment != null) page.Add(domain.Comment, "");
+      if (domain.Comment is not null) page.Add(domain.Comment, "");
       page.Add($"- Base type: {TypeCell(page, domain.Base, model)}");
       if (domain.NotNull) page.Add("- `NOT NULL`");
-      if (domain.Default != null) page.Add($"- Default: {Code(domain.Default)}");
+      if (domain.Default is not null) page.Add($"- Default: {Code(domain.Default)}");
       if (domain.Checks.Count > 0) {
         page.Add("", "### Check constraints", "");
         page.Add(MdTable(["Name", "Definition"], domain.Checks.Select(c => new[] { Code(c.Name), Code(CheckExpression(c.Definition)) })));
@@ -368,16 +375,16 @@ static class Renderer {
     return page.Render();
   }
 
-  static string TablePage(Table table, Model model, Dictionary<long, Table> tables) {
+  private static string TablePage(Table table, Model model, Dictionary<long, Table> tables) {
     var page = new Page();
     page.Add($"# {Code(table.FullName)}", "");
-    if (table.Comment != null) page.Add(table.Comment, "");
+    if (table.Comment is not null) page.Add(table.Comment, "");
 
-    var showComment = table.Columns.Any(c => c.Comment != null);
+    var showComment = table.Columns.Any(c => c.Comment is not null);
     string[] headers = showComment ? ["Name", "Type", "Nullable", "Default", "Comment"] : ["Name", "Type", "Nullable", "Default"];
     page.Add("## Columns", "");
     page.Add(MdTable(headers, table.Columns.Select(c => {
-      var row = new List<string> { Code(c.Name), TypeCell(page, c.Type, model), Code(c.Nullable ? "NULL" : "NOT NULL"), c.Default == null ? "" : Code(c.Default) };
+      var row = new List<string> { Code(c.Name), TypeCell(page, c.Type, model), Code(c.Nullable ? "NULL" : "NOT NULL"), c.Default is null ? "" : Code(c.Default) };
       if (showComment) row.Add(c.Comment ?? "");
       return row.ToArray();
     }), [2]));
@@ -405,7 +412,7 @@ static class Renderer {
 
     var outgoing = table.Constraints.Where(c => c.Kind == 'f').ToList();
     var incoming = tables.Values.SelectMany(t => t.Constraints.Where(c => c.Kind == 'f' && c.RefTable == table.Id).Select(c => (Table: t, Constraint: c)))
-      .OrderBy(x => x.Table.FullName).ThenBy(x => x.Constraint.Name).ToList();
+      .OrderBy(x => x.Table.FullName, StringComparer.Ordinal).ThenBy(x => x.Constraint.Name, StringComparer.Ordinal).ToList();
     page.Add("", "## Relations");
     if (outgoing.Count > 0) {
       page.Add("", "### Foreign keys", "");
@@ -422,23 +429,23 @@ static class Renderer {
   }
 
   // For outgoing keys the linked table is the one referenced; for incoming keys it is the referencing one.
-  static string[] ForeignKeys(string tableHeader, IEnumerable<(Table Table, Constraint Constraint, bool Outgoing)> keys, Page page) {
+  private static string[] ForeignKeys(string tableHeader, IEnumerable<(Table Table, Constraint Constraint, bool Outgoing)> keys, Page page) {
     var list = keys.ToList();
     var deferrable = list.Any(k => k.Constraint.Deferrable);
     List<string> headers = ["Name", "Columns", tableHeader, "Ref Columns", "On Delete", "On Update"];
     if (deferrable) headers.Add("Deferrable");
-    return MdTable(headers.ToArray(), list.Select(k => {
+    return MdTable([.. headers], list.Select(k => {
       var (table, fk, outgoing) = k;
       var row = new List<string> {
         Code(fk.Name), Code(string.Join(", ", fk.Columns)), TableLink(page, table.FullName),
-        Code(string.Join(", ", fk.RefColumns)), Code(Actions[fk.OnDelete]), Code(Actions[fk.OnUpdate])
+        Code(string.Join(", ", fk.RefColumns)), Code(_Actions[fk.OnDelete]), Code(_Actions[fk.OnUpdate])
       };
       if (deferrable) row.Add(fk.Deferrable ? Code(fk.Deferred ? "INITIALLY DEFERRED" : "DEFERRABLE") : "");
       return row.ToArray();
     }));
   }
 
-  static string Diagram(Table table, Dictionary<long, Table> tables, Model model) {
+  private static string Diagram(Table table, Dictionary<long, Table> tables, Model model) {
     var related = tables.Values.SelectMany(t => t.Constraints.Where(c => c.Kind == 'f'
         && (t.Id == table.Id || c.RefTable == table.Id)).Select(c => (Table: t, Constraint: c))).ToList();
     var entities = new List<Table> { table };
@@ -455,16 +462,16 @@ static class Renderer {
       lines.AddRange(entity.Columns.Select(c => $"  {MermaidType(c.Type, model)} {c.Name}" + (keys.TryGetValue(c.Name, out var k) ? $" {k}" : "")));
       lines.Add("}");
     }
-    return string.Join('\n', lines.SkipWhile(l => l == ""));
+    return string.Join('\n', lines.SkipWhile(l => l is ""));
   }
 
-  static Dictionary<string, string> Keys(Table table) {
+  private static Dictionary<string, string> Keys(Table table) {
     var keys = new Dictionary<string, SortedSet<string>>();
     foreach (var constraint in table.Constraints) {
-      var key = constraint.Kind switch { 'p' => "PK", 'f' => "FK", 'u' when constraint.Columns.Length == 1 => "UK", _ => null };
-      if (key == null) continue;
+      var key = constraint.Kind switch { 'p' => "PK", 'f' => "FK", 'u' when constraint.Columns.Length is 1 => "UK", _ => null };
+      if (key is null) continue;
       foreach (var column in constraint.Columns) {
-        if (!keys.TryGetValue(column, out var set)) keys[column] = set = new SortedSet<string>(StringComparer.Ordinal) { };
+        if (!keys.TryGetValue(column, out var set)) keys[column] = set = new SortedSet<string>(StringComparer.Ordinal);
         set.Add(key);
       }
     }
@@ -473,76 +480,80 @@ static class Renderer {
 
   // The many side is optional unless a unique constraint on the same columns makes it one; the one side is optional
   // when any referencing column is nullable.
-  static string Relationship(Table child, Constraint fk, Table parent) {
-    var unique = child.Constraints.Any(c => c.Kind is 'p' or 'u' && c.Columns.OrderBy(x => x).SequenceEqual(fk.Columns.OrderBy(x => x)));
-    var optional = fk.Columns.Any(name => child.Columns.First(c => c.Name == name).Nullable);
+  private static string Relationship(Table child, Constraint fk, Table parent) {
+    var unique = child.Constraints.Any(c => c.Kind is 'p' or 'u' && c.Columns.Order(StringComparer.Ordinal).SequenceEqual(fk.Columns.Order(StringComparer.Ordinal)));
+    var optional = fk.Columns.Any(name => child.Columns.First(c => string.Equals(c.Name, name, StringComparison.Ordinal)).Nullable);
     return $"\"{child.FullName}\" {(unique ? "|o" : "}o")}--{(optional ? "o|" : "||")} \"{parent.FullName}\" : \"{string.Join(", ", fk.Columns)}\"";
   }
 
   // Built-in types appear in capitals, with the short names Postgres accepts for the multi-word ones. Domains and
   // other types keep the names Postgres prints.
-  static string TypeName(string type, Model model) {
+  private static string TypeName(string type, Model model) {
     var name = BaseName(type);
-    if (model.Domains.Any(d => d.FullName == name) || !TypeDocs.ContainsKey(name)) return type;
-    return (ShortNames.GetValueOrDefault(name) ?? name.ToUpperInvariant()) + type[name.Length..];
+    if (model.Domains.Any(d => string.Equals(d.FullName, name, StringComparison.Ordinal)) || !_TypeDocs.ContainsKey(name)) return type;
+    return (_ShortNames.GetValueOrDefault(name) ?? name.ToUpperInvariant()) + type[name.Length..];
   }
 
   // Mermaid types cannot hold spaces or quotes; dots, brackets, and parentheses are fine.
-  static string MermaidType(string type, Model model) => Regex.Replace(TypeName(type, model).Replace("\"", ""), @"\s+", "_");
+  private static string MermaidType(string type, Model model)
+    => Regex.Replace(TypeName(type, model).Replace("\"", ""), @"\s+", "_");
 
   // "character varying(20)[]" is "character varying".
-  static string BaseName(string type) => Regex.Replace(Regex.Replace(type, @"(\[\])+$", ""), @"\(.*\)$", "").Replace("\"", "");
+  private static string BaseName(string type)
+    => Regex.Replace(Regex.Replace(type, @"(\[\])+$", ""), @"\(.*\)$", "").Replace("\"", "");
 
   // Heading anchors as GitHub makes them: lowercase, punctuation dropped, spaces to hyphens.
-  static string Slug(string heading) => Regex.Replace(heading.ToLowerInvariant(), @"[^a-z0-9 _-]", "").Replace(' ', '-');
+  private static string Slug(string heading)
+    => Regex.Replace(heading.ToLowerInvariant(), "[^a-z0-9 _-]", "").Replace(' ', '-');
 
-  static string TableLink(Page page, string name) => page.Link(Code(name), $"table:{name}", $"{name}.md");
+  private static string TableLink(Page page, string name)
+    => page.Link(Code(name), $"table:{name}", $"{name}.md");
 
   // Link a type to its documentation: a domain to its section, a built-in to the PostgreSQL manual.
-  static string TypeCell(Page page, string type, Model model) {
+  private static string TypeCell(Page page, string type, Model model) {
     var name = BaseName(type);
     var text = Code(TypeName(type, model));
-    if (model.Domains.Any(d => d.FullName == name)) return page.Link(text, $"domain:{name}", $"domains.md#{Slug(name)}");
-    if (TypeDocs.TryGetValue(name, out var url)) return page.Link(text, $"pg:{name.Replace(' ', '-')}", Docs + url);
-    if (Unlinked.Add(name)) Console.Error.WriteLine($"No link for type {name}: add it to TypeDocs in scripts/schema-docs.cs.");
+    if (model.Domains.Any(d => string.Equals(d.FullName, name, StringComparison.Ordinal))) return page.Link(text, $"domain:{name}", $"domains.md#{Slug(name)}");
+    if (_TypeDocs.TryGetValue(name, out var url)) return page.Link(text, $"pg:{name.Replace(' ', '-')}", _Docs + url);
+    if (_Unlinked.Add(name)) Console.Error.WriteLine($"No link for type {name}: add it to _TypeDocs in scripts/schema-docs.cs.");
     return text;
   }
 
-  static string Code(string text) {
-    if (text.Length == 0) return text;
+  private static string Code(string text) {
+    if (text.Length is 0) return text;
     var longest = Regex.Matches(text, "`+").Select(m => m.Length).DefaultIfEmpty(0).Max();
     var fence = new string('`', longest + 1);
     return longest > 0 ? $"{fence} {text} {fence}" : $"{fence}{text}{fence}";
   }
 
   // "CHECK ((a >= b))" becomes "a >= b": the keyword and the parentheses Postgres adds around every expression.
-  static string CheckExpression(string definition) {
-    var expression = Regex.Replace(definition, @"^CHECK ", "");
+  private static string CheckExpression(string definition) {
+    var expression = Regex.Replace(definition, "^CHECK ", "");
     var suffix = Regex.Match(expression, @"(?<=\)) (NO INHERIT|NOT VALID)( NO INHERIT| NOT VALID)?$");
     if (suffix.Success) expression = expression[..suffix.Index];
     while (Wrapped(expression)) expression = expression[1..^1];
     return expression + suffix.Value;
   }
 
-  static bool Wrapped(string text) {
+  private static bool Wrapped(string text) {
     if (text.Length < 2 || text[0] != '(' || text[^1] != ')') return false;
     var depth = 0;
     for (var i = 0; i < text.Length - 1; i++) {
       if (text[i] == '(') depth++;
       else if (text[i] == ')') depth--;
-      if (depth == 0) return false;
+      if (depth is 0) return false;
     }
     return true;
   }
 
   // Anything after the column list: DEFERRABLE INITIALLY DEFERRED, and so on.
-  static string AfterColumns(string definition) {
+  private static string AfterColumns(string definition) {
     var rest = definition[(definition.IndexOf(')') + 1)..].Trim();
-    return rest.Length == 0 ? "" : " " + rest;
+    return rest.Length is 0 ? "" : " " + rest;
   }
 
   // One clause per line: CREATE INDEX ..., then ON, USING, INCLUDE, WITH, TABLESPACE, and WHERE indented.
-  static string SplitIndex(string definition) {
+  private static string SplitIndex(string definition) {
     string[] keywords = ["ON ", "USING ", "INCLUDE ", "WITH ", "TABLESPACE ", "WHERE "];
     var result = new StringBuilder();
     var depth = 0;
@@ -554,8 +565,8 @@ static class Renderer {
       else if (quote == '\0' && c == '(') depth++;
       else if (quote == '\0' && c == ')') depth--;
 
-      if (c == ' ' && depth == 0 && quote == '\0'
-          && keywords.Any(k => string.CompareOrdinal(definition, i + 1, k, 0, k.Length) == 0)) {
+      if (c == ' ' && depth is 0 && quote == '\0'
+&& keywords.Any(k => string.CompareOrdinal(definition, i + 1, k, 0, k.Length) is 0)) {
         result.Append("\n  ");
       } else {
         result.Append(c);
@@ -565,7 +576,7 @@ static class Renderer {
   }
 
   // Pads every cell from its final text, so alignment holds whatever markup a cell carries.
-  static string[] MdTable(string[] headers, IEnumerable<string[]> rows, int[]? rightAligned = null) {
+  private static string[] MdTable(string[] headers, IEnumerable<string[]> rows, int[]? rightAligned = null) {
     var body = rows.Select(r => r.Select(cell => cell.Replace("|", @"\|")).ToArray()).ToList();
     var right = rightAligned ?? [];
     var widths = Enumerable.Range(0, headers.Length).Select(c => body.Select(r => r[c].Length).Append(headers[c].Length).Max()).ToArray();

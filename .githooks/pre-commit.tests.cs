@@ -37,9 +37,9 @@ var countFailed = 0;
 foreach (var test in tests) {
   var (success, error) = BranchNameValidator.ValidateBranchName(test.Input);
 
-  var testPassed = test.ShouldPass
-    ? success
-    : !success && (test.ExpectedError is null || error!.Contains(test.ExpectedError));
+  var outcomeMatches = test.ShouldPass == success;
+  var errorMatches = test.ExpectedError is null || error!.Contains(test.ExpectedError);
+  var testPassed = outcomeMatches && errorMatches;
 
   if (testPassed) {
     Console.WriteLine($"✓ {test.DisplayName}");
@@ -79,19 +79,50 @@ foreach (var (paths, expected) in triggers.Select(paths => (paths, true)).Concat
   }
 }
 
+string[][] scriptTriggers = [
+  ["scripts/schema-docs.cs"],
+  [".githooks/pre-commit.cs"],
+  ["api/JoshOlson.Api/Tags/TagController.cs", "scripts/analyzers.cs"],
+  ["Directory.Build.props"],
+  [".editorconfig"],
+];
+string[][] scriptNonTriggers = [
+  [],
+  ["README.md"],
+  ["api/JoshOlson.Api/Tags/TagController.cs"],
+  ["scripts/README.md"],
+  ["api/Directory.Packages.props"],
+  ["docs/adr/0030-analyzers.md"],
+];
+foreach (var (paths, expected) in scriptTriggers.Select(paths => (paths, true)).Concat(scriptNonTriggers.Select(paths => (paths, false)))) {
+  var needed = AnalyzerCheckTrigger.IsScriptCheckNeeded(paths);
+  if (needed == expected) {
+    Console.WriteLine($"✓ Script check {(expected ? "runs" : "is skipped")} for [{string.Join(", ", paths)}]");
+    countPassed++;
+  } else {
+    Console.WriteLine($"✗ Script check {(expected ? "should run" : "should be skipped")} for [{string.Join(", ", paths)}]");
+    countFailed++;
+  }
+}
+
 Console.WriteLine();
 Console.WriteLine($"Results: {countPassed} passed, {countFailed} failed");
 
 return countFailed > 0 ? 1 : 0;
 
-internal record TestCase(string Name, string Input, bool ShouldPass, string? ExpectedError = null) {
-  public string DisplayName => $"{(ShouldPass ? "Valid" : "Invalid")}: {Name}";
+// A case passes validation (no ExpectedError) or fails with a specific error (ExpectedError), never both
+internal record TestCase(string Name, string Input, string? ExpectedError = null) {
+  public bool ShouldPass
+    => ExpectedError is null;
+
+  public string DisplayName
+    => $"{(ShouldPass ? "Valid" : "Invalid")}: {Name}";
 }
 
 internal static class BranchName {
   public static TestCase Valid(string name, string input)
-    => new(name, input, true);
+    => new(name, input);
 
   public static TestCase Invalid(string name, string input, string expectedError)
-    => new(name, input, false, expectedError);
+    => new(name, input, expectedError);
 }

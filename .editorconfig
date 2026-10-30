@@ -190,7 +190,8 @@ dotnet_diagnostic.RCS1124.severity = none
 dotnet_diagnostic.RCS1181.severity = none
 dotnet_diagnostic.RCS1217.severity = none
 dotnet_diagnostic.RCS1264.severity = none
-# Contradicts the ternary, `=> await`, and guard-clause style
+# Contradicts the ternary, `=> await`, and guard-clause style (nested ternaries are allowed: RCS1238)
+dotnet_diagnostic.RCS1238.severity = none
 dotnet_diagnostic.RCS1073.severity = none
 dotnet_diagnostic.RCS1084.severity = none
 dotnet_diagnostic.RCS1174.severity = none
@@ -588,7 +589,6 @@ dotnet_diagnostic.RCS1233.severity = warning
 dotnet_diagnostic.RCS1234.severity = warning
 dotnet_diagnostic.RCS1235.severity = warning
 dotnet_diagnostic.RCS1236.severity = warning
-dotnet_diagnostic.RCS1238.severity = warning
 dotnet_diagnostic.RCS1239.severity = warning
 dotnet_diagnostic.RCS1240.severity = warning
 dotnet_diagnostic.RCS1241.severity = warning
@@ -721,3 +721,16 @@ dotnet_naming_rule.public_async_methods.severity = none
 # A file with several types is {Name}.{Plural}.cs (Tag.Payloads.cs, Domain.Attributes.cs), and tests are Foo.Tests.cs
 [*.*s.cs]
 dotnet_diagnostic.MA0048.severity = none
+
+# Scripts are file-based apps, so these rules do not fit them:
+# - top-level code is a class named Program and hook helpers are kebab-case files (MA0048)
+# - helper types sit in the global namespace (MA0047, RCS1110)
+# - regexes run over our own files and database, not untrusted input (MA0009, RCS1186)
+# - one script is one file, so a long method is a section of it (MA0051)
+[{scripts,.githooks}/*.cs]
+dotnet_diagnostic.MA0048.severity = none
+dotnet_diagnostic.MA0047.severity = none
+dotnet_diagnostic.RCS1110.severity = none
+dotnet_diagnostic.MA0009.severity = none
+dotnet_diagnostic.RCS1186.severity = none
+dotnet_diagnostic.MA0051.severity = none

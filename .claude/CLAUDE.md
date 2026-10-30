@@ -19,7 +19,8 @@ Personal website for Josh Olson: www.josholson.dev (SvelteKit SSR) and api.josho
 - `web/`: 🚧 not created yet
 - `mise.toml`: pinned tools (bun, dotnet, gh) and tasks. `tools/`: image for the dev `tools` container, which runs Waypoint (no Windows build)
 - `docs/schema/`: generated from the dev database (a page per table, domains, Mermaid ER diagrams). Never edit by hand; run `mise run schema:doc`. `scripts/`: repo tooling as .NET file-based apps (`schema-docs.cs` builds those docs)
-- `.githooks/`: `commit-msg` (gitmoji format check) and `pre-commit` (branch name check, and the analyzer rule check when packages or `.editorconfig` are staged) hooks, .NET file-based apps
+- `Directory.Build.props` (root): build settings and analyzers for the loose scripts in `scripts/` and `.githooks/`; `api/` has its own
+- `.githooks/`: `commit-msg` (gitmoji format check) and `pre-commit` (branch name check, the analyzer rule check when packages or `.editorconfig` are staged, and the script check when scripts, hooks, `.editorconfig`, or `Directory.Build.props` are staged) hooks, .NET file-based apps
 - `docs/`: architecture, database, seeding, product, and `adr/` decision records
 - `.claude/rules/`: conventions, loaded when matching files are touched
 - `.claude/settings.json` and `.claude/hooks/`: hooks that keep Claude from committing (see Commits)
@@ -77,6 +78,12 @@ Check that every rule in the analyzer packages has a severity in `.editorconfig`
 
 ```
 mise run analyzers:check
+```
+
+Build every loose script with the style rules and analyzers on (`dotnet format` cannot open them; the pre-commit hook runs this when scripts are staged):
+
+```
+mise run scripts:check
 ```
 
 Test the hooks' validators: `dotnet run .githooks/commit-msg.tests.cs` and `dotnet run .githooks/pre-commit.tests.cs`

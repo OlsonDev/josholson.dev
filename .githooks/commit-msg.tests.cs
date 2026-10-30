@@ -37,13 +37,9 @@ var countFailed = 0;
 foreach (var test in tests) {
   var (success, error) = CommitMessageValidator.ValidateCommitMessage(test.Input);
 
-  bool testPassed;
-  if (test.ShouldPass) {
-    testPassed = success;
-  } else {
-    testPassed = !success && (test.ExpectedError is null || error.Contains(test.ExpectedError));
-  }
-
+  var outcomeMatches = test.ShouldPass == success;
+  var errorMatches = test.ExpectedError is null || error!.Contains(test.ExpectedError);
+  var testPassed = outcomeMatches && errorMatches;
   if (testPassed) {
     Console.WriteLine($"✓ {test.DisplayName}");
     countPassed++;
@@ -61,14 +57,19 @@ Console.WriteLine($"Results: {countPassed} passed, {countFailed} failed");
 
 return countFailed > 0 ? 1 : 0;
 
-internal record TestCase(string Name, string Input, bool ShouldPass, string? ExpectedError = null) {
-  public string DisplayName => $"{(ShouldPass ? "Valid" : "Invalid")}: {Name}";
+// A case passes validation (no ExpectedError) or fails with a specific error (ExpectedError), never both
+internal record TestCase(string Name, string Input, string? ExpectedError = null) {
+  public bool ShouldPass
+    => ExpectedError is null;
+
+  public string DisplayName
+    => $"{(ShouldPass ? "Valid" : "Invalid")}: {Name}";
 }
 
 internal static class CommitMsg {
   public static TestCase Valid(string name, string input)
-    => new(name, input, true);
+    => new(name, input);
 
   public static TestCase Invalid(string name, string input, string expectedError)
-    => new(name, input, false, expectedError);
+    => new(name, input, expectedError);
 }

@@ -1,0 +1,18 @@
+<Project>
+  <!--
+    Applies to the loose .NET scripts (scripts/, .githooks/), which are file-based apps. api/ has its own
+    Directory.Build.props, which takes precedence there. Keep these versions equal to api/Directory.Packages.props:
+    `mise run analyzers:check` fails on a mismatch (ADR 0030).
+  -->
+  <PropertyGroup>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <!-- IDE0005 (unused usings) only runs in a build when XML docs are generated; CS1591 would flag every public member -->
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Meziantou.Analyzer" Version="3.0.317" PrivateAssets="all" />
+    <PackageReference Include="Roslynator.Analyzers" Version="5.0.1" PrivateAssets="all" />
+  </ItemGroup>
+</Project>

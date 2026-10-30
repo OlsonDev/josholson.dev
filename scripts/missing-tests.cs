@@ -7,10 +7,8 @@ using System.Text.RegularExpressions;
 var strict = args.Contains("--strict");
 var untested = new Regex(@"(Payloads|Registration)\.cs$|^Program\.cs$");
 var missing = Directory.EnumerateFiles("api", "*.cs", SearchOption.AllDirectories)
-  .Where(path => !path.Split(Path.DirectorySeparatorChar).Any(part => part is "bin" or "obj"))
-  .Where(path => !path.EndsWith(".Tests.cs") && !untested.IsMatch(Path.GetFileName(path)))
-  .Where(path => !File.Exists(Path.ChangeExtension(path, ".Tests.cs")))
-  .Order()
+  .Where(path => !path.Split(Path.DirectorySeparatorChar).Any(part => part is "bin" or "obj") && !path.EndsWith(".Tests.cs", StringComparison.Ordinal) && !untested.IsMatch(Path.GetFileName(path)) && !File.Exists(Path.ChangeExtension(path, ".Tests.cs")))
+  .Order(StringComparer.Ordinal)
   .ToList();
 
 foreach (var path in missing) Console.WriteLine(path);

@@ -14,16 +14,35 @@ if (!success) {
   return 1;
 }
 
+var staged = Git("diff --cached --name-only").Split('\n', StringSplitOptions.RemoveEmptyEntries);
+
 // Only an upgrade (or an edit to .editorconfig) can leave an analyzer rule undecided, so check just then (ADR 0030)
-if (AnalyzerCheckTrigger.IsNeeded(Git("diff --cached --name-only").Split('\n', StringSplitOptions.RemoveEmptyEntries))) {
-  using var check = Process.Start(new ProcessStartInfo("dotnet", ["run", "scripts/analyzers.cs", "--", "check"]) { UseShellExecute = false })!;
-  check.WaitForExit();
-  if (check.ExitCode != 0) {
-    Console.Error.WriteLine("Every analyzer rule needs a severity in .editorconfig. Decide the ones listed above, or run `mise run analyzers:add`.");
-    return 1;
-  }
+if (AnalyzerCheckTrigger.IsNeeded(staged)
+    && !Passes("Every analyzer rule needs a severity in .editorconfig. Decide the ones listed above, or run `mise run analyzers:add`.",
+      "scripts/analyzers.cs", "--", "check")) {
+  return 1;
+}
+
+// The scripts and hooks are checked by building them
+if (AnalyzerCheckTrigger.IsScriptCheckNeeded(staged)
+    && !Passes("A script fails the style rules or analyzers. Fix the ones listed above; `mise run scripts:check` reruns the check.",
+      "scripts/check-scripts.cs")) {
+  return 1;
 }
 return 0;
+
+static bool Passes(string failure, params string[] arguments) {
+  var startInfo = new ProcessStartInfo("dotnet") { UseShellExecute = false };
+  startInfo.ArgumentList.Add("run");
+  foreach (var argument in arguments) {
+    startInfo.ArgumentList.Add(argument);
+  }
+  using var process = Process.Start(startInfo)!;
+  process.WaitForExit();
+  if (process.ExitCode is 0) return true;
+  Console.Error.WriteLine(failure);
+  return false;
+}
 
 static string Git(string arguments) {
   var startInfo = new ProcessStartInfo("git", arguments) { RedirectStandardOutput = true, UseShellExecute = false };

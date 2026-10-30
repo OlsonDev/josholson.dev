@@ -72,3 +72,8 @@ run = "dotnet run scripts/analyzers.cs -- check"
 [tasks."analyzers:add"]
 description = "Append analyzer rules missing from .editorconfig, at what they do today"
 run = "dotnet run scripts/analyzers.cs -- add"
+
+# The scripts are file-based apps, which `dotnet format` cannot open, so building them is the check (ADR 0030).
+[tasks."scripts:check"]
+description = "Build every loose script with the style rules and analyzers on"
+run = "dotnet run scripts/check-scripts.cs"

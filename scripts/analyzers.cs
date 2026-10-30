@@ -9,10 +9,11 @@ using System.Reflection;
 using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using System.Xml.Linq;
 
-const string project = "api/JoshOlson.Api";
-const string editorConfigPath = ".editorconfig";
-const string marker = "# analyzers:unreviewed";
+const string Project = "api/JoshOlson.Api";
+const string EditorConfigPath = ".editorconfig";
+const string Marker = "# analyzers:unreviewed";
 
 var mode = args.FirstOrDefault();
 if (mode is not ("check" or "add")) {
@@ -23,7 +24,7 @@ if (mode is not ("check" or "add")) {
 // The packages whose rules we decide, as they appear in the NuGet cache path.
 string[] packages = ["meziantou.analyzer", "microsoft.codeanalysis.bannedapianalyzers", "roslynator.analyzers"];
 
-var msbuild = Run("dotnet", "msbuild", project, "-restore", "-t:ResolveLockFileAnalyzers",
+var msbuild = Run("dotnet", "msbuild", Project, "-restore", "-t:ResolveLockFileAnalyzers",
   "-getProperty:RoslynTargetsPath", "-getItem:Analyzer");
 using var json = JsonDocument.Parse(msbuild[msbuild.IndexOf('{')..]);
 var roslynRoot = Path.GetFullPath(json.RootElement.GetProperty("Properties").GetProperty("RoslynTargetsPath").GetString()!);
@@ -78,46 +79,58 @@ if (skipped.Count > 0) {
   Console.Error.WriteLine($"Could not load {skipped.Count} types, so their rules may be missing: {string.Join(", ", skipped)}");
   return 2;
 }
-if (rules.Count == 0) {
+if (rules.Count is 0) {
   Console.Error.WriteLine("No analyzer rules found. Is the project restored?");
   return 2;
 }
 
-var lines = File.ReadAllLines(editorConfigPath).ToList();
-var severityLine = new Regex(@"^\s*dotnet_diagnostic\.([A-Za-z]+[0-9]+)\.severity\s*=", RegexOptions.None, TimeSpan.FromSeconds(1));
+var lines = File.ReadAllLines(EditorConfigPath).ToList();
+var severityLine = new Regex(@"^\s*dotnet_diagnostic\.(?<id>[A-Za-z]+[0-9]+)\.severity\s*=", RegexOptions.ExplicitCapture, TimeSpan.FromSeconds(1));
 var configured = lines.Select(line => severityLine.Match(line)).Where(match => match.Success)
-  .Select(match => match.Groups[1].Value).ToHashSet(StringComparer.Ordinal);
+  .Select(match => match.Groups["id"].Value).ToHashSet(StringComparer.Ordinal);
 
 var missing = rules.Values.Where(rule => !configured.Contains(rule.Id)).ToList();
 var prefixes = rules.Keys.Select(id => Regex.Match(id, "^[A-Za-z]+").Value).ToHashSet(StringComparer.Ordinal);
-var stale = configured.Where(id => prefixes.Contains(Regex.Match(id, "^[A-Za-z]+").Value) && !rules.ContainsKey(id)).Order().ToList();
+var stale = configured.Where(id => prefixes.Contains(Regex.Match(id, "^[A-Za-z]+").Value) && !rules.ContainsKey(id)).Order(StringComparer.Ordinal).ToList();
 
-Console.WriteLine($"{rules.Count} rules in {packages.Length} packages; {missing.Count} without a severity in {editorConfigPath}.");
+Console.WriteLine($"{rules.Count} rules in {packages.Length} packages; {missing.Count} without a severity in {EditorConfigPath}.");
 if (stale.Count > 0) {
   Console.WriteLine($"Configured but no longer shipped: {string.Join(", ", stale)}");
 }
 
-if (mode == "check") {
+// The scripts reference these analyzers from the root Directory.Build.props, which cannot use central package
+// management, so its versions must equal the ones api/Directory.Packages.props pins.
+var central = XDocument.Load("api/Directory.Packages.props").Descendants("PackageVersion")
+  .ToDictionary(item => (string)item.Attribute("Include")!, item => (string)item.Attribute("Version")!, StringComparer.OrdinalIgnoreCase);
+var drift = XDocument.Load("Directory.Build.props").Descendants("PackageReference")
+  .Select(item => (Name: (string)item.Attribute("Include")!, Version: (string?)item.Attribute("Version")))
+  .Where(package => central.TryGetValue(package.Name, out var version) && !string.Equals(version, package.Version, StringComparison.Ordinal))
+  .ToList();
+foreach (var package in drift) {
+  Console.WriteLine($"Version drift: Directory.Build.props has {package.Name} {package.Version}, api/Directory.Packages.props has {central[package.Name]}.");
+}
+
+if (mode is "check") {
   foreach (var rule in missing) {
     Console.WriteLine($"  {rule.Id}  {rule.Package}  ({rule.Describe()})  {rule.Title}");
   }
   if (missing.Count > 0) {
     Console.WriteLine("Decide each one, or run `mise run analyzers:add` to append them at their current behavior.");
   }
-  return missing.Count > 0 ? 1 : 0;
+  return missing.Count > 0 || drift.Count > 0 ? 1 : 0;
 }
 
-if (missing.Count == 0) {
+if (missing.Count is 0) {
   return 0;
 }
-var at = lines.FindIndex(line => line.Trim() == marker);
+var at = lines.FindIndex(line => string.Equals(line.Trim(), Marker, StringComparison.Ordinal));
 if (at < 0) {
-  Console.Error.WriteLine($"{editorConfigPath} has no `{marker}` line to add the rules under.");
+  Console.Error.WriteLine($"{EditorConfigPath} has no `{Marker}` line to add the rules under.");
   return 2;
 }
 lines.InsertRange(at + 1, missing.Select(rule => $"dotnet_diagnostic.{rule.Id}.severity = {rule.CurrentSeverity()}"));
-File.WriteAllText(editorConfigPath, string.Join('\n', lines) + "\n", new UTF8Encoding(false));
-Console.WriteLine($"Added {missing.Count} rules under `{marker}`. Edit each in place once decided.");
+File.WriteAllText(EditorConfigPath, string.Join('\n', lines) + "\n", new UTF8Encoding(false));
+Console.WriteLine($"Added {missing.Count} rules under `{Marker}`. Edit each in place once decided.");
 return 0;
 
 static bool IsAnalyzer(Type type, List<string> skipped) {
@@ -126,7 +139,7 @@ static bool IsAnalyzer(Type type, List<string> skipped) {
       return false;
     }
     for (var baseType = type.BaseType; baseType is not null; baseType = baseType.BaseType) {
-      if (baseType.FullName == "Microsoft.CodeAnalysis.Diagnostics.DiagnosticAnalyzer") {
+      if (baseType.FullName is "Microsoft.CodeAnalysis.Diagnostics.DiagnosticAnalyzer") {
         return true;
       }
     }
@@ -141,7 +154,7 @@ static object? Get(object target, string property)
   => target.GetType().GetProperty(property)!.GetValue(target);
 
 static string Run(string file, params string[] arguments) {
-  var info = new ProcessStartInfo(file) { RedirectStandardOutput = true, RedirectStandardError = true };
+  var info = new ProcessStartInfo(file) { RedirectStandardOutput = true, RedirectStandardError = true, UseShellExecute = false };
   foreach (var argument in arguments) {
     info.ArgumentList.Add(argument);
   }
@@ -149,21 +162,21 @@ static string Run(string file, params string[] arguments) {
   var output = process.StandardOutput.ReadToEnd();
   var error = process.StandardError.ReadToEnd();
   process.WaitForExit();
-  if (process.ExitCode != 0) {
+  if (process.ExitCode is not 0) {
     throw new InvalidOperationException($"{file} {string.Join(' ', arguments)} failed:\n{output}{error}");
   }
   return output;
 }
 
-record Rule(string Id, string Package, string Title, string DefaultSeverity, bool EnabledByDefault) {
+internal record Rule(string Id, string Package, string Title, string DefaultSeverity, bool EnabledByDefault) {
   // Roslynator's rules are switched to warning as a category in .editorconfig, so an enabled one is a warning today.
   public string CurrentSeverity()
-    => !EnabledByDefault ? "none"
-    : Package == "roslynator.analyzers" ? "warning"
-    : DefaultSeverity switch {
-      "Error" => "error",
-      "Warning" => "warning",
-      "Info" => "suggestion",
+    => (EnabledByDefault, Package, DefaultSeverity) switch {
+      (false, _, _) => "none",
+      (_, "roslynator.analyzers", _) => "warning",
+      (_, _, "Error") => "error",
+      (_, _, "Warning") => "warning",
+      (_, _, "Info") => "suggestion",
       _ => "silent",
     };
 
