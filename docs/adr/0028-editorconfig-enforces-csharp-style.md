@@ -9,7 +9,7 @@ C# style lived in prose (`.claude/rules/csharp.md`), where nothing checked it. `
 
 ## Decision
 
-- **`[*.cs]` in `.editorconfig` is the source of truth** for everything `dotnet format` supports. Every option we chose is set to `:warning`, so `dotnet format` applies it and `TreatWarningsAsErrors` fails the build on it. Run `dotnet format --verify-no-changes --severity warn` from `api/`.
+- **`[*.cs]` in `.editorconfig` is the source of truth** for everything `dotnet format` supports. Every option we chose is set to `:warning`, so `dotnet format` applies it and, with `EnforceCodeStyleInBuild` and `TreatWarningsAsErrors` set ([ADR 0030](0030-analyzers.md)), the build fails on it. Run `dotnet format --verify-no-changes --severity warn` from `api/`.
 - **Style:** K&R braces, `else`/`catch`/`finally` on the same line, braces not enforced, operators at the start of a wrapped line, `var` everywhere, expression-bodied members, collection expressions, ternaries for simple assignments (not returns, which would flag guard clauses), no redundant parentheses, no `this.`, accessibility modifiers always explicit, `using` outside the namespace with `System` first and no blank line between groups, and no blank line after `{`, `?`, `:`, or `=>`.
 - **Naming:** the rules in `csharp.md`, plus `Async` on `async` methods (public methods in `*Controller.cs`, and everything in `*.Tests.cs`, are exempt) and PascalCase local constants. MVC strips the `Async` suffix from action names, so a suffixed action would need `CreatedAtAction("Get", ...)` instead of `nameof(Get)`; public controller methods are exempt to avoid that.
 - **Cleanup rules** (unused usings, casts, private members, unreachable code, and the like) are warnings.

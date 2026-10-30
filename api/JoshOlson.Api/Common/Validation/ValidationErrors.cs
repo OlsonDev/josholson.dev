@@ -6,7 +6,8 @@ namespace JoshOlson.Api.Common.Validation;
 public sealed class ValidationErrors {
   private readonly Dictionary<string, List<string>> _errors = [];
 
-  public bool Any => _errors.Count > 0;
+  public bool Any
+    => _errors.Count > 0;
 
   public bool Has(string field)
     => _errors.ContainsKey(field);

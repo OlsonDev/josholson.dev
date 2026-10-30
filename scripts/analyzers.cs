@@ -22,7 +22,12 @@ if (mode is not ("check" or "add")) {
 }
 
 // The packages whose rules we decide, as they appear in the NuGet cache path.
-string[] packages = ["meziantou.analyzer", "microsoft.codeanalysis.bannedapianalyzers", "roslynator.analyzers"];
+string[] packages = [
+  "meziantou.analyzer",
+  "microsoft.codeanalysis.bannedapianalyzers",
+  "roslynator.analyzers",
+  "roslynator.formatting.analyzers",
+];
 
 var msbuild = Run("dotnet", "msbuild", Project, "-restore", "-t:ResolveLockFileAnalyzers",
   "-getProperty:RoslynTargetsPath", "-getItem:Analyzer");
@@ -47,7 +52,7 @@ AppDomain.CurrentDomain.AssemblyResolve += (_, resolve) => {
 var skipped = new List<string>();
 var rules = new SortedDictionary<string, Rule>(StringComparer.Ordinal);
 foreach (var dll in dllPaths.Where(path => Path.GetFileName(path) is var file
-    && !file.Contains("CodeFix", StringComparison.Ordinal) && !file.StartsWith("Roslynator_Analyzers_", StringComparison.Ordinal))) {
+    && !file.Contains("CodeFix", StringComparison.Ordinal) && !file.StartsWith("Roslynator_", StringComparison.Ordinal))) {
   var package = packages.First(package => dll.Contains($"/{package}/", StringComparison.Ordinal));
   var assembly = Assembly.LoadFrom(dll);
   Type?[] types;

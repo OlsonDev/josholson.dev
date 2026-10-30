@@ -230,9 +230,64 @@ dotnet_diagnostic.RCS1253.severity = none
 dotnet_diagnostic.RCS1255.severity = none
 dotnet_diagnostic.RCS1260.severity = none
 
+## Roslynator.Formatting.Analyzers: only the rules that place a token, since .editorconfig cannot (the rest are off)
+roslynator_conditional_operator_new_line = before
+roslynator_binary_operator_new_line = before
+roslynator_arrow_token_new_line = before
+dotnet_diagnostic.RCS0027.severity = warning
+dotnet_diagnostic.RCS0028.severity = warning
+dotnet_diagnostic.RCS0032.severity = warning
+dotnet_diagnostic.RCS0062.severity = warning
+
 ## Every analyzer rule, so an upgrade that adds one fails `mise run analyzers:check` until it is decided.
 ## `mise run analyzers:add` appends new rules below at what they do today; edit each in place.
 # analyzers:unreviewed
+dotnet_diagnostic.RCS0001.severity = none
+dotnet_diagnostic.RCS0002.severity = none
+dotnet_diagnostic.RCS0003.severity = none
+dotnet_diagnostic.RCS0005.severity = none
+dotnet_diagnostic.RCS0006.severity = none
+dotnet_diagnostic.RCS0007.severity = none
+dotnet_diagnostic.RCS0008.severity = none
+dotnet_diagnostic.RCS0009.severity = none
+dotnet_diagnostic.RCS0010.severity = none
+dotnet_diagnostic.RCS0011.severity = none
+dotnet_diagnostic.RCS0012.severity = none
+dotnet_diagnostic.RCS0013.severity = none
+dotnet_diagnostic.RCS0015.severity = none
+dotnet_diagnostic.RCS0016.severity = none
+dotnet_diagnostic.RCS0020.severity = none
+dotnet_diagnostic.RCS0021.severity = none
+dotnet_diagnostic.RCS0023.severity = none
+dotnet_diagnostic.RCS0024.severity = none
+dotnet_diagnostic.RCS0025.severity = none
+dotnet_diagnostic.RCS0029.severity = none
+dotnet_diagnostic.RCS0030.severity = none
+dotnet_diagnostic.RCS0031.severity = none
+dotnet_diagnostic.RCS0033.severity = none
+dotnet_diagnostic.RCS0034.severity = none
+dotnet_diagnostic.RCS0036.severity = none
+dotnet_diagnostic.RCS0039.severity = none
+dotnet_diagnostic.RCS0041.severity = none
+dotnet_diagnostic.RCS0042.severity = none
+dotnet_diagnostic.RCS0044.severity = none
+dotnet_diagnostic.RCS0045.severity = none
+dotnet_diagnostic.RCS0046.severity = none
+dotnet_diagnostic.RCS0048.severity = none
+dotnet_diagnostic.RCS0049.severity = none
+dotnet_diagnostic.RCS0050.severity = none
+dotnet_diagnostic.RCS0051.severity = none
+dotnet_diagnostic.RCS0052.severity = none
+dotnet_diagnostic.RCS0053.severity = none
+dotnet_diagnostic.RCS0054.severity = none
+dotnet_diagnostic.RCS0055.severity = none
+dotnet_diagnostic.RCS0056.severity = none
+dotnet_diagnostic.RCS0057.severity = none
+dotnet_diagnostic.RCS0058.severity = none
+dotnet_diagnostic.RCS0059.severity = none
+dotnet_diagnostic.RCS0060.severity = none
+dotnet_diagnostic.RCS0061.severity = none
+dotnet_diagnostic.RCS0063.severity = none
 dotnet_diagnostic.MA0001.severity = suggestion
 dotnet_diagnostic.MA0002.severity = warning
 dotnet_diagnostic.MA0003.severity = suggestion

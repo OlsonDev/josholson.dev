@@ -16,8 +16,8 @@ Formatting, language style, and naming live in `.editorconfig` (`[*.cs]`) and ar
 - Compare enums with `is`: `x is Foo.Bar or Foo.Baz`, even if there's a single comparison.
 - File-scoped namespaces. `Program.cs` uses top-level statements.
 - `async` methods end in `Async`, except public methods in controllers (`*Controller.cs`) and tests: actions are named for the route, and MVC strips the suffix from action names anyway. Local constants are PascalCase.
-- Expression-bodied members (`=>`) wherever the body is a single expression or statement: constructors, methods, properties. Put the `=>` on its own line below the signature, indented one level (`public Foo(Bar bar)` / `  => _bar = bar;`).
-- Prefer `switch` expressions and property patterns (`list is { Count: > 0 }`) where they read better.
+- Expression-bodied members (`=>`) wherever the body is a single expression or statement: constructors, methods, properties. Put the `=>` on its own line below the signature, indented one level (`public Foo(Bar bar)` / `  => _bar = bar;`). RCS0062 enforces it.
+- Choose between `switch`, `?:`, and `if` as described under "Choosing a branching form" below. Property patterns (`list is { Count: > 0 }`) read well wherever they replace a longer test.
 - `var` for locals. Target-typed `new()` for fields, properties, and arguments.
 - `required` and `init` on properties. We can relax them later, and tightening them later breaks callers. `required` only forces the caller to write the assignment; it says nothing about null, so `required string? Foo` is valid.
 - Raw string literals (`"""`) for multi-line text, especially embedded SQL.
@@ -28,10 +28,81 @@ Formatting, language style, and naming live in `.editorconfig` (`[*.cs]`) and ar
 - An injected `*Service` or `*Repository` is named for its type, not its role: field `_tagRepository`, constructor parameter and local `tagRepository`. Other dependencies keep short names (`_connection`).
 - Private instance fields are `_camelCase`. Private static and const fields are `_PascalCase`: the underscore says private, the capital says shared by every instance. Public and internal members are `PascalCase`; locals and parameters are `camelCase`. No `this.` unless required. `System` usings first, then the rest, each group alphabetical.
 - Trailing commas, never comma-first. Multi-line parameter lists, argument lists, initializers, anonymous objects, `switch` arms, and enum members put one item per line, each ending in a comma. The Roslyn formatter rewrites comma-first layouts in object and anonymous initializers, `switch` expressions, and enums, so it can't be applied consistently (SQL stays comma-first).
+- A wrapped ternary starts the `?` and `:` lines with the operator, never ends a line with one (RCS0028 enforces the side). A nested ternary is indented one step further than its parent; nothing enforces the indentation.
+
+  ```csharp
+  var foo = bar
+    ? baz
+    : qux
+      ? quux
+      : corge;
+  ```
+- A wrapped `||`/`&&` chain starts each line with the operator, dedented so the operand after it lines up with the first operand (the repeated `foo` below). No formatter or analyzer enforces this; it is a convention.
+
+  ```csharp
+  => foos.Any(foo => foo.Bar is "baz"
+                  || foo.Qux.EndsWith("quux", StringComparison.Ordinal)
+                  || foo is "corge");
+  ```
 - Keep lines to about 120 columns and wrap longer ones. This is a guideline, not enforced by a tool.
-- Analyzers (BannedApiAnalyzers, Meziantou, Roslynator) fail the build ([ADR 0030](../../docs/adr/0030-analyzers.md)). To allow one use, `#pragma warning disable <ID>` with a reason; to change a rule everywhere, edit `.editorconfig`.
+- Analyzers (BannedApiAnalyzers, Meziantou, Roslynator) fail the build ([ADR 0030](../../docs/adr/0030-analyzers.md)). The loose scripts and hooks follow the same rules and are checked by `mise run scripts:check`. To allow one use, `#pragma warning disable <ID>` with a reason; to change a rule everywhere, edit `.editorconfig`.
 - `api/JoshOlson.Api/BannedSymbols.txt` lists banned APIs (RS0030), each with the replacement as its message. Add to it rather than writing a rule here. Every overload needs its own line with a full signature; a type ban misses bare declarations. Time is NodaTime ([ADR 0029](../../docs/adr/0029-nodatime-for-time.md)).
 - Several lookups in a loop need a `Dictionary` or `ILookup`, not a scan per iteration. Compute an aggregate once into a named variable.
+
+## Choosing a branching form
+
+What decides it is what the arms test, not how many there are.
+
+- **`switch` expression** when every arm tests the same subject (one value, or a tuple of values) against constants, enum members, or patterns (type, property, relational). For an enum the compiler warns about a missing member. Never `switch` on a `bool`: that is a ternary written longer.
+- **Ternary**, nested when needed, when each arm asks a different question. A chain is also the better fit when the conditions are much longer than the outcomes: the outcomes line up under the `?` and `:`, where a `switch` would push the conditions into `when` guards. Each level is indented one step further.
+- **Merge shared outcomes.** If two branches of a chain produce the same outcome, join their conditions with `||` or `&&` instead of repeating the outcome.
+- **Named booleans** when a condition is compound and every part is cheap and safe to evaluate eagerly. If a later condition is only safe or worthwhile because an earlier one failed (a null check, an expensive call), keep it inline in the chain: a local would evaluate it too soon.
+- **`if`/`else`** when a branch has side effects or is a statement.
+
+No analyzer measures branch or condition length, so when a ternary has to wrap because a branch is long, that is a judgment call: prefer named booleans if they are safe, otherwise `if`/`else`.
+
+```csharp
+// Ternary: one condition, two short outcomes
+var foo = isBar ? "baz" : "qux";
+
+// Nested ternary: different questions, and the conditions are longer than the outcomes
+var foo = bar is null
+  ? "baz"
+  : bar.Items.Any(item => item.IsQux && item.Corge is not null)
+    ? "quux"
+    : "grault";
+
+// switch: every arm tests the same subject
+var foo = bar switch {
+  Bar.Baz => 1,
+  Bar.Qux or Bar.Quux => 2,
+  _ => 3,
+};
+
+// Avoid: a repeated outcome
+var foo = isBar ? "baz" : isQux ? "baz" : "quux";
+
+// Instead, merge the conditions
+var foo = isBar || isQux ? "baz" : "quux";
+
+// Avoid: a compound branch hides the logic
+var foo = isBar ? baz : !baz && (qux is null || qux.Contains(quux));
+
+// Instead, name the parts (cheap, and safe to evaluate eagerly)
+var isCorge = isBar == baz;
+var isGrault = qux is null || qux.Contains(quux);
+var foo = isCorge && isGrault;
+
+// Avoid: switch on a bool
+var foo = isBar switch { true => "baz", false => "qux" };
+
+// if/else: side effects
+if (isBar) {
+  baz.Add(qux);
+} else {
+  baz.Remove(qux);
+}
+```
 
 ## Data access
 
