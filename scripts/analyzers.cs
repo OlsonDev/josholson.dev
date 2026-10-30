@@ -159,7 +159,11 @@ static object? Get(object target, string property)
   => target.GetType().GetProperty(property)!.GetValue(target);
 
 static string Run(string file, params string[] arguments) {
-  var info = new ProcessStartInfo(file) { RedirectStandardOutput = true, RedirectStandardError = true, UseShellExecute = false };
+  var info = new ProcessStartInfo(file) {
+    RedirectStandardOutput = true,
+    RedirectStandardError = true,
+    UseShellExecute = false,
+  };
   foreach (var argument in arguments) {
     info.ArgumentList.Add(argument);
   }

@@ -13,7 +13,12 @@ public class TagControllerTests {
 
   private static TagRequest NewRequest(string? slug = null) {
     slug ??= $"test-{Guid.NewGuid():N}";
-    return new() { Name = slug, Slug = slug, Description = null, Color = null };
+    return new() {
+      Name = slug,
+      Slug = slug,
+      Description = null,
+      Color = null,
+    };
   }
 
   // Returns the new tag's URL from the Location header.
@@ -72,7 +77,12 @@ public class TagControllerTests {
     var cancellationToken = TestContext.Current.CancellationToken;
     await using var factory = CreateFactory();
     using var client = factory.CreateClient();
-    var request = new TagRequest { Name = " foo", Slug = "Not Kebab Case", Description = null, Color = "red" };
+    var request = new TagRequest {
+      Name = " foo",
+      Slug = "Not Kebab Case",
+      Description = null,
+      Color = "red",
+    };
 
     var response = await client.PostAsJsonAsync("/tags", request, cancellationToken);
 

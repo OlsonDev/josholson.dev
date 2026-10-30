@@ -52,7 +52,12 @@ public class PayloadValidatorTests {
     await using var provider = CreateProvider();
     var validator = provider.GetRequiredService<PayloadValidator>();
 
-    var errors = await validator.ValidateAsync(new Foo { Name = "ok", Level = 1 }, TestContext.Current.CancellationToken);
+    var foo = new Foo {
+      Name = "ok",
+      Level = 1,
+    };
+
+    var errors = await validator.ValidateAsync(foo, TestContext.Current.CancellationToken);
 
     Assert.False(errors.Any);
   }

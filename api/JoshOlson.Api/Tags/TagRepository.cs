@@ -114,7 +114,7 @@ public sealed class TagRepository {
       request.Name,
       request.Slug,
       request.Description,
-      request.Color
+      request.Color,
     };
     var cmd = new CommandDefinition(sql, parameters, cancellationToken: cancellationToken);
     return await _connection.QuerySingleAsync<int>(cmd);
@@ -134,7 +134,7 @@ public sealed class TagRepository {
       request.Name,
       request.Slug,
       request.Description,
-      request.Color
+      request.Color,
     };
     var cmd = new CommandDefinition(sql, parameters, cancellationToken: cancellationToken);
     return await _connection.ExecuteAsync(cmd) > 0;

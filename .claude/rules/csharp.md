@@ -28,6 +28,15 @@ Formatting, language style, and naming live in `.editorconfig` (`[*.cs]`) and ar
 - An injected `*Service` or `*Repository` is named for its type, not its role: field `_tagRepository`, constructor parameter and local `tagRepository`. Other dependencies keep short names (`_connection`).
 - Private instance fields are `_camelCase`. Private static and const fields are `_PascalCase`: the underscore says private, the capital says shared by every instance. Public and internal members are `PascalCase`; locals and parameters are `camelCase`. No `this.` unless required. `System` usings first, then the rest, each group alphabetical.
 - Trailing commas, never comma-first. Multi-line parameter lists, argument lists, initializers, anonymous objects, `switch` arms, and enum members put one item per line, each ending in a comma. The Roslyn formatter rewrites comma-first layouts in object and anonymous initializers, `switch` expressions, and enums, so it can't be applied consistently (SQL stays comma-first).
+- An object, anonymous-object, or collection initializer with two or more members is K&R: the `{` ends the first line, each member gets its own line starting on the second, and each ends in a comma. One member may stay on one line. `IDE0055` enforces the layout once an initializer spans lines, and `MA0007`/`RCS1260` enforce the comma; nothing yet enforces that two or more members span lines.
+
+  ```csharp
+  var foo = new Foo(bar) {
+    Baz = qux,
+    Quux = corge,
+  };
+  var grault = new Foo(bar) { Baz = qux };
+  ```
 - A wrapped ternary starts the `?` and `:` lines with the operator, never ends a line with one (RCS0028 enforces the side). A nested ternary is indented one step further than its parent; nothing enforces the indentation.
 
   ```csharp

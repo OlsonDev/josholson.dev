@@ -35,7 +35,12 @@ public class TagServiceTests {
     await using var provider = CreateProvider();
     using var scope = provider.CreateScope();
     var tagService = scope.ServiceProvider.GetRequiredService<TagService>();
-    var request = new TagRequest { Name = " foo", Slug = "Not Kebab", Description = "", Color = "red" };
+    var request = new TagRequest {
+      Name = " foo",
+      Slug = "Not Kebab",
+      Description = "",
+      Color = "red",
+    };
 
     var errors = await tagService.ValidateCreateAsync(request, cancellationToken);
 

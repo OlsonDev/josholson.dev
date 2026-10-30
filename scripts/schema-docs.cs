@@ -23,7 +23,7 @@ var connectionString = new NpgsqlConnectionStringBuilder {
   Username = Environment.GetEnvironmentVariable("POSTGRES_USER") ?? "josholson",
   Password = Environment.GetEnvironmentVariable("POSTGRES_PASSWORD"),
   Database = Environment.GetEnvironmentVariable("POSTGRES_DB") ?? "josholson",
-  SslMode = SslMode.Disable
+  SslMode = SslMode.Disable,
 }.ToString();
 
 Model model;
@@ -55,7 +55,7 @@ try {
   var diff = Process.Start(new ProcessStartInfo {
     FileName = "git",
     ArgumentList = { "diff", "--no-index", "--exit-code", DocPath, generated },
-    UseShellExecute = false
+    UseShellExecute = false,
   })!;
   diff.WaitForExit();
   if (diff.ExitCode is 0) Console.WriteLine($"{DocPath} is up to date.");
@@ -298,7 +298,7 @@ internal static class Renderer {
     ["jsonb"] = "datatype-json.html",
     ["inet"] = "datatype-net-types.html",
     ["cidr"] = "datatype-net-types.html",
-    ["xml"] = "datatype-xml.html"
+    ["xml"] = "datatype-xml.html",
   };
 
   private static readonly Dictionary<string, string> _ShortNames = new() {
@@ -308,7 +308,7 @@ internal static class Renderer {
     ["time without time zone"] = "TIME",
     ["character varying"] = "VARCHAR",
     ["character"] = "CHAR",
-    ["double precision"] = "FLOAT8"
+    ["double precision"] = "FLOAT8",
   };
 
   private static readonly HashSet<string> _Unlinked = [];
@@ -318,7 +318,7 @@ internal static class Renderer {
     ['r'] = "RESTRICT",
     ['c'] = "CASCADE",
     ['n'] = "SET NULL",
-    ['d'] = "SET DEFAULT"
+    ['d'] = "SET DEFAULT",
   };
 
   public static IEnumerable<(string Name, string Content)> Render(Model model) {
@@ -346,7 +346,7 @@ internal static class Renderer {
 
     page.Add("## Domains", "");
     page.Add(MdTable(["Domain", "Base type"], model.Domains.Select(d => new[] {
-      page.Link(Code(d.FullName), $"domain:{d.FullName}", $"domains.md#{Slug(d.FullName)}"), TypeCell(page, d.Base, model)
+      page.Link(Code(d.FullName), $"domain:{d.FullName}", $"domains.md#{Slug(d.FullName)}"), TypeCell(page, d.Base, model),
     })));
     page.Add("", "## Relations", "", "```mermaid", "erDiagram", "");
     foreach (var table in model.Tables) {
@@ -392,7 +392,7 @@ internal static class Renderer {
     var groups = new (string Title, char Kind, Func<Constraint, string> Definition)[] {
       ("Primary key", 'p', c => Code(string.Join(", ", c.Columns) + AfterColumns(c.Definition))),
       ("Unique constraints", 'u', c => Code(string.Join(", ", c.Columns) + AfterColumns(c.Definition))),
-      ("Check constraints", 'c', c => Code(CheckExpression(c.Definition)))
+      ("Check constraints", 'c', c => Code(CheckExpression(c.Definition))),
     };
     var constraintGroups = groups.Where(g => table.Constraints.Any(c => c.Kind == g.Kind)).ToList();
     if (constraintGroups.Count > 0) {
@@ -438,7 +438,7 @@ internal static class Renderer {
       var (table, fk, outgoing) = k;
       var row = new List<string> {
         Code(fk.Name), Code(string.Join(", ", fk.Columns)), TableLink(page, table.FullName),
-        Code(string.Join(", ", fk.RefColumns)), Code(_Actions[fk.OnDelete]), Code(_Actions[fk.OnUpdate])
+        Code(string.Join(", ", fk.RefColumns)), Code(_Actions[fk.OnDelete]), Code(_Actions[fk.OnUpdate]),
       };
       if (deferrable) row.Add(fk.Deferrable ? Code(fk.Deferred ? "INITIALLY DEFERRED" : "DEFERRABLE") : "");
       return row.ToArray();

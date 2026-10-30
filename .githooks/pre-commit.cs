@@ -45,7 +45,10 @@ static bool Passes(string failure, params string[] arguments) {
 }
 
 static string Git(string arguments) {
-  var startInfo = new ProcessStartInfo("git", arguments) { RedirectStandardOutput = true, UseShellExecute = false };
+  var startInfo = new ProcessStartInfo("git", arguments) {
+    RedirectStandardOutput = true,
+    UseShellExecute = false,
+  };
   using var process = Process.Start(startInfo)!;
   var output = process.StandardOutput.ReadToEnd().Trim();
   process.WaitForExit();

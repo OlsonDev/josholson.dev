@@ -21,7 +21,7 @@ public sealed class PostgresExceptionHandler : IExceptionHandler {
         => (StatusCodes.Status409Conflict, "The request conflicts with existing data."),
       PostgresException { SqlState: PostgresErrorCodes.CheckViolation }
         => (StatusCodes.Status422UnprocessableEntity, "A value is not valid."),
-      _ => (0, "")
+      _ => (0, ""),
     };
     if (status is 0) return false;
 
@@ -29,7 +29,7 @@ public sealed class PostgresExceptionHandler : IExceptionHandler {
     return await _problemDetailsService.TryWriteAsync(new() {
       HttpContext = httpContext,
       Exception = exception,
-      ProblemDetails = { Status = status, Title = title }
+      ProblemDetails = { Status = status, Title = title },
     });
   }
 }

@@ -176,6 +176,7 @@ dotnet_diagnostic.MA0155.severity = warning
 
 ## Roslynator.Analyzers: everything on, minus what contradicts a decision above or overlaps IDE/Meziantou options
 dotnet_analyzer_diagnostic.category-roslynator.severity = warning
+roslynator_trailing_comma_style = omit_when_single_line
 # Braces are not enforced (IDE0011), so neither direction of these
 dotnet_diagnostic.RCS1001.severity = none
 dotnet_diagnostic.RCS1002.severity = none
@@ -228,7 +229,7 @@ dotnet_diagnostic.RCS1250.severity = none
 dotnet_diagnostic.RCS1252.severity = none
 dotnet_diagnostic.RCS1253.severity = none
 dotnet_diagnostic.RCS1255.severity = none
-dotnet_diagnostic.RCS1260.severity = none
+dotnet_diagnostic.RCS1260.severity = warning
 
 ## Roslynator.Formatting.Analyzers: only the rules that place a token, since .editorconfig cannot (the rest are off)
 roslynator_conditional_operator_new_line = before
@@ -293,7 +294,7 @@ dotnet_diagnostic.MA0002.severity = warning
 dotnet_diagnostic.MA0003.severity = suggestion
 dotnet_diagnostic.MA0005.severity = warning
 dotnet_diagnostic.MA0006.severity = warning
-dotnet_diagnostic.MA0007.severity = suggestion
+dotnet_diagnostic.MA0007.severity = warning
 dotnet_diagnostic.MA0008.severity = warning
 dotnet_diagnostic.MA0009.severity = warning
 dotnet_diagnostic.MA0010.severity = warning

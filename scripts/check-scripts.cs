@@ -12,7 +12,11 @@ var entryPoints = new[] { "scripts", ".githooks" }
 
 var failed = 0;
 foreach (var path in entryPoints) {
-  var info = new ProcessStartInfo("dotnet") { RedirectStandardOutput = true, RedirectStandardError = true, UseShellExecute = false };
+  var info = new ProcessStartInfo("dotnet") {
+    RedirectStandardOutput = true,
+    RedirectStandardError = true,
+    UseShellExecute = false,
+  };
   foreach (var argument in new[] { "build", path, "--nologo", "-v:q" }) {
     info.ArgumentList.Add(argument);
   }
