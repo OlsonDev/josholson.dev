@@ -3,6 +3,7 @@
 // Run with: dotnet run .githooks/pre-commit.tests.cs
 
 #:include branch-name-validator.cs
+#:include analyzer-check-trigger.cs
 
 var tests = new List<TestCase> {
   // Valid cases
@@ -48,6 +49,32 @@ foreach (var test in tests) {
     Console.WriteLine($"  Input: \"{test.Input}\"");
     Console.WriteLine($"  Expected: {(test.ShouldPass ? "pass" : $"fail with \"{test.ExpectedError}\"")}");
     Console.WriteLine($"  Actual: {(success ? "passed" : $"failed with \"{error}\"")}");
+    countFailed++;
+  }
+}
+
+string[][] triggers = [
+  ["api/Directory.Packages.props"],
+  ["README.md", ".editorconfig"],
+  ["api/.editorconfig"],
+  ["api/JoshOlson.Api/JoshOlson.Api.csproj"],
+  ["api/Directory.Build.props"],
+  ["scripts/analyzers.cs"],
+];
+string[][] nonTriggers = [
+  [],
+  ["README.md"],
+  ["api/JoshOlson.Api/Tags/TagController.cs"],
+  ["scripts/missing-tests.cs"],
+  ["docs/editorconfig.md"],
+];
+foreach (var (paths, expected) in triggers.Select(paths => (paths, true)).Concat(nonTriggers.Select(paths => (paths, false)))) {
+  var needed = AnalyzerCheckTrigger.IsNeeded(paths);
+  if (needed == expected) {
+    Console.WriteLine($"✓ Analyzer check {(expected ? "runs" : "is skipped")} for [{string.Join(", ", paths)}]");
+    countPassed++;
+  } else {
+    Console.WriteLine($"✗ Analyzer check {(expected ? "should run" : "should be skipped")} for [{string.Join(", ", paths)}]");
     countFailed++;
   }
 }

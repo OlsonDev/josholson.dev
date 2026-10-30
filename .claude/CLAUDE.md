@@ -19,7 +19,7 @@ Personal website for Josh Olson: www.josholson.dev (SvelteKit SSR) and api.josho
 - `web/`: 🚧 not created yet
 - `mise.toml`: pinned tools (bun, dotnet, gh) and tasks. `tools/`: image for the dev `tools` container, which runs Waypoint (no Windows build)
 - `docs/schema/`: generated from the dev database (a page per table, domains, Mermaid ER diagrams). Never edit by hand; run `mise run schema:doc`. `scripts/`: repo tooling as .NET file-based apps (`schema-docs.cs` builds those docs)
-- `.githooks/`: `commit-msg` (gitmoji format check) and `pre-commit` (branch name check) hooks, .NET file-based apps
+- `.githooks/`: `commit-msg` (gitmoji format check) and `pre-commit` (branch name check, and the analyzer rule check when packages or `.editorconfig` are staged) hooks, .NET file-based apps
 - `docs/`: architecture, database, seeding, product, and `adr/` decision records
 - `.claude/rules/`: conventions, loaded when matching files are touched
 - `.claude/settings.json` and `.claude/hooks/`: hooks that keep Claude from committing (see Commits)
