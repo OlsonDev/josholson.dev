@@ -63,3 +63,12 @@ _.file = ".env"
 [tasks."test:missing"]
 description = "List api source files with no sibling *.Tests.cs"
 run = "dotnet run scripts/missing-tests.cs"
+
+# Every rule in the analyzer packages must have a severity in .editorconfig (ADR 0030). Reads the restored packages.
+[tasks."analyzers:check"]
+description = "Fail if an installed analyzer rule has no severity in .editorconfig"
+run = "dotnet run scripts/analyzers.cs -- check"
+
+[tasks."analyzers:add"]
+description = "Append analyzer rules missing from .editorconfig, at what they do today"
+run = "dotnet run scripts/analyzers.cs -- add"

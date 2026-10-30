@@ -73,6 +73,12 @@ mise run test:missing
 
 Publish the API with `-p:IncludeTests=false` so no test code ships.
 
+Check that every rule in the analyzer packages has a severity in `.editorconfig` (run after any package upgrade; `mise run analyzers:add` appends the missing ones, ADR 0030):
+
+```
+mise run analyzers:check
+```
+
 Test the hooks' validators: `dotnet run .githooks/commit-msg.tests.cs` and `dotnet run .githooks/pre-commit.tests.cs`
 
 🚧 Seed and lint commands will go here.
