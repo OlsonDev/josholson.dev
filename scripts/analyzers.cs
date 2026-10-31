@@ -89,7 +89,7 @@ if (rules.Count is 0) {
   return 2;
 }
 
-var lines = File.ReadAllLines(EditorConfigPath).ToList();
+var lines = (await File.ReadAllLinesAsync(EditorConfigPath, CancellationToken.None)).ToList();
 var severityLine = new Regex(@"^\s*dotnet_diagnostic\.(?<id>[A-Za-z]+[0-9]+)\.severity\s*=", RegexOptions.ExplicitCapture, TimeSpan.FromSeconds(1));
 var configured = lines.Select(line => severityLine.Match(line)).Where(match => match.Success)
   .Select(match => match.Groups["id"].Value).ToHashSet(StringComparer.Ordinal);
@@ -134,7 +134,8 @@ if (at < 0) {
   return 2;
 }
 lines.InsertRange(at + 1, missing.Select(rule => $"dotnet_diagnostic.{rule.Id}.severity = {rule.CurrentSeverity()}"));
-File.WriteAllText(EditorConfigPath, string.Join('\n', lines) + "\n", new UTF8Encoding(false));
+await File.WriteAllTextAsync(
+  EditorConfigPath, string.Join('\n', lines) + "\n", new UTF8Encoding(false), CancellationToken.None);
 Console.WriteLine($"Added {missing.Count} rules under `{Marker}`. Edit each in place once decided.");
 return 0;
 

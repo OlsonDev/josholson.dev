@@ -3,6 +3,7 @@
 // run on them (ADR 0030). `dotnet format` cannot open file-based apps, so this build is the check. Run through mise:
 //   mise run scripts:check
 using System.Diagnostics;
+using System.Globalization;
 
 var entryPoints = new[] { "scripts", ".githooks" }
   .SelectMany(directory => Directory.EnumerateFiles(directory, "*.cs"))
@@ -36,5 +37,6 @@ foreach (var path in entryPoints) {
   }
 }
 
-Console.WriteLine($"{entryPoints.Count - failed} of {entryPoints.Count} scripts pass.");
+Console.WriteLine(
+  string.Create(CultureInfo.InvariantCulture, $"{entryPoints.Count - failed} of {entryPoints.Count} scripts pass."));
 return failed > 0 ? 1 : 0;

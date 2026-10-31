@@ -4,6 +4,8 @@ using Xunit;
 namespace JoshOlson.Api.Common.DependencyInjection;
 
 public class ConventionRegistrationTests {
+  // Fixtures the convention scan registers or rejects. They have no members, so they are not meant to be static.
+#pragma warning disable MA0036
   public interface IFooService;
   public sealed class FooService : IFooService;
   public sealed class BarRepository;
@@ -13,6 +15,7 @@ public class ConventionRegistrationTests {
   public abstract class CorgeService;
   public sealed class GraultService<T>;
   public static class GarplyService;
+#pragma warning restore MA0036
 
   [Fact]
   public void RegistersMatchingClassesAsScopedSelf() {

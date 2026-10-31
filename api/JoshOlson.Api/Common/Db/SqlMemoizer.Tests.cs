@@ -1,3 +1,4 @@
+using System.Globalization;
 using Xunit;
 
 namespace JoshOlson.Api.Common.Db;
@@ -45,7 +46,7 @@ public class SqlMemoizerTests {
 
   [Fact]
   public void ForValues_FourValues_PassesThemInOrder() {
-    var memoizer = new SqlMemoizer<bool, int, Foo, bool>((a, b, c, d) => $"{a}/{b}/{c}/{d}");
+    var memoizer = new SqlMemoizer<bool, int, Foo, bool>((a, b, c, d) => $"{a}/{b.ToString(CultureInfo.InvariantCulture)}/{c}/{d}");
 
     Assert.Equal("True/7/Baz/False", memoizer.ForValues(true, 7, Foo.Baz, false));
   }
@@ -54,7 +55,7 @@ public class SqlMemoizerTests {
   public async Task ForValues_Concurrent_ReturnsOneValuePerCombination() {
     var memoizer = new SqlMemoizer<bool>(flag => new string('x', flag ? 2 : 1));
 
-    var results = await Task.WhenAll(Enumerable.Range(0, 50).Select(_ => Task.Run(() => memoizer.ForValues(true))));
+    var results = await Task.WhenAll(Enumerable.Range(0, 50).Select(_ => Task.Run(() => memoizer.ForValues(true), TestContext.Current.CancellationToken)));
 
     Assert.All(results, result => Assert.Equal("xx", result));
   }

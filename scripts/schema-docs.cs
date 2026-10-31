@@ -37,7 +37,8 @@ var generated = Path.Combine(work, "generated");
 Directory.CreateDirectory(generated);
 try {
   foreach (var (name, content) in Renderer.Render(model)) {
-    File.WriteAllText(Path.Combine(generated, name), content, new UTF8Encoding(false));
+    await File.WriteAllTextAsync(
+      Path.Combine(generated, name), content, new UTF8Encoding(false), CancellationToken.None);
   }
 
   if (string.Equals(mode, "doc", StringComparison.Ordinal)) {
@@ -57,7 +58,7 @@ try {
     ArgumentList = { "diff", "--no-index", "--exit-code", DocPath, generated },
     UseShellExecute = false,
   })!;
-  diff.WaitForExit();
+  await diff.WaitForExitAsync(CancellationToken.None);
   if (diff.ExitCode is 0) Console.WriteLine($"{DocPath} is up to date.");
   else if (diff.ExitCode is 1) Console.Error.WriteLine($"{DocPath} is out of date. Run: mise run schema:doc");
   return diff.ExitCode;

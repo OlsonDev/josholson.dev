@@ -4,6 +4,8 @@
 
 #:include commit-msg-validator.cs
 
+using System.Globalization;
+
 var tests = new List<TestCase> {
   // Valid cases
   CommitMsg.Valid("single emoji", "✨ Add new feature"),
@@ -53,7 +55,8 @@ foreach (var test in tests) {
 }
 
 Console.WriteLine();
-Console.WriteLine($"Results: {countPassed} passed, {countFailed} failed");
+Console.WriteLine(
+  string.Create(CultureInfo.InvariantCulture, $"Results: {countPassed} passed, {countFailed} failed"));
 
 return countFailed > 0 ? 1 : 0;
 

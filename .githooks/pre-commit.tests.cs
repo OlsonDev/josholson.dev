@@ -5,6 +5,8 @@
 #:include branch-name-validator.cs
 #:include analyzer-check-trigger.cs
 
+using System.Globalization;
+
 var tests = new List<TestCase> {
   // Valid cases
   BranchName.Valid("main", "main"),
@@ -106,7 +108,8 @@ foreach (var (paths, expected) in scriptTriggers.Select(paths => (paths, true)).
 }
 
 Console.WriteLine();
-Console.WriteLine($"Results: {countPassed} passed, {countFailed} failed");
+Console.WriteLine(
+  string.Create(CultureInfo.InvariantCulture, $"Results: {countPassed} passed, {countFailed} failed"));
 
 return countFailed > 0 ? 1 : 0;
 

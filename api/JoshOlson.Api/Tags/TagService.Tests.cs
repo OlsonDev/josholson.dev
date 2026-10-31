@@ -33,7 +33,7 @@ public class TagServiceTests {
   public async Task ValidateCreateAsync_ReportsEveryFieldError() {
     var cancellationToken = TestContext.Current.CancellationToken;
     await using var provider = CreateProvider();
-    using var scope = provider.CreateScope();
+    await using var scope = provider.CreateAsyncScope();
     var tagService = scope.ServiceProvider.GetRequiredService<TagService>();
     var request = new TagRequest {
       Name = " foo",
@@ -51,7 +51,7 @@ public class TagServiceTests {
   public async Task ValidateCreateAsync_TakenNameAndSlug_AreReported() {
     var cancellationToken = TestContext.Current.CancellationToken;
     await using var provider = CreateProvider();
-    using var scope = provider.CreateScope();
+    await using var scope = provider.CreateAsyncScope();
     var tagService = scope.ServiceProvider.GetRequiredService<TagService>();
     var request = NewRequest();
     var tagId = await tagService.CreateAsync(request, cancellationToken);
@@ -68,7 +68,7 @@ public class TagServiceTests {
   public async Task ValidateUpdateAsync_OwnNameAndSlug_AreNotTaken() {
     var cancellationToken = TestContext.Current.CancellationToken;
     await using var provider = CreateProvider();
-    using var scope = provider.CreateScope();
+    await using var scope = provider.CreateAsyncScope();
     var tagService = scope.ServiceProvider.GetRequiredService<TagService>();
     var request = NewRequest();
     var tagId = await tagService.CreateAsync(request, cancellationToken);
