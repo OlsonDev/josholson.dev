@@ -3,10 +3,13 @@ CREATE SCHEMA auth;
 CREATE TABLE auth.user (
     user_id       INT           NOT NULL GENERATED ALWAYS AS IDENTITY
   , display_name  text.trimmed  NOT NULL
+  , user_handle   BYTEA         NOT NULL
   , is_active     BOOLEAN       NOT NULL DEFAULT TRUE
   , created_utc   TIMESTAMPTZ   NOT NULL DEFAULT now()
 
   , CONSTRAINT pk_user PRIMARY KEY (user_id)
+  , CONSTRAINT uq_user_user_handle UNIQUE (user_handle)
+  , CONSTRAINT ck_user_user_handle_length CHECK (octet_length(user_handle) BETWEEN 16 AND 64)
 );
 
 CREATE TABLE auth.user_email (
@@ -32,26 +35,30 @@ CREATE UNIQUE INDEX ux_user_email_one_primary_per_user
 CREATE INDEX ix_user_email_user_id
   ON auth.user_email (user_id);
 
-CREATE TABLE auth.identity (
-    identity_id    INT           NOT NULL GENERATED ALWAYS AS IDENTITY
-  , user_id        INT           NOT NULL
-  , provider       text.trimmed  NOT NULL
-  , subject        text.trimmed  NOT NULL
-  , password_hash  text.trimmed      NULL
-  , data           jsonb.object  NOT NULL DEFAULT '{}'
-  , created_utc    TIMESTAMPTZ   NOT NULL DEFAULT now()
-  , last_used_utc  TIMESTAMPTZ       NULL
+CREATE TABLE auth.passkey (
+    passkey_id          INT           NOT NULL GENERATED ALWAYS AS IDENTITY
+  , user_id             INT           NOT NULL
+  , credential_id       BYTEA         NOT NULL
+  , public_key          BYTEA         NOT NULL
+  , sign_count          BIGINT        NOT NULL DEFAULT 0
+  , transports          SMALLINT[]    NOT NULL DEFAULT '{}'
+  , is_backup_eligible  BOOLEAN       NOT NULL
+  , is_backed_up        BOOLEAN       NOT NULL
+  , nickname            text.trimmed  NOT NULL
+  , created_utc         TIMESTAMPTZ   NOT NULL DEFAULT now()
+  , last_used_utc       TIMESTAMPTZ       NULL
 
-  , CONSTRAINT pk_identity PRIMARY KEY (identity_id)
-  , CONSTRAINT uq_identity_provider_subject UNIQUE (provider, subject)
-  , CONSTRAINT fk_identity__user FOREIGN KEY (user_id) REFERENCES auth.user (user_id) ON DELETE CASCADE
-  , CONSTRAINT ck_identity_provider_lowercase           CHECK (provider = lower(provider))
-  , CONSTRAINT ck_identity_password_requires_hash       CHECK (provider != 'password' OR password_hash IS NOT NULL)
-  , CONSTRAINT ck_identity_last_used_not_before_created CHECK (last_used_utc >= created_utc)
+  , CONSTRAINT pk_passkey PRIMARY KEY (passkey_id)
+  , CONSTRAINT uq_passkey_credential_id UNIQUE (credential_id)
+  , CONSTRAINT uq_passkey_user_id_nickname UNIQUE (user_id, nickname)
+  , CONSTRAINT fk_passkey__user FOREIGN KEY (user_id) REFERENCES auth.user (user_id) ON DELETE CASCADE
+  , CONSTRAINT ck_passkey_credential_id_length         CHECK (octet_length(credential_id) BETWEEN 16 AND 1023)
+  , CONSTRAINT ck_passkey_sign_count_range             CHECK (sign_count BETWEEN 0 AND 4294967295)
+  , CONSTRAINT ck_passkey_transports_range             CHECK (transports <@ ARRAY[1, 2, 3, 4, 5, 6]::SMALLINT[])
+  , CONSTRAINT ck_passkey_transports_no_nulls          CHECK (array_position(transports, NULL) IS NULL)
+  , CONSTRAINT ck_passkey_backed_up_requires_eligible  CHECK (NOT is_backed_up OR is_backup_eligible)
+  , CONSTRAINT ck_passkey_last_used_not_before_created CHECK (last_used_utc >= created_utc)
 );
-
-CREATE INDEX ix_identity_user_id
-  ON auth.identity (user_id);
 
 CREATE TABLE auth.session (
     session_id     INT           NOT NULL GENERATED ALWAYS AS IDENTITY

@@ -50,3 +50,4 @@ Template:
 - [0028](0028-editorconfig-enforces-csharp-style.md): `.editorconfig` enforces C# style; top-level `Program.cs`
 - [0029](0029-nodatime-for-time.md): NodaTime for time in the API
 - [0030](0030-analyzers.md): BannedApiAnalyzers, Meziantou.Analyzer, and Roslynator
+- [0031](0031-three-passkeys-and-phone-registration.md): Sign in with Red, Purple, or a phone; register the phone from a signed-in page (Proposed)

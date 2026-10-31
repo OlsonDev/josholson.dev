@@ -30,6 +30,7 @@ Tables, columns, constraints, indexes, and relation diagrams are generated from 
   | `resume.publication.type` | 1 Article, 2 Book, 3 Paper, 4 Talk, 5 Other |
   | `resume.language.proficiency` | 1 A1, 2 A2, 3 B1, 4 B2, 5 C1, 6 C2, 7 Native |
   | `resume.project.status` | 1 Active, 2 Paused, 3 Archived |
+  | `auth.passkey.transports` (array) | 1 Usb, 2 Nfc, 3 Ble, 4 Hybrid, 5 Internal, 6 SmartCard |
 - **Reference data** is in a repeatable migration, not in seeds ([ADR 0009](adr/0009-reference-data-in-repeatable-migrations.md)). Upserts never delete, and they burn identity values on rerun.
 
 ## Not decided yet
@@ -37,5 +38,4 @@ Tables, columns, constraints, indexes, and relation diagrams are generated from 
 - `sort_order` strategy. Currently `INT`. Options: integers with gaps, fractional-index strings (`TEXT COLLATE "C"`), or rewrite the whole ordered list in one statement.
 - Skill usage periods (a `daterange` with `WITHOUT OVERLAPS`) to derive years used, instead of `first_used` and `last_used`.
 - What maintains `updated_utc` columns: the app, a trigger, or history tracking.
-- Passkey fields for `auth.identity` (currently a `data JSONB` column).
 - Whether an alias may equal another tag's name (nothing enforces this today).

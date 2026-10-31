@@ -4,9 +4,9 @@
 
 | Table                                      | Columns |
 | ------------------------------------------ | ------: |
-| [`auth.identity`][table:auth.identity]     |       8 |
+| [`auth.passkey`][table:auth.passkey]       |      11 |
 | [`auth.session`][table:auth.session]       |       8 |
-| [`auth.user`][table:auth.user]             |       4 |
+| [`auth.user`][table:auth.user]             |       5 |
 | [`auth.user_email`][table:auth.user_email] |       6 |
 
 ## blob
@@ -79,7 +79,7 @@
 ```mermaid
 erDiagram
 
-"auth.identity" }o--|| "auth.user" : "user_id"
+"auth.passkey" }o--|| "auth.user" : "user_id"
 "auth.session" }o--|| "auth.user" : "user_id"
 "auth.user_email" }o--|| "auth.user" : "user_id"
 "blob.blob" }o--|| "blob.mime_type" : "mime_type_id"
@@ -132,7 +132,7 @@ erDiagram
 [pg:bytea]: https://www.postgresql.org/docs/19/datatype-binary.html
 [pg:jsonb]: https://www.postgresql.org/docs/19/datatype-json.html
 [pg:text]: https://www.postgresql.org/docs/19/datatype-character.html
-[table:auth.identity]: auth.identity.md
+[table:auth.passkey]: auth.passkey.md
 [table:auth.session]: auth.session.md
 [table:auth.user]: auth.user.md
 [table:auth.user_email]: auth.user_email.md

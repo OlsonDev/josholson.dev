@@ -75,6 +75,7 @@ erDiagram
 "auth.user" {
   INTEGER user_id PK
   text.trimmed display_name
+  BYTEA user_handle UK
   BOOLEAN is_active
   TIMESTAMPTZ created_utc
 }

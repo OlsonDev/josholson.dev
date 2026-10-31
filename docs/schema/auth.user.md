@@ -6,6 +6,7 @@
 | -------------- | -------------------------------------------- | ---------: | ------------------------------ |
 | `user_id`      | [`INTEGER`][pg:integer]                      | `NOT NULL` | `GENERATED ALWAYS AS IDENTITY` |
 | `display_name` | [`text.trimmed`][domain:text.trimmed]        | `NOT NULL` |                                |
+| `user_handle`  | [`BYTEA`][pg:bytea]                          | `NOT NULL` |                                |
 | `is_active`    | [`BOOLEAN`][pg:boolean]                      | `NOT NULL` | `true`                         |
 | `created_utc`  | [`TIMESTAMPTZ`][pg:timestamp-with-time-zone] | `NOT NULL` | `now()`                        |
 
@@ -17,13 +18,25 @@
 | --------- | ---------- |
 | `pk_user` | `user_id`  |
 
+### Unique constraints
+
+| Name                  | Definition    |
+| --------------------- | ------------- |
+| `uq_user_user_handle` | `user_handle` |
+
+### Check constraints
+
+| Name                         | Definition                                                                |
+| ---------------------------- | ------------------------------------------------------------------------- |
+| `ck_user_user_handle_length` | `(octet_length(user_handle) >= 16) AND (octet_length(user_handle) <= 64)` |
+
 ## Relations
 
 ### Incoming foreign keys
 
 | Name                  | Columns   | Table                                      | Ref Columns | On Delete | On Update   |
 | --------------------- | --------- | ------------------------------------------ | ----------- | --------- | ----------- |
-| `fk_identity__user`   | `user_id` | [`auth.identity`][table:auth.identity]     | `user_id`   | `CASCADE` | `NO ACTION` |
+| `fk_passkey__user`    | `user_id` | [`auth.passkey`][table:auth.passkey]       | `user_id`   | `CASCADE` | `NO ACTION` |
 | `fk_session__user`    | `user_id` | [`auth.session`][table:auth.session]       | `user_id`   | `CASCADE` | `NO ACTION` |
 | `fk_user_email__user` | `user_id` | [`auth.user_email`][table:auth.user_email] | `user_id`   | `CASCADE` | `NO ACTION` |
 
@@ -32,24 +45,28 @@
 ```mermaid
 erDiagram
 
-"auth.identity" }o--|| "auth.user" : "user_id"
+"auth.passkey" }o--|| "auth.user" : "user_id"
 "auth.session" }o--|| "auth.user" : "user_id"
 "auth.user_email" }o--|| "auth.user" : "user_id"
 
 "auth.user" {
   INTEGER user_id PK
   text.trimmed display_name
+  BYTEA user_handle UK
   BOOLEAN is_active
   TIMESTAMPTZ created_utc
 }
 
-"auth.identity" {
-  INTEGER identity_id PK
+"auth.passkey" {
+  INTEGER passkey_id PK
   INTEGER user_id FK
-  text.trimmed provider
-  text.trimmed subject
-  text.trimmed password_hash
-  jsonb.object data
+  BYTEA credential_id UK
+  BYTEA public_key
+  BIGINT sign_count
+  SMALLINT[] transports
+  BOOLEAN is_backup_eligible
+  BOOLEAN is_backed_up
+  text.trimmed nickname
   TIMESTAMPTZ created_utc
   TIMESTAMPTZ last_used_utc
 }
@@ -81,8 +98,9 @@ erDiagram
 
 [domain:text.trimmed]: domains.md#texttrimmed
 [pg:boolean]: https://www.postgresql.org/docs/19/datatype-boolean.html
+[pg:bytea]: https://www.postgresql.org/docs/19/datatype-binary.html
 [pg:integer]: https://www.postgresql.org/docs/19/datatype-numeric.html#DATATYPE-INT
 [pg:timestamp-with-time-zone]: https://www.postgresql.org/docs/19/datatype-datetime.html
-[table:auth.identity]: auth.identity.md
+[table:auth.passkey]: auth.passkey.md
 [table:auth.session]: auth.session.md
 [table:auth.user_email]: auth.user_email.md
