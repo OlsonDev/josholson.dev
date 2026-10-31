@@ -29,8 +29,14 @@ string[] packages = [
   "roslynator.formatting.analyzers",
 ];
 
-var msbuild = Run("dotnet", "msbuild", Project, "-restore", "-t:ResolveLockFileAnalyzers",
-  "-getProperty:RoslynTargetsPath", "-getItem:Analyzer");
+var msbuild = Run(
+  "dotnet",
+  "msbuild",
+  Project,
+  "-restore",
+  "-t:ResolveLockFileAnalyzers",
+  "-getProperty:RoslynTargetsPath",
+  "-getItem:Analyzer");
 using var json = JsonDocument.Parse(msbuild[msbuild.IndexOf('{')..]);
 var roslynRoot = Path.GetFullPath(json.RootElement.GetProperty("Properties").GetProperty("RoslynTargetsPath").GetString()!);
 var roslynDirectory = Path.Combine(roslynRoot, "bincore");
@@ -135,7 +141,10 @@ if (at < 0) {
 }
 lines.InsertRange(at + 1, missing.Select(rule => $"dotnet_diagnostic.{rule.Id}.severity = {rule.CurrentSeverity()}"));
 await File.WriteAllTextAsync(
-  EditorConfigPath, string.Join('\n', lines) + "\n", new UTF8Encoding(false), CancellationToken.None);
+  EditorConfigPath,
+  string.Join('\n', lines) + "\n",
+  new UTF8Encoding(false),
+  CancellationToken.None);
 Console.WriteLine($"Added {missing.Count} rules under `{Marker}`. Edit each in place once decided.");
 return 0;
 

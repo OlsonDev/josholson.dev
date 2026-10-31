@@ -18,7 +18,9 @@ public sealed class AuthUserRepository {
   // The one place the select list lives. `onCondition` is SQL the code wrote, never request data; values go in
   // `parameters`.
   private async Task<AuthUser?> GetByConditionAsync(
-    string onCondition, object parameters, CancellationToken cancellationToken
+    string onCondition,
+    object parameters,
+    CancellationToken cancellationToken
   ) {
     var sql = $"""
       SELECT

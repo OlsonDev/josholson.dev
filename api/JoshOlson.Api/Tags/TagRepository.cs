@@ -47,7 +47,10 @@ public sealed class TagRepository {
   // exceptTagId is the tag being updated, so it does not collide with itself; null means no tag is excluded (a create).
   // Names are unique ignoring case.
   public async Task<(bool IsSlugTaken, bool IsNameTaken)> CheckTakenAsync(
-    string? slugToCheck, string? nameToCheck, int? exceptTagId, CancellationToken cancellationToken
+    string? slugToCheck,
+    string? nameToCheck,
+    int? exceptTagId,
+    CancellationToken cancellationToken
   ) {
     if (slugToCheck is null && nameToCheck is null) return (false, false);
 

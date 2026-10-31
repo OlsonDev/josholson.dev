@@ -86,6 +86,12 @@ Build every loose script with the style rules and analyzers on (`dotnet format` 
 mise run scripts:check
 ```
 
+Check that no wrapped list (arguments, parameters, initializers) has several items on one line ([csharp.md](rules/csharp.md), the "Lists" bullet):
+
+```
+mise run lists:check
+```
+
 Test the hooks' validators: `dotnet run .githooks/commit-msg.tests.cs` and `dotnet run .githooks/pre-commit.tests.cs`
 
 🚧 Seed and lint commands will go here.

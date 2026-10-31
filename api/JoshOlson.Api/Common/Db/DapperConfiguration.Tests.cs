@@ -18,7 +18,11 @@ public class DapperConfigurationTests {
     await using var connection = await TestDatabase.DataSource.OpenConnectionAsync(cancellationToken);
     var instant = Instant.FromUtc(2026, 10, 30, 12, 34, 56);
     var parameters = new { instant };
-    var sql = "SELECT @instant::timestamptz;";
+    var sql = """
+      SELECT
+          @instant::timestamptz  AS instant
+      FROM (SELECT) AS _;
+      """;
 
     Assert.Equal(instant, await connection.QuerySingleAsync<Instant>(sql, parameters, cancellationToken));
   }
@@ -28,7 +32,12 @@ public class DapperConfigurationTests {
     var cancellationToken = TestContext.Current.CancellationToken;
     await using var connection = await TestDatabase.DataSource.OpenConnectionAsync(cancellationToken);
     var parameters = new { instant = (Instant?)null };
-    var sql = "SELECT 7 AS foo_bar, @instant::timestamptz AS baz_qux;";
+    var sql = """
+      SELECT
+          7                      AS foo_bar
+        , @instant::timestamptz  AS baz_qux
+      FROM (SELECT) AS _;
+      """;
 
     var row = await connection.QuerySingleAsync<Row>(sql, parameters, cancellationToken);
 
@@ -42,7 +51,12 @@ public class DapperConfigurationTests {
     await using var connection = await TestDatabase.DataSource.OpenConnectionAsync(cancellationToken);
     var instant = Instant.FromUtc(2026, 10, 30, 12, 34, 56);
     var parameters = new { instant };
-    var sql = "SELECT 7 AS foo_bar, @instant::timestamptz AS baz_qux;";
+    var sql = """
+      SELECT
+          7                      AS foo_bar
+        , @instant::timestamptz  AS baz_qux
+      FROM (SELECT) AS _;
+      """;
 
     var row = await connection.QuerySingleAsync<Row>(sql, parameters, cancellationToken);
 

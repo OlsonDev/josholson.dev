@@ -20,7 +20,9 @@ public sealed class PasskeyRepository {
   // The one place the select list lives. `onCondition` is SQL the code wrote, never request data; values go in
   // `parameters`. Ordered by creation then key, so a list is stable.
   private async Task<IReadOnlyList<Passkey>> GetAllByConditionAsync(
-    string onCondition, object parameters, CancellationToken cancellationToken
+    string onCondition,
+    object parameters,
+    CancellationToken cancellationToken
   ) {
     var sql = $"""
       SELECT
@@ -81,7 +83,11 @@ public sealed class PasskeyRepository {
 
   // After a successful sign-in: the new counter, the sync state the authenticator reported, and when.
   public async Task<bool> RecordUseAsync(
-    int passkeyId, long signCount, bool isBackedUp, Instant usedUtc, CancellationToken cancellationToken
+    int passkeyId,
+    long signCount,
+    bool isBackedUp,
+    Instant usedUtc,
+    CancellationToken cancellationToken
   ) {
     var sql = """
       UPDATE auth.passkey AS p SET

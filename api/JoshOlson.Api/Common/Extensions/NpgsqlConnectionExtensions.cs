@@ -22,7 +22,9 @@ public static class NpgsqlConnectionExtensions {
         new CommandDefinition(sql, parameters, cancellationToken: cancellationToken));
 
     public Task<SqlMapper.GridReader> QueryMultipleAsync(
-      string sql, object? parameters, CancellationToken cancellationToken
+      string sql,
+      object? parameters,
+      CancellationToken cancellationToken
     )
       => connection.QueryMultipleAsync(new CommandDefinition(sql, parameters, cancellationToken: cancellationToken));
 
