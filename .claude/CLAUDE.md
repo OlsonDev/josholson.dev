@@ -104,6 +104,7 @@ Test the hooks' validators: `dotnet run .githooks/commit-msg.tests.cs` and `dotn
 - Reference data (mime types, extensions) belongs in repeatable migrations, never in seeds.
 - Examples that illustrate a convention, in any rule, doc, or language (SQL, C#, TypeScript), use metasyntactic names (`foo`, `bar`, `baz`, `qux`, `quux`, `corge`, `grault`, `garply`, `waldo`, `fred`, `plugh`, `xyzzy`, `thud`) for tables, columns, types, and members. Real names go stale: a table may last for years while its definition changes, so an example must not snapshot it. Use a real name only when the example is unlikely to need maintenance, such as an ADR naming the thing it decides about. Real names otherwise belong in a clearly labeled reference, such as the domains list in `sql.md` or `docs/database.md`.
 - Never load `compose.dev.yaml` on the server.
+- Never refer to an ADR by number alone, in chat or in files. Follow the number with a short parenthetical saying what it decides, or use the topic instead: "ADR 0030 (analyzer packages)", not "ADR 0030". Numbers are arbitrary and there will be many. Link text in `docs/adr/` indexes and cross-references counts if it names the topic.
 - Record significant decisions as a new ADR in `docs/adr/` instead of expanding this file.
 
 ## Commits
