@@ -9,19 +9,21 @@ namespace JoshOlson.Api.Common.DependencyInjection;
 public static class ConventionRegistration {
   private static readonly string[] _Suffixes = ["Service", "Repository"];
 
-  // Scans the whole assembly. Nested types are skipped, so test fixtures can live inside test classes.
-  public static IServiceCollection AddServicesAndRepositories(this IServiceCollection services)
-    => services.AddServicesAndRepositories(Assembly.GetExecutingAssembly().GetTypes().Where(type => !type.IsNested));
+  extension(IServiceCollection services) {
+    // Scans the whole assembly. Nested types are skipped, so test fixtures can live inside test classes.
+    public IServiceCollection AddServicesAndRepositories()
+      => services.AddServicesAndRepositories(Assembly.GetExecutingAssembly().GetTypes().Where(type => !type.IsNested));
 
-  public static IServiceCollection AddServicesAndRepositories(this IServiceCollection services, IEnumerable<Type> types) {
-    foreach (var type in types.Where(HasSuffix)) {
-      EnsureConforms(type);
-      services.AddScoped(type);
-      // `FooService : IFooService` can also be injected as its interface, sharing the same instance.
-      var contract = type.GetInterface($"I{type.Name}");
-      if (contract is not null) services.AddScoped(contract, provider => provider.GetRequiredService(type));
+    public IServiceCollection AddServicesAndRepositories(IEnumerable<Type> types) {
+      foreach (var type in types.Where(HasSuffix)) {
+        EnsureConforms(type);
+        services.AddScoped(type);
+        // `FooService : IFooService` can also be injected as its interface, sharing the same instance.
+        var contract = type.GetInterface($"I{type.Name}");
+        if (contract is not null) services.AddScoped(contract, provider => provider.GetRequiredService(type));
+      }
+      return services;
     }
-    return services;
   }
 
   private static bool HasSuffix(Type type)

@@ -1,5 +1,6 @@
 using Dapper;
 using JoshOlson.Api.Common.Db;
+using JoshOlson.Api.Common.Extensions;
 using Npgsql;
 
 namespace JoshOlson.Api.Tags;
@@ -22,8 +23,7 @@ public sealed class TagRepository {
       JOIN tag.tag   AS t  ON TRUE
       ORDER BY t.name, t.tag_id;
       """;
-    var cmd = new CommandDefinition(sql, cancellationToken: cancellationToken);
-    var tags = await _connection.QueryAsync<TagResponse>(cmd);
+    var tags = await _connection.QueryAsync<TagResponse>(sql, cancellationToken);
     return tags.AsList();
   }
 
@@ -39,8 +39,7 @@ public sealed class TagRepository {
       JOIN tag.tag   AS t  ON t.tag_id = @tagId;
       """;
     var parameters = new { tagId };
-    var cmd = new CommandDefinition(sql, parameters, cancellationToken: cancellationToken);
-    return await _connection.QuerySingleOrDefaultAsync<TagResponse>(cmd);
+    return await _connection.QuerySingleOrDefaultAsync<TagResponse>(sql, parameters, cancellationToken);
   }
 
   // Both uniqueness checks in one round trip: up to two statements, each an equality lookup on its own unique index
@@ -58,8 +57,7 @@ public sealed class TagRepository {
       nameToCheck,
       exceptTagId,
     };
-    var cmd = new CommandDefinition(sql, parameters, cancellationToken: cancellationToken);
-    await using var data = await _connection.QueryMultipleAsync(cmd);
+    await using var data = await _connection.QueryMultipleAsync(sql, parameters, cancellationToken);
     // The results come back in the order the statements were built: slug first, then name.
     var isSlugTaken = slugToCheck is not null && await data.ReadSingleAsync<bool>();
     var isNameTaken = nameToCheck is not null && await data.ReadSingleAsync<bool>();
@@ -116,8 +114,7 @@ public sealed class TagRepository {
       request.Description,
       request.Color,
     };
-    var cmd = new CommandDefinition(sql, parameters, cancellationToken: cancellationToken);
-    return await _connection.QuerySingleAsync<int>(cmd);
+    return await _connection.QuerySingleAsync<int>(sql, parameters, cancellationToken);
   }
 
   public async Task<bool> UpdateAsync(int tagId, TagRequest request, CancellationToken cancellationToken) {
@@ -136,8 +133,7 @@ public sealed class TagRepository {
       request.Description,
       request.Color,
     };
-    var cmd = new CommandDefinition(sql, parameters, cancellationToken: cancellationToken);
-    return await _connection.ExecuteAsync(cmd) > 0;
+    return await _connection.ExecuteAsync(sql, parameters, cancellationToken) > 0;
   }
 
   public async Task<bool> DeleteAsync(int tagId, CancellationToken cancellationToken) {
@@ -146,7 +142,6 @@ public sealed class TagRepository {
       WHERE tag_id = @tagId;
       """;
     var parameters = new { tagId };
-    var cmd = new CommandDefinition(sql, parameters, cancellationToken: cancellationToken);
-    return await _connection.ExecuteAsync(cmd) > 0;
+    return await _connection.ExecuteAsync(sql, parameters, cancellationToken) > 0;
   }
 }

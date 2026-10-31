@@ -1,4 +1,3 @@
-using Dapper;
 using JoshOlson.Api.Common.Db;
 using JoshOlson.Api.Common.DependencyInjection;
 using JoshOlson.Api.Common.Errors;
@@ -16,8 +15,6 @@ if (IsTestRun(args)) {
 }
 #endif
 
-DefaultTypeMap.MatchNamesWithUnderscores = true;
-
 var builder = WebApplication.CreateBuilder(args);
 
 // Validation attributes run once, in PayloadValidator (a failure is 422). MVC's own validation would reject the
@@ -34,7 +31,7 @@ var app = builder.Build();
 app.UseExceptionHandler();
 app.MapControllers();
 
-app.Run();
+await app.RunAsync();
 return 0;
 
 #if INCLUDE_TESTS

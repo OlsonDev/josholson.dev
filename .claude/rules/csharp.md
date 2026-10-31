@@ -18,6 +18,7 @@ Formatting, language style, and naming live in `.editorconfig` (`[*.cs]`) and ar
 - `async` methods end in `Async`, except public methods in controllers (`*Controller.cs`) and tests: actions are named for the route, and MVC strips the suffix from action names anyway. Local constants are PascalCase.
 - Expression-bodied members (`=>`) wherever the body is a single expression or statement: constructors, methods, properties. Put the `=>` on its own line below the signature, indented one level (`public Foo(Bar bar)` / `  => _bar = bar;`). RCS0062 enforces it.
 - Choose between `switch`, `?:`, and `if` as described under "Choosing a branching form" below. Property patterns (`list is { Count: > 0 }`) read well wherever they replace a longer test.
+- Extension members use C# 14 `extension(Type name) { ... }` blocks, never `this` parameters. Every member for one receiver goes in one block, and the helpers they call stay as private static methods beside it (`StringExtensions`).
 - `var` for locals. Target-typed `new()` for fields, properties, and arguments.
 - `required` and `init` on properties. We can relax them later, and tightening them later breaks callers. `required` only forces the caller to write the assignment; it says nothing about null, so `required string? Foo` is valid.
 - Raw string literals (`"""`) for multi-line text, especially embedded SQL.
@@ -118,8 +119,9 @@ if (isBar) {
 - Dapper with Npgsql, SQL written inline. No `Dapper.Contrib`.
 - Repositories take the scoped `NpgsqlConnection` (opened once per request in `AddDatabase`) and never open or dispose it. A service that needs atomicity begins a transaction on that connection and calls `CommitAsync`; disposing it uncommitted rolls back. Repositories on the same connection join it automatically.
 - Repository classes only run queries. Logic that isn't a query belongs in a service.
-- Pass the `CancellationToken` through a `CommandDefinition`.
-- Call `DefaultTypeMap.MatchNamesWithUnderscores = true` once at startup so `bar_id` fills `BarId`.
+- Queries that differ only in their filter share one private method. It holds the select list once and takes the `ON` condition (SQL the code wrote, never request data) and the parameters; each public `Get...By...` method is a one-line call into it (`PasskeyRepository.GetAllByConditionAsync`). Add a filter by adding a method, not by copying the query.
+- Run queries through the `NpgsqlConnection` extensions in `Common/Extensions/NpgsqlConnectionExtensions` (`QueryAsync<T>`, `QuerySingleAsync<T>`, `QuerySingleOrDefaultAsync<T>`, `QueryMultipleAsync`, `ExecuteAsync`): pass the `sql`, the `parameters`, then the `CancellationToken`. They build the `CommandDefinition`, so the token cannot be forgotten. Import `JoshOlson.Api.Common.Extensions`; without it, Dapper's own overloads apply, and they take no token.
+- `Common/Db/DapperConfiguration` runs at assembly load (a module initializer, so tests get it too). It sets `DefaultTypeMap.MatchNamesWithUnderscores = true` so `bar_id` fills `BarId`, and registers a handler for NodaTime's `Instant`, which Dapper rejects as a parameter otherwise. A column Dapper cannot fill from the database type (such as `SMALLINT[]` into an enum list) is read into a private row record and converted.
 - Insert with `RETURNING` and read the key with `QuerySingleAsync<int>`.
 - Aggregate in SQL (`count`, `sum`), not in C#.
 
@@ -136,8 +138,7 @@ public async Task<IReadOnlyList<Bar>> GetCorgesAsync(int barId, CancellationToke
     ORDER BY c.sort_order, c.corge_id;
     """;
   var parameters = new { barId };
-  var cmd = new CommandDefinition(sql, parameters, cancellationToken: cancellationToken);
-  var corges = await _connection.QueryAsync<Bar>(cmd);
+  var corges = await _connection.QueryAsync<Bar>(sql, parameters, cancellationToken);
   return corges.AsList();
 }
 ```

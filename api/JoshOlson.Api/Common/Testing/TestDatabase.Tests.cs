@@ -20,6 +20,10 @@ public static class TestDatabase {
     SslMode = SslMode.Disable,
   }.ToString();
 
+  // Connections from here read and write NodaTime types, as the API's data source does.
+  public static NpgsqlDataSource DataSource { get; }
+    = new NpgsqlDataSourceBuilder(ConnectionString).UseNodaTime().Build();
+
   private static string? Setting(string name)
     => Environment.GetEnvironmentVariable(name) ?? _DotEnv.GetValueOrDefault(name);
 

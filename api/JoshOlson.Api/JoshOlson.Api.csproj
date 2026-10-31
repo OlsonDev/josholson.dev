@@ -26,8 +26,10 @@
     <PackageReference Include="Dapper" />
     <PackageReference Include="Meziantou.Analyzer" PrivateAssets="all" />
     <PackageReference Include="Microsoft.CodeAnalysis.BannedApiAnalyzers" PrivateAssets="all" />
+    <PackageReference Include="NodaTime" />
     <PackageReference Include="Npgsql" />
     <PackageReference Include="Npgsql.DependencyInjection" />
+    <PackageReference Include="Npgsql.NodaTime" />
     <PackageReference Include="Roslynator.Analyzers" PrivateAssets="all" />
     <PackageReference Include="Roslynator.Formatting.Analyzers" PrivateAssets="all" />
   </ItemGroup>
