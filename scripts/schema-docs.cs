@@ -5,6 +5,7 @@
 //   mise run schema:doc     regenerate docs/schema
 //   mise run schema:check   fail if docs/schema differs from what the database would generate
 using System.Diagnostics;
+using System.Globalization;
 using System.Text;
 using System.Text.RegularExpressions;
 using Npgsql;
@@ -19,7 +20,7 @@ if (mode is not ("doc" or "check")) {
 
 var connectionString = new NpgsqlConnectionStringBuilder {
   Host = "127.0.0.1",
-  Port = int.Parse(Environment.GetEnvironmentVariable("POSTGRES_PORT") ?? "5432", System.Globalization.CultureInfo.InvariantCulture),
+  Port = int.Parse(Environment.GetEnvironmentVariable("POSTGRES_PORT") ?? "5432", CultureInfo.InvariantCulture),
   Username = Environment.GetEnvironmentVariable("POSTGRES_USER") ?? "josholson",
   Password = Environment.GetEnvironmentVariable("POSTGRES_PASSWORD"),
   Database = Environment.GetEnvironmentVariable("POSTGRES_DB") ?? "josholson",

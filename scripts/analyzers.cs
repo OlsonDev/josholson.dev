@@ -4,6 +4,7 @@
 // `dotnet_diagnostic.<ID>.severity` appears for it in .editorconfig. Run through mise:
 //   mise run analyzers:check   fail if an installed analyzer rule has no severity line, so an upgrade forces a decision
 //   mise run analyzers:add     append the missing rules, set to what they do today, under the marker line
+using System.Collections;
 using System.Diagnostics;
 using System.Reflection;
 using System.Text;
@@ -69,11 +70,11 @@ foreach (var dll in dllPaths.Where(path => Path.GetFileName(path) is var file
   }
   foreach (var type in types.OfType<Type>().Where(type => IsAnalyzer(type, skipped))) {
     var analyzer = Activator.CreateInstance(type)!;
-    var descriptors = (System.Collections.IEnumerable)type.GetProperty("SupportedDiagnostics")!.GetValue(analyzer)!;
+    var descriptors = (IEnumerable)type.GetProperty("SupportedDiagnostics")!.GetValue(analyzer)!;
     foreach (var descriptor in descriptors) {
       var id = (string)Get(descriptor, "Id")!;
       // Fade-out companions (RCS1002FadeOut) only grey out code and cannot be configured.
-      if (((System.Collections.IEnumerable)Get(descriptor, "CustomTags")!).Cast<string>().Contains("NotConfigurable")) {
+      if (((IEnumerable)Get(descriptor, "CustomTags")!).Cast<string>().Contains("NotConfigurable")) {
         continue;
       }
       rules[id] = new Rule(

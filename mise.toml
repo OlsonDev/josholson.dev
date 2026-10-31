@@ -79,7 +79,8 @@ description = "Build every loose script with the style rules and analyzers on"
 run = "dotnet run scripts/check-scripts.cs"
 
 # A list is on the line of its opening token or one item per line. Roslynator's RCS0053 cannot express that (it also
-# rejects the trailing block lambdas and `||` chains the repo uses), so scripts/list-layout.cs checks it.
+# rejects the trailing block lambdas and `||` chains the repo uses), so scripts/list-layout.cs checks it. Upstream:
+# https://github.com/dotnet/roslynator/issues/1861 and https://github.com/meziantou/Meziantou.Analyzer/issues/1748
 [tasks."lists:check"]
 description = "Fail if a wrapped list (arguments, parameters, initializers) has several items on one line"
 run = "dotnet run scripts/list-layout.cs"

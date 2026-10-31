@@ -1,4 +1,5 @@
 using System.Net;
+using System.Text;
 using JoshOlson.Api.Common.Testing;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -114,7 +115,7 @@ public class TagControllerTests {
     var cancellationToken = TestContext.Current.CancellationToken;
     await using var factory = CreateFactory();
     using var client = factory.CreateClient();
-    using var content = new StringContent("{ not json", System.Text.Encoding.UTF8, "application/json");
+    using var content = new StringContent("{ not json", Encoding.UTF8, "application/json");
 
     var response = await client.PostAsync("/tags", content, cancellationToken);
 

@@ -4,15 +4,15 @@ using JoshOlson.Api.Common.Errors;
 using JoshOlson.Api.Common.Validation;
 #if INCLUDE_TESTS
 using JoshOlson.Api;
+using Xunit.MicrosoftTestingPlatform;
+using Xunit.Runner.InProc.SystemConsole;
 #endif
 
 #if INCLUDE_TESTS
 if (IsTestRun(args)) {
   if (args.Any(arg => arg is "--server" or "--internal-msbuild-node"))
-    return await Xunit.MicrosoftTestingPlatform.TestPlatformTestFramework.RunAsync(
-      args,
-      SelfRegisteredExtensions.AddSelfRegisteredExtensions);
-  return await Xunit.Runner.InProc.SystemConsole.ConsoleRunner.Run(args);
+    return await TestPlatformTestFramework.RunAsync(args, SelfRegisteredExtensions.AddSelfRegisteredExtensions);
+  return await ConsoleRunner.Run(args);
 }
 #endif
 
