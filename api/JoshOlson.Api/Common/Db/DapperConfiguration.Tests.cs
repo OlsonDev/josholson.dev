@@ -1,3 +1,4 @@
+using System.Net;
 using Dapper;
 using JoshOlson.Api.Common.Extensions;
 using NodaTime;
@@ -45,6 +46,19 @@ public class DapperConfigurationTests {
 
     Assert.Equal(7, row.FooBar);
     Assert.Null(row.BazQux);
+  }
+
+  [Fact]
+  public async Task IpAddress_RoundTripsAsParameterAndResult() {
+    var ip = IPAddress.Parse("192.0.2.7");
+    var sql = """
+      SELECT
+          @ip::inet  AS ip
+      FROM (SELECT) AS _;
+      """;
+
+    Assert.Equal(ip, await _connection.QuerySingleAsync<IPAddress>(sql, new { ip }, _cancellationToken));
+    Assert.Null(await _connection.QuerySingleAsync<IPAddress?>(sql, new { ip = (IPAddress?)null }, _cancellationToken));
   }
 
   [Fact]

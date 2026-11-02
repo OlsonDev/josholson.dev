@@ -1,4 +1,5 @@
 using System.Data;
+using System.Net;
 using System.Runtime.CompilerServices;
 using Dapper;
 using NodaTime;
@@ -14,6 +15,16 @@ public static class DapperConfiguration {
     DefaultTypeMap.MatchNamesWithUnderscores = true;
     // Npgsql.NodaTime reads and writes Instant, but Dapper rejects a type it does not know as a parameter.
     SqlMapper.AddTypeHandler(new InstantHandler());
+    // Likewise for the `inet` column that holds a session's IP address.
+    SqlMapper.AddTypeHandler(new IpAddressHandler());
+  }
+
+  private sealed class IpAddressHandler : SqlMapper.TypeHandler<IPAddress?> {
+    public override IPAddress? Parse(object value)
+      => value as IPAddress;
+
+    public override void SetValue(IDbDataParameter parameter, IPAddress? value)
+      => parameter.Value = value;
   }
 
   private sealed class InstantHandler : SqlMapper.TypeHandler<Instant> {

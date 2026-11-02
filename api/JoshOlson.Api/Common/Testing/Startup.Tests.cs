@@ -1,8 +1,10 @@
 using System.Reflection;
+using JoshOlson.Api.Auth;
 using JoshOlson.Api.Common.Db;
 using JoshOlson.Api.Common.DependencyInjection;
 using JoshOlson.Api.Common.Validation;
 using Microsoft.AspNetCore.Mvc.Testing;
+using NodaTime;
 
 namespace JoshOlson.Api.Common.Testing;
 
@@ -20,6 +22,12 @@ public static class Startup {
       .AddDatabase(configuration)
       .AddServicesAndRepositories()
       .AddPayloadValidation();
+
+    // Settings at their defaults, and a clock the test moves by hand (shared with the services in its scope), where
+    // the API reads `Auth` from configuration and uses the system clock.
+    services.AddOptions<AuthOptions>();
+    services.AddScoped<FakeClock>();
+    services.AddScoped<IClock>(provider => provider.GetRequiredService<FakeClock>());
 
     // Helpers that build and remove a feature's test data are named `*TestData` and registered the same way.
     var testDataTypes = Assembly.GetExecutingAssembly().GetTypes().Where(IsTestData);

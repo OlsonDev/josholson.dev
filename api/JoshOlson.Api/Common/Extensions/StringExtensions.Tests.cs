@@ -25,4 +25,21 @@ public class StringExtensionsTests {
   [InlineData("X")]
   public void ToCamelCasePath_MatchesTheJsonSerializerForAcronyms(string name)
     => Assert.Equal(JsonNamingPolicy.CamelCase.ConvertName(name), name.ToCamelCasePath());
+
+  [Theory]
+  [InlineData(null, null)]
+  [InlineData("", null)]
+  [InlineData("  \t\n", null)]
+  [InlineData("foo", "foo")]
+  [InlineData("  foo bar \n", "foo bar")]
+  public void TrimToNull_TrimsAndTurnsNothingIntoNull(string? value, string? expected)
+    => Assert.Equal(expected, value.TrimToNull());
+
+  [Theory]
+  [InlineData("", 3, "")]
+  [InlineData("foo", 3, "foo")]
+  [InlineData("foobar", 3, "foo")]
+  [InlineData("foo", 0, "")]
+  public void Truncate_KeepsAtMostTheLength(string value, int maxLength, string expected)
+    => Assert.Equal(expected, value.Truncate(maxLength));
 }

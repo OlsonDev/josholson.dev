@@ -1,6 +1,7 @@
 using JoshOlson.Api.Common.Db;
 using JoshOlson.Api.Common.DependencyInjection;
 using JoshOlson.Api.Common.Errors;
+using JoshOlson.Api.Common.Time;
 using JoshOlson.Api.Common.Validation;
 #if INCLUDE_TESTS
 using JoshOlson.Api;
@@ -26,6 +27,7 @@ builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<PostgresExceptionHandler>();
 builder.Services.AddDatabase(builder.Configuration);
 builder.Services.AddServicesAndRepositories();
+builder.Services.AddClock();
 
 var app = builder.Build();
 
