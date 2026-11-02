@@ -82,3 +82,21 @@ CREATE INDEX ix_session_user_id
 
 CREATE INDEX ix_session_expires_utc
   ON auth.session (expires_utc);
+
+CREATE TABLE auth.enrollment_token (
+    enrollment_token_id  INT          NOT NULL GENERATED ALWAYS AS IDENTITY
+  , user_id              INT          NOT NULL
+  , token_hash           hash.sha256  NOT NULL
+  , created_utc          TIMESTAMPTZ  NOT NULL DEFAULT now()
+  , expires_utc          TIMESTAMPTZ  NOT NULL
+  , used_utc             TIMESTAMPTZ      NULL
+
+  , CONSTRAINT pk_enrollment_token PRIMARY KEY (enrollment_token_id)
+  , CONSTRAINT uq_enrollment_token_token_hash UNIQUE (token_hash)
+  , CONSTRAINT fk_enrollment_token__user FOREIGN KEY (user_id) REFERENCES auth.user (user_id) ON DELETE CASCADE
+  , CONSTRAINT ck_enrollment_token_expires_after_created CHECK (expires_utc > created_utc)
+  , CONSTRAINT ck_enrollment_token_used_not_before_created CHECK (used_utc >= created_utc)
+);
+
+CREATE INDEX ix_enrollment_token_user_id
+  ON auth.enrollment_token (user_id);

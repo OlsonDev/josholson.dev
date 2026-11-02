@@ -34,17 +34,19 @@
 
 ### Incoming foreign keys
 
-| Name                  | Columns   | Table                                      | Ref Columns | On Delete | On Update   |
-| --------------------- | --------- | ------------------------------------------ | ----------- | --------- | ----------- |
-| `fk_passkey__user`    | `user_id` | [`auth.passkey`][table:auth.passkey]       | `user_id`   | `CASCADE` | `NO ACTION` |
-| `fk_session__user`    | `user_id` | [`auth.session`][table:auth.session]       | `user_id`   | `CASCADE` | `NO ACTION` |
-| `fk_user_email__user` | `user_id` | [`auth.user_email`][table:auth.user_email] | `user_id`   | `CASCADE` | `NO ACTION` |
+| Name                        | Columns   | Table                                                  | Ref Columns | On Delete | On Update   |
+| --------------------------- | --------- | ------------------------------------------------------ | ----------- | --------- | ----------- |
+| `fk_enrollment_token__user` | `user_id` | [`auth.enrollment_token`][table:auth.enrollment_token] | `user_id`   | `CASCADE` | `NO ACTION` |
+| `fk_passkey__user`          | `user_id` | [`auth.passkey`][table:auth.passkey]                   | `user_id`   | `CASCADE` | `NO ACTION` |
+| `fk_session__user`          | `user_id` | [`auth.session`][table:auth.session]                   | `user_id`   | `CASCADE` | `NO ACTION` |
+| `fk_user_email__user`       | `user_id` | [`auth.user_email`][table:auth.user_email]             | `user_id`   | `CASCADE` | `NO ACTION` |
 
 ### Diagram
 
 ```mermaid
 erDiagram
 
+"auth.enrollment_token" }o--|| "auth.user" : "user_id"
 "auth.passkey" }o--|| "auth.user" : "user_id"
 "auth.session" }o--|| "auth.user" : "user_id"
 "auth.user_email" }o--|| "auth.user" : "user_id"
@@ -55,6 +57,15 @@ erDiagram
   BYTEA user_handle UK
   BOOLEAN is_active
   TIMESTAMPTZ created_utc
+}
+
+"auth.enrollment_token" {
+  INTEGER enrollment_token_id PK
+  INTEGER user_id FK
+  hash.sha256 token_hash UK
+  TIMESTAMPTZ created_utc
+  TIMESTAMPTZ expires_utc
+  TIMESTAMPTZ used_utc
 }
 
 "auth.passkey" {
@@ -101,6 +112,7 @@ erDiagram
 [pg:bytea]: https://www.postgresql.org/docs/19/datatype-binary.html
 [pg:integer]: https://www.postgresql.org/docs/19/datatype-numeric.html#DATATYPE-INT
 [pg:timestamp-with-time-zone]: https://www.postgresql.org/docs/19/datatype-datetime.html
+[table:auth.enrollment_token]: auth.enrollment_token.md
 [table:auth.passkey]: auth.passkey.md
 [table:auth.session]: auth.session.md
 [table:auth.user_email]: auth.user_email.md

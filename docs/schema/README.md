@@ -2,12 +2,13 @@
 
 ## auth
 
-| Table                                      | Columns |
-| ------------------------------------------ | ------: |
-| [`auth.passkey`][table:auth.passkey]       |      11 |
-| [`auth.session`][table:auth.session]       |       8 |
-| [`auth.user`][table:auth.user]             |       5 |
-| [`auth.user_email`][table:auth.user_email] |       6 |
+| Table                                                  | Columns |
+| ------------------------------------------------------ | ------: |
+| [`auth.enrollment_token`][table:auth.enrollment_token] |       6 |
+| [`auth.passkey`][table:auth.passkey]                   |      11 |
+| [`auth.session`][table:auth.session]                   |       8 |
+| [`auth.user`][table:auth.user]                         |       5 |
+| [`auth.user_email`][table:auth.user_email]             |       6 |
 
 ## blob
 
@@ -79,6 +80,7 @@
 ```mermaid
 erDiagram
 
+"auth.enrollment_token" }o--|| "auth.user" : "user_id"
 "auth.passkey" }o--|| "auth.user" : "user_id"
 "auth.session" }o--|| "auth.user" : "user_id"
 "auth.user_email" }o--|| "auth.user" : "user_id"
@@ -132,6 +134,7 @@ erDiagram
 [pg:bytea]: https://www.postgresql.org/docs/19/datatype-binary.html
 [pg:jsonb]: https://www.postgresql.org/docs/19/datatype-json.html
 [pg:text]: https://www.postgresql.org/docs/19/datatype-character.html
+[table:auth.enrollment_token]: auth.enrollment_token.md
 [table:auth.passkey]: auth.passkey.md
 [table:auth.session]: auth.session.md
 [table:auth.user]: auth.user.md
