@@ -5,6 +5,8 @@ using JoshOlson.Api.Common.DependencyInjection;
 using JoshOlson.Api.Common.Errors;
 using JoshOlson.Api.Common.Time;
 using JoshOlson.Api.Common.Validation;
+using NodaTime;
+using NodaTime.Serialization.SystemTextJson;
 #if INCLUDE_TESTS
 using JoshOlson.Api;
 using Xunit.MicrosoftTestingPlatform;
@@ -23,7 +25,11 @@ var builder = WebApplication.CreateBuilder(args);
 
 // Validation attributes run once, in PayloadValidator (a failure is 422). MVC's own validation would reject the
 // same request with 400 before the action runs. Binding errors (bad JSON) are still 400.
-builder.Services.AddControllers(options => options.ModelValidatorProviders.Clear())
+builder.Services.AddControllers(options => {
+  options.ModelValidatorProviders.Clear();
+  options.Filters.Add<SessionFilter>();
+})
+  .AddJsonOptions(options => options.JsonSerializerOptions.ConfigureForNodaTime(DateTimeZoneProviders.Tzdb))
   .AddInputTrimming();
 builder.Services.AddPayloadValidation();
 builder.Services.AddProblemDetails();
@@ -36,6 +42,7 @@ builder.Services.AddAuth(builder.Configuration);
 var app = builder.Build();
 
 app.UseExceptionHandler();
+app.UseAuth();
 app.MapControllers();
 
 await app.RunAsync();

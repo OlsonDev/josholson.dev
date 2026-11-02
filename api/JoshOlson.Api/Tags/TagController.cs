@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace JoshOlson.Api.Tags;
@@ -10,10 +11,12 @@ public sealed class TagController : ControllerBase {
   public TagController(TagService tagService)
     => _tagService = tagService;
 
+  [AllowAnonymous]
   [HttpGet]
   public async Task<IReadOnlyList<TagResponse>> GetAll(CancellationToken cancellationToken)
     => await _tagService.GetAllAsync(cancellationToken);
 
+  [AllowAnonymous]
   [HttpGet("{tagId:int}")]
   public async Task<ActionResult<TagResponse>> Get(int tagId, CancellationToken cancellationToken) {
     var tag = await _tagService.GetAsync(tagId, cancellationToken);

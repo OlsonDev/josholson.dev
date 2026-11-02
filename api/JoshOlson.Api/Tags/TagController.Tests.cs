@@ -1,16 +1,29 @@
 using System.Net;
 using System.Text;
+using JoshOlson.Api.Auth;
 using Microsoft.AspNetCore.Mvc;
 using Xunit;
 
 namespace JoshOlson.Api.Tags;
 
-public class TagControllerTests {
+// Creating, changing, and deleting tags needs a session, so every test runs signed in as a throwaway user. Whether
+// each endpoint demands one is `SessionFilterTests`' question.
+public class TagControllerTests : IAsyncLifetime {
   private readonly CancellationToken _cancellationToken = TestContext.Current.CancellationToken;
   private readonly HttpClient _client;
+  private readonly AuthTestData _authTestData;
+  private int _userId;
 
-  public TagControllerTests(HttpClient client)
-    => _client = client;
+  public TagControllerTests(HttpClient client, AuthTestData authTestData) {
+    _client = client;
+    _authTestData = authTestData;
+  }
+
+  public async ValueTask InitializeAsync()
+    => _userId = await _authTestData.SignInAsync(_client, _cancellationToken);
+
+  public async ValueTask DisposeAsync()
+    => await _authTestData.DeleteUserAsync(_userId);
 
   private static TagRequest NewRequest(string? slug = null) {
     slug ??= $"test-{Guid.NewGuid():N}";
