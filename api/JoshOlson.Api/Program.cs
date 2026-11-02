@@ -1,3 +1,4 @@
+using JoshOlson.Api.Auth;
 using JoshOlson.Api.Common.Binding;
 using JoshOlson.Api.Common.Db;
 using JoshOlson.Api.Common.DependencyInjection;
@@ -30,6 +31,7 @@ builder.Services.AddExceptionHandler<PostgresExceptionHandler>();
 builder.Services.AddDatabase(builder.Configuration);
 builder.Services.AddServicesAndRepositories();
 builder.Services.AddClock();
+builder.Services.AddAuth(builder.Configuration);
 
 var app = builder.Build();
 

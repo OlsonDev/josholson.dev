@@ -21,11 +21,11 @@ public static class Startup {
       .AddLogging()
       .AddDatabase(configuration)
       .AddServicesAndRepositories()
-      .AddPayloadValidation();
+      .AddPayloadValidation()
+      .AddAuth(configuration);
 
-    // Settings at their defaults, and a clock the test moves by hand (shared with the services in its scope), where
-    // the API reads `Auth` from configuration and uses the system clock.
-    services.AddOptions<AuthOptions>();
+    // A clock the test moves by hand, shared with the services in its scope, where the API uses the system clock.
+    // `Auth` is absent from the test configuration, so the options are at their defaults (`localhost`).
     services.AddScoped<FakeClock>();
     services.AddScoped<IClock>(provider => provider.GetRequiredService<FakeClock>());
 

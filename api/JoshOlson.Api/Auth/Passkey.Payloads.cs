@@ -28,3 +28,25 @@ public sealed record NewPasskey {
   public required bool IsBackedUp { get; init; }
   public required string Nickname { get; init; }
 }
+
+// What a verified registration yields, before a nickname and an owner make it a NewPasskey.
+public sealed record VerifiedRegistration {
+  public required byte[] CredentialId { get; init; }
+  public required byte[] PublicKey { get; init; }
+  public required long SignCount { get; init; }
+  public required IReadOnlyList<PasskeyTransport> Transports { get; init; }
+  public required bool IsBackupEligible { get; init; }
+  public required bool IsBackedUp { get; init; }
+
+  public NewPasskey ToNewPasskey(int userId, string nickname)
+    => new() {
+      UserId = userId,
+      CredentialId = CredentialId,
+      PublicKey = PublicKey,
+      SignCount = SignCount,
+      Transports = Transports,
+      IsBackupEligible = IsBackupEligible,
+      IsBackedUp = IsBackedUp,
+      Nickname = nickname,
+    };
+}
