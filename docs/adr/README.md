@@ -51,3 +51,4 @@ Template:
 - [0029](0029-nodatime-for-time.md): NodaTime for time in the API
 - [0030](0030-analyzers.md): BannedApiAnalyzers, Meziantou.Analyzer, and Roslynator
 - [0031](0031-three-passkeys-and-phone-registration.md): Sign in with Red, Purple, or a phone; register the phone from a signed-in page (Proposed)
+- [0032](0032-constructor-injection-in-tests.md): Constructor injection in tests (`Xunit.DependencyInjection`)

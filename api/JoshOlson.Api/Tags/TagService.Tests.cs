@@ -1,23 +1,13 @@
-using JoshOlson.Api.Common.Db;
-using JoshOlson.Api.Common.DependencyInjection;
-using JoshOlson.Api.Common.Testing;
-using JoshOlson.Api.Common.Validation;
 using Xunit;
 
 namespace JoshOlson.Api.Tags;
 
 public class TagServiceTests {
-  private static ServiceProvider CreateProvider() {
-    var configuration = new ConfigurationBuilder()
-      .AddInMemoryCollection(new Dictionary<string, string?> { ["ConnectionStrings:Default"] = TestDatabase.ConnectionString })
-      .Build();
-    return new ServiceCollection()
-      .AddLogging()
-      .AddDatabase(configuration)
-      .AddServicesAndRepositories()
-      .AddPayloadValidation()
-      .BuildServiceProvider(validateScopes: true);
-  }
+  private readonly CancellationToken _cancellationToken = TestContext.Current.CancellationToken;
+  private readonly TagService _tagService;
+
+  public TagServiceTests(TagService tagService)
+    => _tagService = tagService;
 
   private static TagRequest NewRequest() {
     var slug = $"test-{Guid.NewGuid():N}";
@@ -31,10 +21,6 @@ public class TagServiceTests {
 
   [Fact]
   public async Task ValidateCreateAsync_ReportsEveryFieldError() {
-    var cancellationToken = TestContext.Current.CancellationToken;
-    await using var provider = CreateProvider();
-    await using var scope = provider.CreateAsyncScope();
-    var tagService = scope.ServiceProvider.GetRequiredService<TagService>();
     var request = new TagRequest {
       Name = " foo",
       Slug = "Not Kebab",
@@ -42,44 +28,38 @@ public class TagServiceTests {
       Color = "red",
     };
 
-    var errors = await tagService.ValidateCreateAsync(request, cancellationToken);
+    var errors = await _tagService.ValidateCreateAsync(request, _cancellationToken);
 
-    Assert.Equal(["color", "description", "name", "slug"], errors.ToProblemDetails().Errors.Keys.Order(StringComparer.Ordinal));
+    var fields = errors.ToProblemDetails().Errors.Keys.Order(StringComparer.Ordinal);
+    Assert.Equal(["color", "description", "name", "slug"], fields);
   }
 
   [Fact]
   public async Task ValidateCreateAsync_TakenNameAndSlug_AreReported() {
-    var cancellationToken = TestContext.Current.CancellationToken;
-    await using var provider = CreateProvider();
-    await using var scope = provider.CreateAsyncScope();
-    var tagService = scope.ServiceProvider.GetRequiredService<TagService>();
     var request = NewRequest();
-    var tagId = await tagService.CreateAsync(request, cancellationToken);
+    var tagId = await _tagService.CreateAsync(request, _cancellationToken);
     try {
-      var errors = await tagService.ValidateCreateAsync(request with { Name = request.Name.ToUpperInvariant() }, cancellationToken);
+      var duplicate = request with { Name = request.Name.ToUpperInvariant() };
+      var errors = await _tagService.ValidateCreateAsync(duplicate, _cancellationToken);
 
       Assert.Equal(["name", "slug"], errors.ToProblemDetails().Errors.Keys.Order(StringComparer.Ordinal));
     } finally {
-      await tagService.DeleteAsync(tagId, CancellationToken.None);
+      await _tagService.DeleteAsync(tagId, CancellationToken.None);
     }
   }
 
   [Fact]
   public async Task ValidateUpdateAsync_OwnNameAndSlug_AreNotTaken() {
-    var cancellationToken = TestContext.Current.CancellationToken;
-    await using var provider = CreateProvider();
-    await using var scope = provider.CreateAsyncScope();
-    var tagService = scope.ServiceProvider.GetRequiredService<TagService>();
     var request = NewRequest();
-    var tagId = await tagService.CreateAsync(request, cancellationToken);
+    var tagId = await _tagService.CreateAsync(request, _cancellationToken);
     try {
-      var own = await tagService.ValidateUpdateAsync(tagId, request with { Description = "foo" }, cancellationToken);
-      var other = await tagService.ValidateUpdateAsync(tagId + 1, request, cancellationToken);
+      var own = await _tagService.ValidateUpdateAsync(tagId, request with { Description = "foo" }, _cancellationToken);
+      var other = await _tagService.ValidateUpdateAsync(tagId + 1, request, _cancellationToken);
 
       Assert.False(own.Any);
       Assert.True(other.Has("slug"));
     } finally {
-      await tagService.DeleteAsync(tagId, CancellationToken.None);
+      await _tagService.DeleteAsync(tagId, CancellationToken.None);
     }
   }
 }

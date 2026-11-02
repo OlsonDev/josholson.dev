@@ -1,4 +1,3 @@
-using JoshOlson.Api.Common.Testing;
 using Npgsql;
 using Xunit;
 
@@ -7,19 +6,22 @@ namespace JoshOlson.Api.Common.Db;
 // The API connects as a role that can change rows and nothing else (ADR 0018). Each statement runs in a transaction
 // that is never committed, so if a grant were too wide the statement would still be undone.
 public class ApiRoleTests {
+  private readonly CancellationToken _cancellationToken = TestContext.Current.CancellationToken;
+  private readonly NpgsqlConnection _connection;
+
+  public ApiRoleTests(NpgsqlConnection connection)
+    => _connection = connection;
+
   [Fact]
   public async Task TestDatabase_ConnectsAsTheApiRole() {
-    var cancellationToken = TestContext.Current.CancellationToken;
-    await using var connection = new NpgsqlConnection(TestDatabase.ConnectionString);
-    await connection.OpenAsync(cancellationToken);
     var sql = """
       SELECT
           current_user::text  AS user_name
       FROM (SELECT) AS _;
       """;
-    await using var command = new NpgsqlCommand(sql, connection);
+    await using var command = new NpgsqlCommand(sql, _connection);
 
-    Assert.Equal("josholson_api", await command.ExecuteScalarAsync(cancellationToken));
+    Assert.Equal("josholson_api", await command.ExecuteScalarAsync(_cancellationToken));
   }
 
   public static TheoryData<string> StructureStatements
@@ -43,23 +45,17 @@ public class ApiRoleTests {
   [Theory]
   [MemberData(nameof(StructureStatements))]
   public async Task Structure_CannotBeChanged(string statement) {
-    var cancellationToken = TestContext.Current.CancellationToken;
-    await using var connection = new NpgsqlConnection(TestDatabase.ConnectionString);
-    await connection.OpenAsync(cancellationToken);
-    await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
-    await using var command = new NpgsqlCommand(statement, connection, transaction);
+    await using var transaction = await _connection.BeginTransactionAsync(_cancellationToken);
+    await using var command = new NpgsqlCommand(statement, _connection, transaction);
 
-    var exception = await Assert.ThrowsAsync<PostgresException>(() => command.ExecuteNonQueryAsync(cancellationToken));
+    var exception = await Assert.ThrowsAsync<PostgresException>(() => command.ExecuteNonQueryAsync(_cancellationToken));
 
     Assert.Equal(PostgresErrorCodes.InsufficientPrivilege, exception.SqlState);
   }
 
   [Fact]
   public async Task Rows_CanBeInsertedUpdatedAndDeleted() {
-    var cancellationToken = TestContext.Current.CancellationToken;
-    await using var connection = new NpgsqlConnection(TestDatabase.ConnectionString);
-    await connection.OpenAsync(cancellationToken);
-    await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+    await using var transaction = await _connection.BeginTransactionAsync(_cancellationToken);
     var slug = $"test-{Guid.NewGuid():N}";
 
     var insertSql = """
@@ -72,27 +68,27 @@ public class ApiRoleTests {
       )
       RETURNING tag_id;
       """;
-    await using var insert = new NpgsqlCommand(insertSql, connection, transaction) {
+    await using var insert = new NpgsqlCommand(insertSql, _connection, transaction) {
       Parameters = { new() { Value = slug } },
     };
-    var tagId = (int)(await insert.ExecuteScalarAsync(cancellationToken))!;
+    var tagId = (int)(await insert.ExecuteScalarAsync(_cancellationToken))!;
     var updateSql = """
       UPDATE tag.tag AS t SET
           description  = 'foo'
       WHERE t.tag_id = $1;
       """;
-    await using var update = new NpgsqlCommand(updateSql, connection, transaction) {
+    await using var update = new NpgsqlCommand(updateSql, _connection, transaction) {
       Parameters = { new() { Value = tagId } },
     };
     var deleteSql = """
       DELETE FROM tag.tag AS t
       WHERE t.tag_id = $1;
       """;
-    await using var delete = new NpgsqlCommand(deleteSql, connection, transaction) {
+    await using var delete = new NpgsqlCommand(deleteSql, _connection, transaction) {
       Parameters = { new() { Value = tagId } },
     };
 
-    Assert.Equal(1, await update.ExecuteNonQueryAsync(cancellationToken));
-    Assert.Equal(1, await delete.ExecuteNonQueryAsync(cancellationToken));
+    Assert.Equal(1, await update.ExecuteNonQueryAsync(_cancellationToken));
+    Assert.Equal(1, await delete.ExecuteNonQueryAsync(_cancellationToken));
   }
 }

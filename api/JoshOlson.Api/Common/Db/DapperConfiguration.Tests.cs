@@ -1,12 +1,18 @@
 using Dapper;
 using JoshOlson.Api.Common.Extensions;
-using JoshOlson.Api.Common.Testing;
 using NodaTime;
+using Npgsql;
 using Xunit;
 
 namespace JoshOlson.Api.Common.Db;
 
 public class DapperConfigurationTests {
+  private readonly CancellationToken _cancellationToken = TestContext.Current.CancellationToken;
+  private readonly NpgsqlConnection _connection;
+
+  public DapperConfigurationTests(NpgsqlConnection connection)
+    => _connection = connection;
+
   private sealed record Row {
     public required int FooBar { get; init; }
     public required Instant? BazQux { get; init; }
@@ -14,8 +20,6 @@ public class DapperConfigurationTests {
 
   [Fact]
   public async Task Instant_RoundTripsAsParameterAndResult() {
-    var cancellationToken = TestContext.Current.CancellationToken;
-    await using var connection = await TestDatabase.DataSource.OpenConnectionAsync(cancellationToken);
     var instant = Instant.FromUtc(2026, 10, 30, 12, 34, 56);
     var parameters = new { instant };
     var sql = """
@@ -24,13 +28,11 @@ public class DapperConfigurationTests {
       FROM (SELECT) AS _;
       """;
 
-    Assert.Equal(instant, await connection.QuerySingleAsync<Instant>(sql, parameters, cancellationToken));
+    Assert.Equal(instant, await _connection.QuerySingleAsync<Instant>(sql, parameters, _cancellationToken));
   }
 
   [Fact]
   public async Task NullableInstant_RoundTripsNullAsParameterAndMember() {
-    var cancellationToken = TestContext.Current.CancellationToken;
-    await using var connection = await TestDatabase.DataSource.OpenConnectionAsync(cancellationToken);
     var parameters = new { instant = (Instant?)null };
     var sql = """
       SELECT
@@ -39,7 +41,7 @@ public class DapperConfigurationTests {
       FROM (SELECT) AS _;
       """;
 
-    var row = await connection.QuerySingleAsync<Row>(sql, parameters, cancellationToken);
+    var row = await _connection.QuerySingleAsync<Row>(sql, parameters, _cancellationToken);
 
     Assert.Equal(7, row.FooBar);
     Assert.Null(row.BazQux);
@@ -47,8 +49,6 @@ public class DapperConfigurationTests {
 
   [Fact]
   public async Task Columns_MatchPropertiesIgnoringUnderscores() {
-    var cancellationToken = TestContext.Current.CancellationToken;
-    await using var connection = await TestDatabase.DataSource.OpenConnectionAsync(cancellationToken);
     var instant = Instant.FromUtc(2026, 10, 30, 12, 34, 56);
     var parameters = new { instant };
     var sql = """
@@ -58,7 +58,7 @@ public class DapperConfigurationTests {
       FROM (SELECT) AS _;
       """;
 
-    var row = await connection.QuerySingleAsync<Row>(sql, parameters, cancellationToken);
+    var row = await _connection.QuerySingleAsync<Row>(sql, parameters, _cancellationToken);
 
     Assert.Equal(7, row.FooBar);
     Assert.Equal(instant, row.BazQux);

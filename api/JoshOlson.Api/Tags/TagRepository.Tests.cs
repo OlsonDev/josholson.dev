@@ -1,10 +1,20 @@
-using JoshOlson.Api.Common.Testing;
 using Npgsql;
 using Xunit;
 
 namespace JoshOlson.Api.Tags;
 
 public class TagRepositoryTests {
+  private readonly CancellationToken _cancellationToken = TestContext.Current.CancellationToken;
+  private readonly NpgsqlConnection _connection;
+  private readonly NpgsqlDataSource _dataSource;
+  private readonly TagRepository _tagRepository;
+
+  public TagRepositoryTests(NpgsqlConnection connection, NpgsqlDataSource dataSource, TagRepository tagRepository) {
+    _connection = connection;
+    _dataSource = dataSource;
+    _tagRepository = tagRepository;
+  }
+
   private static TagRequest NewRequest() {
     var slug = $"test-{Guid.NewGuid():N}";
     return new() {
@@ -17,57 +27,49 @@ public class TagRepositoryTests {
 
   [Fact]
   public async Task Lifecycle_CreatesReadsUpdatesAndDeletes() {
-    var cancellationToken = TestContext.Current.CancellationToken;
-    await using var connection = new NpgsqlConnection(TestDatabase.ConnectionString);
-    await connection.OpenAsync(cancellationToken);
-    var tagRepository = new TagRepository(connection);
     var request = NewRequest();
 
-    var tagId = await tagRepository.CreateAsync(request, cancellationToken);
+    var tagId = await _tagRepository.CreateAsync(request, _cancellationToken);
     try {
-      var created = await tagRepository.GetAsync(tagId, cancellationToken);
+      var created = await _tagRepository.GetAsync(tagId, _cancellationToken);
       Assert.NotNull(created);
       Assert.Equal(request.Slug, created.Slug);
       Assert.Null(created.Description);
-      Assert.Contains(await tagRepository.GetAllAsync(cancellationToken), t => t.TagId == tagId);
+      Assert.Contains(await _tagRepository.GetAllAsync(_cancellationToken), t => t.TagId == tagId);
 
-      Assert.True(await tagRepository.UpdateAsync(tagId, request with { Description = "foo" }, cancellationToken));
-      Assert.Equal("foo", (await tagRepository.GetAsync(tagId, cancellationToken))?.Description);
+      Assert.True(await _tagRepository.UpdateAsync(tagId, request with { Description = "foo" }, _cancellationToken));
+      Assert.Equal("foo", (await _tagRepository.GetAsync(tagId, _cancellationToken))?.Description);
     } finally {
-      Assert.True(await tagRepository.DeleteAsync(tagId, CancellationToken.None));
+      Assert.True(await _tagRepository.DeleteAsync(tagId, CancellationToken.None));
     }
 
-    Assert.Null(await tagRepository.GetAsync(tagId, cancellationToken));
-    Assert.False(await tagRepository.UpdateAsync(tagId, request, cancellationToken));
-    Assert.False(await tagRepository.DeleteAsync(tagId, cancellationToken));
+    Assert.Null(await _tagRepository.GetAsync(tagId, _cancellationToken));
+    Assert.False(await _tagRepository.UpdateAsync(tagId, request, _cancellationToken));
+    Assert.False(await _tagRepository.DeleteAsync(tagId, _cancellationToken));
   }
 
   [Fact]
   public async Task CheckTakenAsync_ReportsEachFieldIndependently() {
-    var cancellationToken = TestContext.Current.CancellationToken;
-    await using var connection = new NpgsqlConnection(TestDatabase.ConnectionString);
-    await connection.OpenAsync(cancellationToken);
-    var tagRepository = new TagRepository(connection);
     var request = NewRequest();
-    var tagId = await tagRepository.CreateAsync(request, cancellationToken);
+    var tagId = await _tagRepository.CreateAsync(request, _cancellationToken);
     try {
       var other = $"test-{Guid.NewGuid():N}";
 
-      Assert.Equal((true, true), await tagRepository.CheckTakenAsync(request.Slug, request.Name, null, cancellationToken));
-      Assert.Equal((true, false), await tagRepository.CheckTakenAsync(request.Slug, other, null, cancellationToken));
-      Assert.Equal((false, true), await tagRepository.CheckTakenAsync(other, request.Name.ToUpperInvariant(), null, cancellationToken));
-      Assert.Equal((false, false), await tagRepository.CheckTakenAsync(other, other, null, cancellationToken));
-      Assert.Equal((true, false), await tagRepository.CheckTakenAsync(request.Slug, null, null, cancellationToken));
-      Assert.Equal((false, true), await tagRepository.CheckTakenAsync(null, request.Name, null, cancellationToken));
-      Assert.Equal((false, false), await tagRepository.CheckTakenAsync(null, null, null, cancellationToken));
+      Assert.Equal((true, true), await Taken(request.Slug, request.Name, null));
+      Assert.Equal((true, false), await Taken(request.Slug, other, null));
+      Assert.Equal((false, true), await Taken(other, request.Name.ToUpperInvariant(), null));
+      Assert.Equal((false, false), await Taken(other, other, null));
+      Assert.Equal((true, false), await Taken(request.Slug, null, null));
+      Assert.Equal((false, true), await Taken(null, request.Name, null));
+      Assert.Equal((false, false), await Taken(null, null, null));
       // Excluding the tag itself, for each combination of fields checked.
-      Assert.Equal((false, false), await tagRepository.CheckTakenAsync(request.Slug, request.Name, tagId, cancellationToken));
-      Assert.Equal((false, false), await tagRepository.CheckTakenAsync(request.Slug, null, tagId, cancellationToken));
-      Assert.Equal((false, false), await tagRepository.CheckTakenAsync(null, request.Name, tagId, cancellationToken));
+      Assert.Equal((false, false), await Taken(request.Slug, request.Name, tagId));
+      Assert.Equal((false, false), await Taken(request.Slug, null, tagId));
+      Assert.Equal((false, false), await Taken(null, request.Name, tagId));
       // 0 is an id like any other, not "none".
-      Assert.Equal((true, true), await tagRepository.CheckTakenAsync(request.Slug, request.Name, 0, cancellationToken));
+      Assert.Equal((true, true), await Taken(request.Slug, request.Name, 0));
     } finally {
-      await tagRepository.DeleteAsync(tagId, CancellationToken.None);
+      await _tagRepository.DeleteAsync(tagId, CancellationToken.None);
     }
   }
 
@@ -75,40 +77,34 @@ public class TagRepositoryTests {
   // and a transaction that is disposed without CommitAsync rolls back.
   [Fact]
   public async Task UncommittedTransaction_RollsBack() {
-    var cancellationToken = TestContext.Current.CancellationToken;
-    await using var connection = new NpgsqlConnection(TestDatabase.ConnectionString);
-    await connection.OpenAsync(cancellationToken);
-    var tagRepository = new TagRepository(connection);
     int tagId;
 
-    await using (await connection.BeginTransactionAsync(cancellationToken)) {
-      tagId = await tagRepository.CreateAsync(NewRequest(), cancellationToken);
-      Assert.NotNull(await tagRepository.GetAsync(tagId, cancellationToken));
-      await using var otherConnection = new NpgsqlConnection(TestDatabase.ConnectionString);
-      await otherConnection.OpenAsync(cancellationToken);
-      Assert.Null(await new TagRepository(otherConnection).GetAsync(tagId, cancellationToken));
+    await using (await _connection.BeginTransactionAsync(_cancellationToken)) {
+      tagId = await _tagRepository.CreateAsync(NewRequest(), _cancellationToken);
+      Assert.NotNull(await _tagRepository.GetAsync(tagId, _cancellationToken));
+      await using var otherConnection = await _dataSource.OpenConnectionAsync(_cancellationToken);
+      Assert.Null(await new TagRepository(otherConnection).GetAsync(tagId, _cancellationToken));
     }
 
-    Assert.Null(await tagRepository.GetAsync(tagId, cancellationToken));
+    Assert.Null(await _tagRepository.GetAsync(tagId, _cancellationToken));
   }
 
   [Fact]
   public async Task CommittedTransaction_Persists() {
-    var cancellationToken = TestContext.Current.CancellationToken;
-    await using var connection = new NpgsqlConnection(TestDatabase.ConnectionString);
-    await connection.OpenAsync(cancellationToken);
-    var tagRepository = new TagRepository(connection);
     int tagId;
 
-    await using (var transaction = await connection.BeginTransactionAsync(cancellationToken)) {
-      tagId = await tagRepository.CreateAsync(NewRequest(), cancellationToken);
-      await transaction.CommitAsync(cancellationToken);
+    await using (var transaction = await _connection.BeginTransactionAsync(_cancellationToken)) {
+      tagId = await _tagRepository.CreateAsync(NewRequest(), _cancellationToken);
+      await transaction.CommitAsync(_cancellationToken);
     }
 
     try {
-      Assert.NotNull(await tagRepository.GetAsync(tagId, cancellationToken));
+      Assert.NotNull(await _tagRepository.GetAsync(tagId, _cancellationToken));
     } finally {
-      await tagRepository.DeleteAsync(tagId, CancellationToken.None);
+      await _tagRepository.DeleteAsync(tagId, CancellationToken.None);
     }
   }
+
+  private async Task<(bool Slug, bool Name)> Taken(string? slug, string? name, int? excludeTagId)
+    => await _tagRepository.CheckTakenAsync(slug, name, excludeTagId, _cancellationToken);
 }

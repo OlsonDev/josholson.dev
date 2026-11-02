@@ -1,4 +1,4 @@
-using JoshOlson.Api.Common.Testing;
+using Npgsql;
 using Xunit;
 
 namespace JoshOlson.Api.Common.Extensions;
@@ -39,51 +39,46 @@ public class NpgsqlConnectionExtensionsTests {
     FROM (SELECT) AS _;
     """;
 
+  private readonly CancellationToken _cancellationToken = TestContext.Current.CancellationToken;
+  private readonly NpgsqlConnection _connection;
+
+  public NpgsqlConnectionExtensionsTests(NpgsqlConnection connection)
+    => _connection = connection;
+
   [Fact]
   public async Task Queries_ReturnRowsWithAndWithoutParameters() {
-    var cancellationToken = TestContext.Current.CancellationToken;
-    await using var connection = await TestDatabase.DataSource.OpenConnectionAsync(cancellationToken);
     var parameters = new { foo = 7 };
 
-    Assert.Equal([1, 2], await connection.QueryAsync<int>(_TwoRowsSql, cancellationToken));
-    Assert.Equal([7], await connection.QueryAsync<int>(_ParameterSql, parameters, cancellationToken));
-    Assert.Equal(7, await connection.QuerySingleAsync<int>(_ParameterSql, parameters, cancellationToken));
-    Assert.Equal(7, await connection.QuerySingleOrDefaultAsync<int?>(_ParameterSql, parameters, cancellationToken));
-    Assert.Null(await connection.QuerySingleOrDefaultAsync<int?>(_NoRowsSql, null, cancellationToken));
+    Assert.Equal([1, 2], await _connection.QueryAsync<int>(_TwoRowsSql, _cancellationToken));
+    Assert.Equal([7], await _connection.QueryAsync<int>(_ParameterSql, parameters, _cancellationToken));
+    Assert.Equal(7, await _connection.QuerySingleAsync<int>(_ParameterSql, parameters, _cancellationToken));
+    Assert.Equal(7, await _connection.QuerySingleOrDefaultAsync<int?>(_ParameterSql, parameters, _cancellationToken));
+    Assert.Null(await _connection.QuerySingleOrDefaultAsync<int?>(_NoRowsSql, null, _cancellationToken));
   }
 
   [Fact]
   public async Task QueryMultiple_ReadsEachResultSet() {
-    var cancellationToken = TestContext.Current.CancellationToken;
-    await using var connection = await TestDatabase.DataSource.OpenConnectionAsync(cancellationToken);
-
-    await using var data = await connection.QueryMultipleAsync(_TwoResultSetsSql, null, cancellationToken);
+    await using var data = await _connection.QueryMultipleAsync(_TwoResultSetsSql, null, _cancellationToken);
 
     Assert.Equal(1, await data.ReadSingleAsync<int>());
     Assert.Equal("foo", await data.ReadSingleAsync<string>());
   }
 
   [Fact]
-  public async Task Execute_ReturnsTheRowCount() {
-    var cancellationToken = TestContext.Current.CancellationToken;
-    await using var connection = await TestDatabase.DataSource.OpenConnectionAsync(cancellationToken);
-
-    Assert.Equal(-1, await connection.ExecuteAsync(_OneRowSql, null, cancellationToken));
-  }
+  public async Task Execute_ReturnsTheRowCount()
+    => Assert.Equal(-1, await _connection.ExecuteAsync(_OneRowSql, null, _cancellationToken));
 
   // The reason the token is a required argument: every call must honor it.
   [Fact]
   public async Task Calls_HonorTheCancellationToken() {
-    var cancellationToken = TestContext.Current.CancellationToken;
-    await using var connection = await TestDatabase.DataSource.OpenConnectionAsync(cancellationToken);
     using var cancelled = new CancellationTokenSource();
     await cancelled.CancelAsync();
 
     await Assert.ThrowsAnyAsync<OperationCanceledException>(
-      () => connection.QueryAsync<int>(_OneRowSql, cancelled.Token));
+      () => _connection.QueryAsync<int>(_OneRowSql, cancelled.Token));
     await Assert.ThrowsAnyAsync<OperationCanceledException>(
-      () => connection.QuerySingleAsync<int>(_OneRowSql, null, cancelled.Token));
+      () => _connection.QuerySingleAsync<int>(_OneRowSql, null, cancelled.Token));
     await Assert.ThrowsAnyAsync<OperationCanceledException>(
-      () => connection.ExecuteAsync(_OneRowSql, null, cancelled.Token));
+      () => _connection.ExecuteAsync(_OneRowSql, null, cancelled.Token));
   }
 }

@@ -1,16 +1,16 @@
 using System.Net;
 using System.Text;
-using JoshOlson.Api.Common.Testing;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.Testing;
 using Xunit;
 
 namespace JoshOlson.Api.Tags;
 
 public class TagControllerTests {
-  private static WebApplicationFactory<Program> CreateFactory()
-    => new WebApplicationFactory<Program>().WithWebHostBuilder(
-      builder => builder.UseSetting("ConnectionStrings:Default", TestDatabase.ConnectionString));
+  private readonly CancellationToken _cancellationToken = TestContext.Current.CancellationToken;
+  private readonly HttpClient _client;
+
+  public TagControllerTests(HttpClient client)
+    => _client = client;
 
   private static TagRequest NewRequest(string? slug = null) {
     slug ??= $"test-{Guid.NewGuid():N}";
@@ -23,61 +23,52 @@ public class TagControllerTests {
   }
 
   // Returns the new tag's URL from the Location header.
-  private static async Task<string> CreateTagAsync(HttpClient client, TagRequest request, CancellationToken cancellationToken) {
-    var response = await client.PostAsJsonAsync("/tags", request, cancellationToken);
+  private async Task<string> CreateTagAsync(TagRequest request) {
+    var response = await _client.PostAsJsonAsync("/tags", request, _cancellationToken);
     Assert.Equal(HttpStatusCode.Created, response.StatusCode);
     return response.Headers.Location?.AbsolutePath ?? throw new InvalidOperationException("No Location header.");
   }
 
   [Fact]
   public async Task Crud_RoundTrips() {
-    var cancellationToken = TestContext.Current.CancellationToken;
-    await using var factory = CreateFactory();
-    using var client = factory.CreateClient();
     var request = NewRequest();
 
-    var url = await CreateTagAsync(client, request, cancellationToken);
+    var url = await CreateTagAsync(request);
     try {
-      var tag = await client.GetFromJsonAsync<TagResponse>(url, cancellationToken);
+      var tag = await _client.GetFromJsonAsync<TagResponse>(url, _cancellationToken);
       Assert.Equal(request.Slug, tag?.Slug);
-      var tags = await client.GetFromJsonAsync<List<TagResponse>>("/tags", cancellationToken);
+      var tags = await _client.GetFromJsonAsync<List<TagResponse>>("/tags", _cancellationToken);
       Assert.Contains(tags!, t => t == tag);
 
-      var updateResponse = await client.PutAsJsonAsync(url, request with { Description = "foo" }, cancellationToken);
+      var updateResponse = await _client.PutAsJsonAsync(url, request with { Description = "foo" }, _cancellationToken);
       Assert.Equal(HttpStatusCode.NoContent, updateResponse.StatusCode);
-      Assert.Equal("foo", (await client.GetFromJsonAsync<TagResponse>(url, cancellationToken))?.Description);
+      Assert.Equal("foo", (await _client.GetFromJsonAsync<TagResponse>(url, _cancellationToken))?.Description);
     } finally {
-      Assert.Equal(HttpStatusCode.NoContent, (await client.DeleteAsync(url, CancellationToken.None)).StatusCode);
+      Assert.Equal(HttpStatusCode.NoContent, (await _client.DeleteAsync(url, CancellationToken.None)).StatusCode);
     }
 
-    Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync(url, cancellationToken)).StatusCode);
-    Assert.Equal(HttpStatusCode.NotFound, (await client.DeleteAsync(url, cancellationToken)).StatusCode);
-    Assert.Equal(HttpStatusCode.NotFound, (await client.PutAsJsonAsync(url, request, cancellationToken)).StatusCode);
+    Assert.Equal(HttpStatusCode.NotFound, (await _client.GetAsync(url, _cancellationToken)).StatusCode);
+    Assert.Equal(HttpStatusCode.NotFound, (await _client.DeleteAsync(url, _cancellationToken)).StatusCode);
+    Assert.Equal(HttpStatusCode.NotFound, (await _client.PutAsJsonAsync(url, request, _cancellationToken)).StatusCode);
   }
 
   [Fact]
   public async Task Create_DuplicateSlug_ReturnsUnprocessable() {
-    var cancellationToken = TestContext.Current.CancellationToken;
-    await using var factory = CreateFactory();
-    using var client = factory.CreateClient();
     var request = NewRequest();
-    var url = await CreateTagAsync(client, request, cancellationToken);
+    var url = await CreateTagAsync(request);
     try {
-      var duplicate = await client.PostAsJsonAsync("/tags", request, cancellationToken);
+      var duplicate = await _client.PostAsJsonAsync("/tags", request, _cancellationToken);
 
       Assert.Equal(HttpStatusCode.UnprocessableEntity, duplicate.StatusCode);
-      var details = await duplicate.Content.ReadFromJsonAsync<ValidationProblemDetails>(cancellationToken);
+      var details = await duplicate.Content.ReadFromJsonAsync<ValidationProblemDetails>(_cancellationToken);
       Assert.Equal(["name", "slug"], details!.Errors.Keys.Order(StringComparer.Ordinal));
     } finally {
-      await client.DeleteAsync(url, CancellationToken.None);
+      await _client.DeleteAsync(url, CancellationToken.None);
     }
   }
 
   [Fact]
   public async Task Create_InvalidFields_ReturnsEveryError() {
-    var cancellationToken = TestContext.Current.CancellationToken;
-    await using var factory = CreateFactory();
-    using var client = factory.CreateClient();
     var request = new TagRequest {
       Name = " foo",
       Slug = "Not Kebab Case",
@@ -85,39 +76,33 @@ public class TagControllerTests {
       Color = "red",
     };
 
-    var response = await client.PostAsJsonAsync("/tags", request, cancellationToken);
+    var response = await _client.PostAsJsonAsync("/tags", request, _cancellationToken);
 
     Assert.Equal(HttpStatusCode.UnprocessableEntity, response.StatusCode);
-    var details = await response.Content.ReadFromJsonAsync<ValidationProblemDetails>(cancellationToken);
+    var details = await response.Content.ReadFromJsonAsync<ValidationProblemDetails>(_cancellationToken);
     Assert.Equal(["color", "name", "slug"], details!.Errors.Keys.Order(StringComparer.Ordinal));
   }
 
   [Fact]
   public async Task Update_SlugOfAnotherTag_ReturnsUnprocessable() {
-    var cancellationToken = TestContext.Current.CancellationToken;
-    await using var factory = CreateFactory();
-    using var client = factory.CreateClient();
     var first = NewRequest();
-    var firstUrl = await CreateTagAsync(client, first, cancellationToken);
-    var secondUrl = await CreateTagAsync(client, NewRequest(), cancellationToken);
+    var firstUrl = await CreateTagAsync(first);
+    var secondUrl = await CreateTagAsync(NewRequest());
     try {
-      var response = await client.PutAsJsonAsync(secondUrl, NewRequest(first.Slug), cancellationToken);
+      var response = await _client.PutAsJsonAsync(secondUrl, NewRequest(first.Slug), _cancellationToken);
 
       Assert.Equal(HttpStatusCode.UnprocessableEntity, response.StatusCode);
     } finally {
-      await client.DeleteAsync(firstUrl, CancellationToken.None);
-      await client.DeleteAsync(secondUrl, CancellationToken.None);
+      await _client.DeleteAsync(firstUrl, CancellationToken.None);
+      await _client.DeleteAsync(secondUrl, CancellationToken.None);
     }
   }
 
   [Fact]
   public async Task Create_MalformedJson_ReturnsBadRequest() {
-    var cancellationToken = TestContext.Current.CancellationToken;
-    await using var factory = CreateFactory();
-    using var client = factory.CreateClient();
     using var content = new StringContent("{ not json", Encoding.UTF8, "application/json");
 
-    var response = await client.PostAsync("/tags", content, cancellationToken);
+    var response = await _client.PostAsync("/tags", content, _cancellationToken);
 
     Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
   }
