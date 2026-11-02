@@ -9,6 +9,8 @@
 | `email`           | [`text.email`][domain:text.email]            | `NOT NULL` |                                |
 | `subject`         | [`text.trimmed`][domain:text.trimmed]        |     `NULL` |                                |
 | `message`         | [`text.trimmed`][domain:text.trimmed]        | `NOT NULL` |                                |
+| `ip`              | [`INET`][pg:inet]                            |     `NULL` |                                |
+| `user_agent_id`   | [`INTEGER`][pg:integer]                      |     `NULL` |                                |
 | `is_spam`         | [`BOOLEAN`][pg:boolean]                      | `NOT NULL` | `false`                        |
 | `created_utc`     | [`TIMESTAMPTZ`][pg:timestamp-with-time-zone] | `NOT NULL` | `now()`                        |
 | `read_utc`        | [`TIMESTAMPTZ`][pg:timestamp-with-time-zone] |     `NULL` |                                |
@@ -44,14 +46,27 @@ CREATE INDEX ix_contact_pending_notification
   ON form.contact
   USING btree (created_utc)
   WHERE ((notified_utc IS NULL) AND (NOT is_spam));
+
+CREATE INDEX ix_contact_user_agent_id
+  ON form.contact
+  USING btree (user_agent_id)
+  WHERE (user_agent_id IS NOT NULL);
 ```
 
 ## Relations
+
+### Foreign keys
+
+| Name                     | Columns         | Ref Table                                  | Ref Columns     | On Delete   | On Update   |
+| ------------------------ | --------------- | ------------------------------------------ | --------------- | ----------- | ----------- |
+| `fk_contact__user_agent` | `user_agent_id` | [`http.user_agent`][table:http.user_agent] | `user_agent_id` | `NO ACTION` | `NO ACTION` |
 
 ### Diagram
 
 ```mermaid
 erDiagram
+
+"form.contact" }o--o| "http.user_agent" : "user_agent_id"
 
 "form.contact" {
   INTEGER contact_id PK
@@ -59,12 +74,19 @@ erDiagram
   text.email email
   text.trimmed subject
   text.trimmed message
+  INET ip
+  INTEGER user_agent_id FK
   BOOLEAN is_spam
   TIMESTAMPTZ created_utc
   TIMESTAMPTZ read_utc
   TIMESTAMPTZ notified_utc
   INTEGER notify_attempts
   text.trimmed notify_error
+}
+
+"http.user_agent" {
+  INTEGER user_agent_id PK
+  text.trimmed value UK
 }
 ```
 
@@ -75,5 +97,7 @@ erDiagram
 [domain:text.email]: domains.md#textemail
 [domain:text.trimmed]: domains.md#texttrimmed
 [pg:boolean]: https://www.postgresql.org/docs/19/datatype-boolean.html
+[pg:inet]: https://www.postgresql.org/docs/19/datatype-net-types.html
 [pg:integer]: https://www.postgresql.org/docs/19/datatype-numeric.html#DATATYPE-INT
 [pg:timestamp-with-time-zone]: https://www.postgresql.org/docs/19/datatype-datetime.html
+[table:http.user_agent]: http.user_agent.md

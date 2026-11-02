@@ -31,7 +31,13 @@
 
 | Table                                | Columns |
 | ------------------------------------ | ------: |
-| [`form.contact`][table:form.contact] |      11 |
+| [`form.contact`][table:form.contact] |      13 |
+
+## http
+
+| Table                                      | Columns |
+| ------------------------------------------ | ------: |
+| [`http.user_agent`][table:http.user_agent] |       2 |
 
 ## resume
 
@@ -83,6 +89,7 @@ erDiagram
 "auth.enrollment_token" }o--|| "auth.user" : "user_id"
 "auth.passkey" }o--|| "auth.user" : "user_id"
 "auth.session" }o--|| "auth.user" : "user_id"
+"auth.session" }o--o| "http.user_agent" : "user_agent_id"
 "auth.user_email" }o--|| "auth.user" : "user_id"
 "blob.blob" }o--|| "blob.mime_type" : "mime_type_id"
 "blob.mime_type__file_extension" }o--|| "blob.file_extension" : "file_extension_id"
@@ -91,6 +98,7 @@ erDiagram
 "blog.post" }o--o| "blog.series" : "series_id"
 "blog.post__tag__tag" }o--|| "blog.post" : "post_id"
 "blog.post__tag__tag" }o--|| "tag.tag" : "tag_id"
+"form.contact" }o--o| "http.user_agent" : "user_agent_id"
 "resume.award" }o--|| "resume.resume" : "resume_id"
 "resume.certificate" }o--|| "resume.resume" : "resume_id"
 "resume.education" }o--o| "blob.blob" : "logo_blob_id"
@@ -147,6 +155,7 @@ erDiagram
 [table:blog.post__tag__tag]: blog.post__tag__tag.md
 [table:blog.series]: blog.series.md
 [table:form.contact]: form.contact.md
+[table:http.user_agent]: http.user_agent.md
 [table:resume.award]: resume.award.md
 [table:resume.certificate]: resume.certificate.md
 [table:resume.education]: resume.education.md

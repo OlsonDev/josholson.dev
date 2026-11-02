@@ -6,7 +6,9 @@ CREATE TABLE form.contact (
   , email            text.email    NOT NULL
   , subject          text.trimmed      NULL
   , message          text.trimmed  NOT NULL
-  , is_spam          BOOLEAN       NOT NULL DEFAULT FALSE
+  , ip               INET              NULL
+  , user_agent_id    INT               NULL
+  , is_spam         BOOLEAN       NOT NULL DEFAULT FALSE
   , created_utc      TIMESTAMPTZ   NOT NULL DEFAULT now()
   , read_utc         TIMESTAMPTZ       NULL
   , notified_utc     TIMESTAMPTZ       NULL
@@ -14,6 +16,7 @@ CREATE TABLE form.contact (
   , notify_error     text.trimmed      NULL
 
   , CONSTRAINT pk_contact PRIMARY KEY (contact_id)
+  , CONSTRAINT fk_contact__user_agent FOREIGN KEY (user_agent_id) REFERENCES http.user_agent (user_agent_id)
   , CONSTRAINT ck_contact_message_length               CHECK (length(message) <= 10000)
   , CONSTRAINT ck_contact_notify_attempts_non_negative CHECK (notify_attempts >= 0)
   , CONSTRAINT ck_contact_read_not_before_created      CHECK (read_utc >= created_utc)
@@ -22,6 +25,10 @@ CREATE TABLE form.contact (
 
 CREATE INDEX ix_contact_created_utc
   ON form.contact (created_utc DESC);
+
+CREATE INDEX ix_contact_user_agent_id
+  ON form.contact (user_agent_id)
+  WHERE user_agent_id IS NOT NULL;
 
 CREATE INDEX ix_contact_pending_notification
   ON form.contact (created_utc)

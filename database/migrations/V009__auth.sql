@@ -61,24 +61,29 @@ CREATE TABLE auth.passkey (
 );
 
 CREATE TABLE auth.session (
-    session_id     INT           NOT NULL GENERATED ALWAYS AS IDENTITY
-  , user_id        INT           NOT NULL
-  , token_hash     hash.sha256   NOT NULL
-  , created_utc    TIMESTAMPTZ   NOT NULL DEFAULT now()
-  , expires_utc    TIMESTAMPTZ   NOT NULL
-  , last_seen_utc  TIMESTAMPTZ   NOT NULL DEFAULT now()
-  , ip             INET              NULL
-  , user_agent     text.trimmed      NULL
+    session_id     INT          NOT NULL GENERATED ALWAYS AS IDENTITY
+  , user_id        INT          NOT NULL
+  , token_hash     hash.sha256  NOT NULL
+  , created_utc    TIMESTAMPTZ  NOT NULL DEFAULT now()
+  , expires_utc    TIMESTAMPTZ  NOT NULL
+  , last_seen_utc  TIMESTAMPTZ  NOT NULL DEFAULT now()
+  , ip             INET             NULL
+  , user_agent_id  INT              NULL
 
   , CONSTRAINT pk_session PRIMARY KEY (session_id)
   , CONSTRAINT uq_session_token_hash UNIQUE (token_hash)
-  , CONSTRAINT fk_session__user FOREIGN KEY (user_id) REFERENCES auth.user (user_id) ON DELETE CASCADE
+  , CONSTRAINT fk_session__user       FOREIGN KEY (user_id)       REFERENCES auth.user (user_id)               ON DELETE CASCADE
+  , CONSTRAINT fk_session__user_agent FOREIGN KEY (user_agent_id) REFERENCES http.user_agent (user_agent_id)
   , CONSTRAINT ck_session_expires_after_created        CHECK (expires_utc > created_utc)
   , CONSTRAINT ck_session_last_seen_not_before_created CHECK (last_seen_utc >= created_utc)
 );
 
 CREATE INDEX ix_session_user_id
   ON auth.session (user_id);
+
+CREATE INDEX ix_session_user_agent_id
+  ON auth.session (user_agent_id)
+  WHERE user_agent_id IS NOT NULL;
 
 CREATE INDEX ix_session_expires_utc
   ON auth.session (expires_utc);

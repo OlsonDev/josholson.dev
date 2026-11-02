@@ -90,7 +90,7 @@ erDiagram
   TIMESTAMPTZ expires_utc
   TIMESTAMPTZ last_seen_utc
   INET ip
-  text.trimmed user_agent
+  INTEGER user_agent_id FK
 }
 
 "auth.user_email" {
