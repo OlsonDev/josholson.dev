@@ -7,7 +7,10 @@ namespace JoshOlson.Api.Common.DependencyInjection;
 // Such a class must be public, sealed, non-abstract, and non-generic, or startup fails: a typo or a forgotten
 // `public` would otherwise leave it unregistered until a request hits it.
 public static class ConventionRegistration {
-  private static readonly string[] _Suffixes = ["Service", "Repository"];
+  private static readonly string[] _Suffixes = [
+    "Service",
+    "Repository",
+  ];
 
   extension(IServiceCollection services) {
     // Scans the whole assembly. Nested types are skipped, so test fixtures can live inside test classes.

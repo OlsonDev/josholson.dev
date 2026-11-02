@@ -70,7 +70,7 @@ public class TagControllerTests {
   [Fact]
   public async Task Create_InvalidFields_ReturnsEveryError() {
     var request = new TagRequest {
-      Name = " foo",
+      Name = "   ",
       Slug = "Not Kebab Case",
       Description = null,
       Color = "red",
@@ -81,6 +81,25 @@ public class TagControllerTests {
     Assert.Equal(HttpStatusCode.UnprocessableEntity, response.StatusCode);
     var details = await response.Content.ReadFromJsonAsync<ValidationProblemDetails>(_cancellationToken);
     Assert.Equal(["color", "name", "slug"], details!.Errors.Keys.Order(StringComparer.Ordinal));
+  }
+
+  [Fact]
+  public async Task Create_PaddedAndBlankText_IsStoredTrimmedAndAsNull() {
+    var slug = $"test-{Guid.NewGuid():N}";
+    var request = NewRequest(slug) with {
+      Name = $"  {slug}\n",
+      Description = "   ",
+    };
+
+    var url = await CreateTagAsync(request);
+    try {
+      var tag = await _client.GetFromJsonAsync<TagResponse>(url, _cancellationToken);
+
+      Assert.Equal(slug, tag?.Name);
+      Assert.Null(tag?.Description);
+    } finally {
+      await _client.DeleteAsync(url, CancellationToken.None);
+    }
   }
 
   [Fact]

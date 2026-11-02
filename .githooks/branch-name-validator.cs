@@ -5,7 +5,14 @@ internal static partial class BranchNameValidator {
   // - main (not protected yet), or
   // - a prefix from _AllowedPrefixes with a trailing slash, then a name
   // - the name starts with a letter and has only letters, digits, and hyphens
-  private static readonly string[] _AllowedPrefixes = ["mob", "feature", "fix", "hotfix", "docs", "test"];
+  private static readonly string[] _AllowedPrefixes = [
+    "mob",
+    "feature",
+    "fix",
+    "hotfix",
+    "docs",
+    "test",
+  ];
 
   [GeneratedRegex("^[A-Za-z][A-Za-z0-9-]*$")]
   private static partial Regex NamePattern();
