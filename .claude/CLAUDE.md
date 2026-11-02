@@ -98,6 +98,7 @@ Test the hooks' validators: `dotnet run .githooks/commit-msg.tests.cs` and `dotn
 
 ## Ground rules
 
+- Never use Python or perl, for scripts or for editing files. Edit files with the Edit and Write tools. A throwaway script is Bun (TypeScript) or a .NET file-based app, the pinned toolchain in `mise.toml`.
 - Formatting basics live in `.editorconfig`: UTF-8, LF, two spaces, no trailing whitespace, and every file ends with a final newline.
 - YAML files use `.yaml`, never `.yml`. If a tool defaults to `.yml`, point it at the `.yaml` file explicitly.
 - SQL conventions are in `.claude/rules/sql.md`. Read it before writing any SQL.
