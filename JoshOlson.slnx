@@ -5,4 +5,5 @@
     <File Path="Directory.Packages.props" />
   </Folder>
   <Project Path="JoshOlson.Api/JoshOlson.Api.csproj" />
+  <Project Path="JoshOlson.Database/JoshOlson.Database.csproj" />
 </Solution>

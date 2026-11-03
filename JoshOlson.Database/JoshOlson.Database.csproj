@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Tests live next to the code as *.Tests.cs, as in JoshOlson.Api. IncludeTests defaults to on for Debug and off
+    otherwise. Pass -p:IncludeTests=true|false to override. xunit.v3 needs an executable, so with tests in the assembly
+    is one (its entry point runs the tests), and without them it is a plain library.
+  -->
+  <PropertyGroup>
+    <IncludeTests Condition="'$(IncludeTests)' == ''">$([System.String]::Equals('$(Configuration)', 'Debug'))</IncludeTests>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Remove="**/*.Tests.cs" Condition="'$(IncludeTests)' != 'true'" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="YamlDotNet" />
+  </ItemGroup>
+
+  <PropertyGroup Condition="'$(IncludeTests)' == 'true'">
+    <OutputType>Exe</OutputType>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(IncludeTests)' == 'true'">
+    <PackageReference Include="xunit.v3.mtp-v2" PrivateAssets="all" />
+  </ItemGroup>
+
+</Project>

@@ -47,25 +47,30 @@ run = "podman compose -f compose.yaml -f compose.dev.yaml exec -T postgres psql 
 [tasks."db:provision".env]
 _.file = ".env"
 
+# The seed tool's command line (ADR 0033, a scoped database per test). Layers live in JoshOlson.Database/seeds.
+[tasks."seeds:list"]
+description = "Print the seed layer tree with row counts per table"
+run = "dotnet run scripts/seed.cs -- list"
+
 # The test tasks read .env for the dev database (POSTGRES_*) and run as the josholson_api role, so start the database
 # and run db:provision first (see CLAUDE.md).
 # Tests live beside the code as *.Tests.cs and are compiled in for Debug (see JoshOlson.Api/JoshOlson.Api.csproj).
 [tasks.test]
-description = "Run the API tests (Debug build, tests compiled in)"
-run = "dotnet test --project JoshOlson.Api"
+description = "Run every project's tests (Debug build, tests compiled in)"
+run = "dotnet test --solution JoshOlson.slnx"
 
 [tasks.test.env]
 _.file = ".env"
 
 [tasks."test:release"]
-description = "Run the API tests against a Release build"
-run = "dotnet test --project JoshOlson.Api -c Release -p:IncludeTests=true"
+description = "Run every project's tests against a Release build"
+run = "dotnet test --solution JoshOlson.slnx -c Release -p:IncludeTests=true"
 
 [tasks."test:release".env]
 _.file = ".env"
 
 [tasks."test:missing"]
-description = "List api source files with no sibling *.Tests.cs"
+description = "List source files with no sibling *.Tests.cs"
 run = "dotnet run scripts/missing-tests.cs"
 
 # Every rule in the analyzer packages must have a severity in .editorconfig (ADR 0030). Reads the restored packages.

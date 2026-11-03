@@ -1,7 +1,9 @@
 # Database
 
-- `Migrations/`: Waypoint migrations. `V#__schema.sql` are versioned, one per schema, applied in order. `R__*.sql` are repeatable and rerun when their contents change.
-- `Seeds/`: seed layers (🚧 tool not built yet). See [docs/seeding.md](../docs/seeding.md).
+- `migrations/`: Waypoint migrations. `V#__schema.sql` are versioned, one per schema, applied in order. `R__*.sql` are repeatable and rerun when their contents change.
+- `provisioning/`: one-off scripts run as the owner after migrations.
+- `seeds/`: seed layers, one YAML file each. See [docs/seeding.md](../docs/seeding.md) for the format.
+- `Layers/`: the seed tool's code (parsing layers and building the `extends` tree), with tests beside it ([ADR 0033](../docs/adr/0033-scoped-databases-per-test.md)). `mise run seeds:list` prints the tree.
 
 Run against the dev database (start it first; see the root `CLAUDE.md`):
 

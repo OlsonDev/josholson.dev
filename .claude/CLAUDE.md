@@ -13,7 +13,7 @@ Personal website for Josh Olson: www.josholson.dev (SvelteKit SSR) and api.josho
 
 - `JoshOlson.Database/migrations/`: Flyway-style `V#__name.sql` (versioned) and `R__name.sql` (repeatable)
 - `JoshOlson.Database/provisioning/`: one-off scripts run as the owner after migrations (API role; needs a password, so not a migration)
-- `JoshOlson.Database/seeds/`: seed layers (🚧 tool not built yet). The seed tool will be this project's code ([ADR 0033](../docs/adr/0033-scoped-databases-per-test.md), a scoped database per test)
+- `JoshOlson.Database/seeds/`: seed layers, one YAML file each ([docs/seeding.md](../docs/seeding.md)). The project's own code (`Layers/`: parsing and the `extends` tree; 🚧 the database side is not built yet) is the seed tool ([ADR 0033](../docs/adr/0033-scoped-databases-per-test.md), a scoped database per test)
 - `compose.yaml`: production-safe. `compose.dev.yaml`: dev only, always load explicitly
 - `JoshOlson.slnx` (root): the .NET solution. `JoshOlson.Api/` is the API, in feature folders (one per feature, plus `Common/` for cross-cutting code). Tests sit beside the code as `*.Tests.cs` ([ADR 0023](../docs/adr/0023-api-feature-folders-and-colocated-tests.md))
 - `web/`: 🚧 not created yet
@@ -77,7 +77,13 @@ Enable the git hooks (once per clone):
 dotnet run setup.cs
 ```
 
-Run the API tests (needs the dev database running and provisioned; reads `.env`), against a Release build, and list source files with no sibling test:
+Print the seed layer tree with row counts per table:
+
+```
+mise run seeds:list
+```
+
+Run every project's tests (the API's need the dev database running and provisioned; reads `.env`), against a Release build, and list source files with no sibling test:
 
 ```
 mise run test
