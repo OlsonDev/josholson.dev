@@ -66,6 +66,7 @@ Formatting, language style, and naming live in `.editorconfig` (`[*.cs]`) and ar
 - Analyzers (BannedApiAnalyzers, Meziantou, Roslynator) fail the build ([ADR 0030](../../docs/adr/0030-analyzers.md)). The loose scripts and hooks follow the same rules and are checked by `mise run scripts:check`. To allow one use, `#pragma warning disable <ID>` with a reason; to change a rule everywhere, edit `.editorconfig`.
 - `api/JoshOlson.Api/BannedSymbols.txt` lists banned APIs (RS0030), each with the replacement as its message. Add to it rather than writing a rule here. Every overload needs its own line with a full signature; a type ban misses bare declarations. Time is NodaTime ([ADR 0029](../../docs/adr/0029-nodatime-for-time.md)).
 - HTTP header names come from `Microsoft.Net.Http.Headers.HeaderNames` (`HeaderNames.ContentType`, `HeaderNames.Origin`), never string literals, in the API and its tests. A typed accessor such as `request.Headers.Origin` is just as good. A script that is not an ASP.NET app (`scripts/passkey-cli.cs`) has no such package and may spell the names out. Nothing enforces this yet; a literal is only caught in review.
+- Collections are `List<T>`, not `IEnumerable<T>`, `IReadOnlyList<T>`, or `IReadOnlyCollection<T>`, wherever the caller can supply one: parameters, return types, and payload properties (model binding fills a `List<T>` as readily). Dapper's buffered results go through `AsList()` (the `QueryAsync` extension already does), which hands back the `List<T>` Dapper built without a copy. When a transformation builds a new collection, pre-allocate it from the source's size (`List<Foo> foos = new(bars.Count)` and a `foreach`, not `Select(...).ToList()`). Tests pay for the conversion (`[]`, `[.. array]`).
 - Several lookups in a loop need a `Dictionary` or `ILookup`, not a scan per iteration. Compute an aggregate once into a named variable.
 
 ## Choosing a branching form
@@ -135,7 +136,7 @@ if (isBar) {
 - Aggregate in SQL (`count`, `sum`), not in C#.
 
 ```csharp
-public async Task<IReadOnlyList<Bar>> GetCorgesAsync(int barId, CancellationToken cancellationToken) {
+public async Task<List<Bar>> GetCorgesAsync(int barId, CancellationToken cancellationToken) {
   var sql = $"""
     SELECT
         c.corge_id
@@ -147,8 +148,7 @@ public async Task<IReadOnlyList<Bar>> GetCorgesAsync(int barId, CancellationToke
     ORDER BY c.sort_order, c.corge_id;
     """;
   var parameters = new { barId };
-  var corges = await _connection.QueryAsync<Bar>(sql, parameters, cancellationToken);
-  return corges.AsList();
+  return await _connection.QueryAsync<Bar>(sql, parameters, cancellationToken);
 }
 ```
 

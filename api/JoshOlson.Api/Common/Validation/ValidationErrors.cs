@@ -17,8 +17,11 @@ public sealed class ValidationErrors {
     messages.Add(message);
   }
 
-  public ValidationProblemDetails ToProblemDetails()
-    => new(_errors.ToDictionary(error => error.Key, error => error.Value.ToArray())) {
+  public ValidationProblemDetails ToProblemDetails() {
+    Dictionary<string, string[]> errors = new(_errors.Count);
+    foreach (var (field, messages) in _errors) errors[field] = [.. messages];
+    return new(errors) {
       Status = StatusCodes.Status422UnprocessableEntity,
     };
+  }
 }

@@ -39,17 +39,21 @@ public sealed class PasskeyService {
     _clock = clock;
   }
 
-  public async Task<IReadOnlyList<PasskeyResponse>> GetAllAsync(int userId, CancellationToken cancellationToken) {
+  public async Task<List<PasskeyResponse>> GetAllAsync(int userId, CancellationToken cancellationToken) {
     var passkeys = await _passkeyRepository.GetAllAsync(userId, cancellationToken);
-    return passkeys.Select(passkey => new PasskeyResponse {
-      PasskeyId = passkey.PasskeyId,
-      Nickname = passkey.Nickname,
-      CreatedUtc = passkey.CreatedUtc,
-      LastUsedUtc = passkey.LastUsedUtc,
-      IsBackupEligible = passkey.IsBackupEligible,
-      IsBackedUp = passkey.IsBackedUp,
-      Transports = passkey.Transports,
-    }).ToList();
+    List<PasskeyResponse> responses = new(passkeys.Count);
+    foreach (var passkey in passkeys) {
+      responses.Add(new() {
+        PasskeyId = passkey.PasskeyId,
+        Nickname = passkey.Nickname,
+        CreatedUtc = passkey.CreatedUtc,
+        LastUsedUtc = passkey.LastUsedUtc,
+        IsBackupEligible = passkey.IsBackupEligible,
+        IsBackedUp = passkey.IsBackedUp,
+        Transports = passkey.Transports,
+      });
+    }
+    return responses;
   }
 
   public async Task<CeremonyResponse<CredentialCreateOptions>> StartRegistrationAsync(

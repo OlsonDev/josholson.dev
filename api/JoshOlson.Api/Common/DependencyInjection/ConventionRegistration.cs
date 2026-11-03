@@ -15,10 +15,11 @@ public static class ConventionRegistration {
   extension(IServiceCollection services) {
     // Scans the whole assembly. Nested types are skipped, so test fixtures can live inside test classes.
     public IServiceCollection AddServicesAndRepositories()
-      => services.AddServicesAndRepositories(Assembly.GetExecutingAssembly().GetTypes().Where(type => !type.IsNested));
+      => services.AddServicesAndRepositories([.. Assembly.GetExecutingAssembly().GetTypes().Where(type => !type.IsNested)]);
 
-    public IServiceCollection AddServicesAndRepositories(IEnumerable<Type> types) {
-      foreach (var type in types.Where(HasSuffix)) {
+    public IServiceCollection AddServicesAndRepositories(List<Type> types) {
+      foreach (var type in types) {
+        if (!HasSuffix(type)) continue;
         EnsureConforms(type);
         services.AddScoped(type);
         // `FooService : IFooService` can also be injected as its interface, sharing the same instance.

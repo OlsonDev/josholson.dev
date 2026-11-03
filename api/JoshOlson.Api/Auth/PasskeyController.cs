@@ -12,7 +12,7 @@ public sealed class PasskeyController : ControllerBase {
     => _passkeyService = passkeyService;
 
   [HttpGet]
-  public async Task<IReadOnlyList<PasskeyResponse>> GetAll(CancellationToken cancellationToken)
+  public async Task<List<PasskeyResponse>> GetAll(CancellationToken cancellationToken)
     => await _passkeyService.GetAllAsync(HttpContext.GetSession().User.UserId, cancellationToken);
 
   [HttpPost("registration/options")]

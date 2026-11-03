@@ -11,7 +11,7 @@ public sealed class TagRepository {
   public TagRepository(NpgsqlConnection connection)
     => _connection = connection;
 
-  public async Task<IReadOnlyList<TagResponse>> GetAllAsync(CancellationToken cancellationToken) {
+  public Task<List<TagResponse>> GetAllAsync(CancellationToken cancellationToken) {
     var sql = """
       SELECT
           t.tag_id       AS tag_id
@@ -23,8 +23,7 @@ public sealed class TagRepository {
       JOIN tag.tag   AS t  ON TRUE
       ORDER BY t.name, t.tag_id;
       """;
-    var tags = await _connection.QueryAsync<TagResponse>(sql, cancellationToken);
-    return tags.AsList();
+    return _connection.QueryAsync<TagResponse>(sql, cancellationToken);
   }
 
   public async Task<TagResponse?> GetAsync(int tagId, CancellationToken cancellationToken) {

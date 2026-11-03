@@ -21,7 +21,7 @@ public sealed class TagService {
   )
     => await ValidateAsync(tagId, request, cancellationToken);
 
-  public Task<IReadOnlyList<TagResponse>> GetAllAsync(CancellationToken cancellationToken)
+  public Task<List<TagResponse>> GetAllAsync(CancellationToken cancellationToken)
     => _tagRepository.GetAllAsync(cancellationToken);
 
   public Task<TagResponse?> GetAsync(int tagId, CancellationToken cancellationToken)

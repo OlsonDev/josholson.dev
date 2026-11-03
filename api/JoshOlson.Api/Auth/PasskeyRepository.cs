@@ -10,7 +10,7 @@ public sealed class PasskeyRepository {
   public PasskeyRepository(NpgsqlConnection connection)
     => _connection = connection;
 
-  public async Task<IReadOnlyList<Passkey>> GetAllAsync(int userId, CancellationToken cancellationToken)
+  public async Task<List<Passkey>> GetAllAsync(int userId, CancellationToken cancellationToken)
     => await GetAllByConditionAsync("p.user_id = @userId", new { userId }, cancellationToken);
 
   public async Task<Passkey?> GetByCredentialIdAsync(byte[] credentialId, CancellationToken cancellationToken)
@@ -19,7 +19,7 @@ public sealed class PasskeyRepository {
 
   // The one place the select list lives. `onCondition` is SQL the code wrote, never request data; values go in
   // `parameters`. Ordered by creation then key, so a list is stable.
-  private async Task<IReadOnlyList<Passkey>> GetAllByConditionAsync(
+  private async Task<List<Passkey>> GetAllByConditionAsync(
     string onCondition,
     object parameters,
     CancellationToken cancellationToken
@@ -42,7 +42,9 @@ public sealed class PasskeyRepository {
       ORDER BY p.created_utc, p.passkey_id;
       """;
     var rows = await _connection.QueryAsync<PasskeyRow>(sql, parameters, cancellationToken);
-    return rows.Select(row => row.ToPasskey()).ToList();
+    List<Passkey> passkeys = new(rows.Count);
+    foreach (var row in rows) passkeys.Add(row.ToPasskey());
+    return passkeys;
   }
 
   public async Task<int> CreateAsync(NewPasskey passkey, CancellationToken cancellationToken) {
@@ -68,12 +70,14 @@ public sealed class PasskeyRepository {
       )
       RETURNING passkey_id;
       """;
+    var transports = new short[passkey.Transports.Count];
+    for (var i = 0; i < transports.Length; i++) transports[i] = (short)passkey.Transports[i];
     var parameters = new {
       passkey.UserId,
       passkey.CredentialId,
       passkey.PublicKey,
       passkey.SignCount,
-      Transports = passkey.Transports.Cast<short>().ToArray(),
+      Transports = transports,
       passkey.IsBackupEligible,
       passkey.IsBackedUp,
       passkey.Nickname,
@@ -147,19 +151,22 @@ public sealed class PasskeyRepository {
     public required Instant CreatedUtc { get; init; }
     public required Instant? LastUsedUtc { get; init; }
 
-    public Passkey ToPasskey()
-      => new() {
+    public Passkey ToPasskey() {
+      List<PasskeyTransport> transports = new(Transports.Length);
+      foreach (var transport in Transports) transports.Add((PasskeyTransport)transport);
+      return new() {
         PasskeyId = PasskeyId,
         UserId = UserId,
         CredentialId = CredentialId,
         PublicKey = PublicKey,
         SignCount = SignCount,
-        Transports = Transports.Cast<PasskeyTransport>().ToList(),
+        Transports = transports,
         IsBackupEligible = IsBackupEligible,
         IsBackedUp = IsBackedUp,
         Nickname = Nickname,
         CreatedUtc = CreatedUtc,
         LastUsedUtc = LastUsedUtc,
       };
+    }
   }
 }

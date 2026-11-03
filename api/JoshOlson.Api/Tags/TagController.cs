@@ -13,7 +13,7 @@ public sealed class TagController : ControllerBase {
 
   [AllowAnonymous]
   [HttpGet]
-  public async Task<IReadOnlyList<TagResponse>> GetAll(CancellationToken cancellationToken)
+  public async Task<List<TagResponse>> GetAll(CancellationToken cancellationToken)
     => await _tagService.GetAllAsync(cancellationToken);
 
   [AllowAnonymous]

@@ -28,7 +28,7 @@ public class PasskeyTransportTests {
     var userId = await _authTestData.CreateUserAsync(_cancellationToken);
     var all = Enum.GetValues<PasskeyTransport>();
 
-    var newPasskey = NewPasskey(userId, all);
+    var newPasskey = NewPasskey(userId, [.. all]);
     await _passkeyRepository.CreateAsync(newPasskey, _cancellationToken);
     var stored = await _passkeyRepository.GetByCredentialIdAsync(newPasskey.CredentialId, _cancellationToken);
     Assert.Equal([1, 2, 3, 4, 5, 6], all.Select(transport => (int)transport));
@@ -40,7 +40,7 @@ public class PasskeyTransportTests {
     Assert.Equal("ck_passkey_transports_range", exception.ConstraintName);
   }
 
-  private static NewPasskey NewPasskey(int userId, IReadOnlyList<PasskeyTransport> transports)
+  private static NewPasskey NewPasskey(int userId, List<PasskeyTransport> transports)
     => new() {
       UserId = userId,
       CredentialId = RandomNumberGenerator.GetBytes(32),

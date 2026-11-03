@@ -13,7 +13,7 @@ public sealed record Passkey {
   public required byte[] CredentialId { get; init; }
   public required byte[] PublicKey { get; init; }
   public required long SignCount { get; init; }
-  public required IReadOnlyList<PasskeyTransport> Transports { get; init; }
+  public required List<PasskeyTransport> Transports { get; init; }
   public required bool IsBackupEligible { get; init; }
   public required bool IsBackedUp { get; init; }
   public required string Nickname { get; init; }
@@ -27,7 +27,7 @@ public sealed record NewPasskey {
   public required byte[] CredentialId { get; init; }
   public required byte[] PublicKey { get; init; }
   public required long SignCount { get; init; }
-  public required IReadOnlyList<PasskeyTransport> Transports { get; init; }
+  public required List<PasskeyTransport> Transports { get; init; }
   public required bool IsBackupEligible { get; init; }
   public required bool IsBackedUp { get; init; }
   public required string Nickname { get; init; }
@@ -38,7 +38,7 @@ public sealed record VerifiedRegistration {
   public required byte[] CredentialId { get; init; }
   public required byte[] PublicKey { get; init; }
   public required long SignCount { get; init; }
-  public required IReadOnlyList<PasskeyTransport> Transports { get; init; }
+  public required List<PasskeyTransport> Transports { get; init; }
   public required bool IsBackupEligible { get; init; }
   public required bool IsBackedUp { get; init; }
 
@@ -80,7 +80,7 @@ public sealed record PasskeyResponse {
   public required Instant? LastUsedUtc { get; init; }
   public required bool IsBackupEligible { get; init; }
   public required bool IsBackedUp { get; init; }
-  public required IReadOnlyList<PasskeyTransport> Transports { get; init; }
+  public required List<PasskeyTransport> Transports { get; init; }
 }
 
 [ValidatableType]

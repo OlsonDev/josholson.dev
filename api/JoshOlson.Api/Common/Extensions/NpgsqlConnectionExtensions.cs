@@ -8,11 +8,13 @@ namespace JoshOlson.Api.Common.Extensions;
 // one would compile but drop it.
 public static class NpgsqlConnectionExtensions {
   extension(NpgsqlConnection connection) {
-    public Task<IEnumerable<T>> QueryAsync<T>(string sql, CancellationToken cancellationToken)
-      => connection.QueryAsync<T>(new CommandDefinition(sql, cancellationToken: cancellationToken));
+    // Buffered, so Dapper has already built a `List<T>`; `AsList` hands it back without a copy.
+    public async Task<List<T>> QueryAsync<T>(string sql, CancellationToken cancellationToken)
+      => (await connection.QueryAsync<T>(new CommandDefinition(sql, cancellationToken: cancellationToken))).AsList();
 
-    public Task<IEnumerable<T>> QueryAsync<T>(string sql, object? parameters, CancellationToken cancellationToken)
-      => connection.QueryAsync<T>(new CommandDefinition(sql, parameters, cancellationToken: cancellationToken));
+    public async Task<List<T>> QueryAsync<T>(string sql, object? parameters, CancellationToken cancellationToken)
+      => (await connection.QueryAsync<T>(new CommandDefinition(sql, parameters, cancellationToken: cancellationToken)))
+        .AsList();
 
     public Task<T> QuerySingleAsync<T>(string sql, object? parameters, CancellationToken cancellationToken)
       => connection.QuerySingleAsync<T>(new CommandDefinition(sql, parameters, cancellationToken: cancellationToken));

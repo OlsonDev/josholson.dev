@@ -17,14 +17,14 @@ public sealed class WebAuthnService {
 
   // Discoverable credentials and user verification are required (ADR 0031, Red, Purple, or a phone). `existing` is
   // excluded, so one authenticator cannot be registered twice.
-  public CredentialCreateOptions CreateRegistrationOptions(AuthUser user, IEnumerable<Passkey> existing)
+  public CredentialCreateOptions CreateRegistrationOptions(AuthUser user, List<Passkey> existing)
     => _fido2.RequestNewCredential(new RequestNewCredentialParams {
       User = new() {
         Id = user.UserHandle,
         Name = user.DisplayName,
         DisplayName = user.DisplayName,
       },
-      ExcludeCredentials = existing.Select(ToDescriptor).ToList(),
+      ExcludeCredentials = ToDescriptors(existing),
       AuthenticatorSelection = new() {
         ResidentKey = ResidentKeyRequirement.Required,
         UserVerification = UserVerificationRequirement.Required,
@@ -33,9 +33,9 @@ public sealed class WebAuthnService {
     });
 
   // An empty `allowed` list lets the browser offer any discoverable passkey (sign-in).
-  public AssertionOptions CreateAssertionOptions(IEnumerable<Passkey> allowed)
+  public AssertionOptions CreateAssertionOptions(List<Passkey> allowed)
     => _fido2.GetAssertionOptions(new GetAssertionOptionsParams {
-      AllowedCredentials = allowed.Select(ToDescriptor).ToList(),
+      AllowedCredentials = ToDescriptors(allowed),
       UserVerification = UserVerificationRequirement.Required,
     });
 
@@ -63,11 +63,16 @@ public sealed class WebAuthnService {
       var modelName = await _aaguidLookup.FindNameAsync(credential.AaGuid, cancellationToken);
       throw new UnexpectedAaguidException(credential.AaGuid, modelName);
     }
+    var reported = credential.Transports ?? [];
+    List<PasskeyTransport> transports = new(reported.Length);
+    foreach (var transport in reported) {
+      if (ToTransport(transport) is { } known) transports.Add(known);
+    }
     return new() {
       CredentialId = credential.Id,
       PublicKey = credential.PublicKey,
       SignCount = credential.SignCount,
-      Transports = (credential.Transports ?? []).Select(ToTransport).OfType<PasskeyTransport>().ToList(),
+      Transports = transports,
       IsBackupEligible = credential.IsBackupEligible,
       IsBackedUp = credential.IsBackedUp,
     };
@@ -102,11 +107,15 @@ public sealed class WebAuthnService {
   private static bool OwnsHandle(byte[]? userHandle, AuthUser user)
     => userHandle is { Length: > 0 } && userHandle.AsSpan().SequenceEqual(user.UserHandle);
 
-  private static PublicKeyCredentialDescriptor ToDescriptor(Passkey passkey)
-    => new(
-      PublicKeyCredentialType.PublicKey,
-      passkey.CredentialId,
-      [.. passkey.Transports.Select(ToAuthenticatorTransport)]);
+  private static List<PublicKeyCredentialDescriptor> ToDescriptors(List<Passkey> passkeys) {
+    List<PublicKeyCredentialDescriptor> descriptors = new(passkeys.Count);
+    foreach (var passkey in passkeys) {
+      var transports = new AuthenticatorTransport[passkey.Transports.Count];
+      for (var i = 0; i < transports.Length; i++) transports[i] = ToAuthenticatorTransport(passkey.Transports[i]);
+      descriptors.Add(new(PublicKeyCredentialType.PublicKey, passkey.CredentialId, transports));
+    }
+    return descriptors;
+  }
 
   private static AuthenticatorTransport ToAuthenticatorTransport(PasskeyTransport transport)
     => transport switch {
