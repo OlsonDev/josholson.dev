@@ -24,12 +24,12 @@ Status: design only. The tool is not built yet. Seeds are dev and test data; ref
 ## Build and run
 
 - `compile-seeds` resolves layers to SQL, orders inserts by foreign key, and validates them against the current schema in a scratch database.
-- Databases are cloned with `CREATE DATABASE ... TEMPLATE` on the one Postgres server ([ADR 0013](adr/0013-single-postgres-server-with-template-databases.md)): a template per schema version, a template per layer named by a hash of the migrations and layer source, and per-test or per-run clones.
+- Databases are cloned with `CREATE DATABASE ... TEMPLATE` on the one Postgres server ([ADR 0013](adr/0013-single-postgres-server-with-template-databases.md)): a template per schema version, a template per layer named by a hash of the migrations and layer source, and a clone per test ([ADR 0033](adr/0033-scoped-databases-per-test.md)). The tool is `JoshOlson.Database`; `compile-seeds` is now `bake`.
 - The tool only touches databases with its own prefix plus the configured app database, uses a role with `CREATEDB` and no superuser, and refuses to run unless the host is allowlisted (localhost).
 
 ## Migrating seeds
 
-A schema stamp (`database/seeds/.schema-version`) records the version the seeds were written against. `migrate-seeds`, parent first, for each node:
+A schema stamp (`JoshOlson.Database/seeds/.schema-version`) records the version the seeds were written against. `migrate-seeds`, parent first, for each node:
 
 1. Build the old-schema database (Waypoint `--target <stamp>`) and apply the chain root to node.
 2. Run the new migrations on it. The result is the node's migrated full state.
