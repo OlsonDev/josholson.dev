@@ -15,7 +15,7 @@ Personal website for Josh Olson: www.josholson.dev (SvelteKit SSR) and api.josho
 - `JoshOlson.Database/provisioning/`: one-off scripts run as the owner after migrations (API role; needs a password, so not a migration)
 - `JoshOlson.Database/seeds/`: seed layers, one YAML file each ([docs/seeding.md](../docs/seeding.md)). The project's own code (`Layers/`: parsing and the `extends` tree; 🚧 the database side is not built yet) is the seed tool ([ADR 0033](../docs/adr/0033-scoped-databases-per-test.md), a scoped database per test)
 - `compose.yaml`: production-safe. `compose.dev.yaml`: dev only, always load explicitly
-- `JoshOlson.slnx` (root): the .NET solution. `JoshOlson.Api/` is the API, in feature folders (one per feature, plus `Common/` for cross-cutting code). Tests sit beside the code as `*.Tests.cs` ([ADR 0023](../docs/adr/0023-api-feature-folders-and-colocated-tests.md))
+- `JoshOlson.slnx` (root): the .NET solution. `JoshOlson.Shared/` holds utilities (base class library only) shared by projects and scripts ([ADR 0036, the shared library](../docs/adr/0036-shared-library.md)). `JoshOlson.Api/` is the API, in feature folders (one per feature, plus `Common/` for cross-cutting code). Tests sit beside the code as `*.Tests.cs` ([ADR 0023](../docs/adr/0023-api-feature-folders-and-colocated-tests.md))
 - `web/`: 🚧 not created yet
 - `mise.toml`: pinned tools (bun, dotnet, gh) and tasks. `tools/`: image for the dev `tools` container, which runs Waypoint (no Windows build)
 - `docs/schema/`: generated from the dev database (a page per table, domains, Mermaid ER diagrams). Never edit by hand; run `mise run schema:doc`. `scripts/`: repo tooling as .NET file-based apps (`schema-docs.cs` builds those docs)

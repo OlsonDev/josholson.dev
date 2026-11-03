@@ -1,6 +1,6 @@
 using System.Text.Json;
 
-namespace JoshOlson.Api.Common.Extensions;
+namespace JoshOlson.Shared.Extensions;
 
 public static class StringExtensions {
   extension(string? value) {
@@ -15,6 +15,14 @@ public static class StringExtensions {
     // At most `maxLength` characters. Shorter text is returned as it is.
     public string Truncate(int maxLength)
       => value.Length <= maxLength ? value : value[..maxLength];
+
+    // The database's text.kebab_case: lowercase letters and digits in words joined by single hyphens.
+    public bool IsKebabCase()
+      => value.Length > 0
+      && value[0] is not '-'
+      && value[^1] is not '-'
+      && !value.Contains("--", StringComparison.Ordinal)
+      && value.All(character => char.IsAsciiLetterLower(character) || char.IsAsciiDigit(character) || character is '-');
 
     // Camel-cases each dotted segment the way System.Text.Json does, and leaves index suffixes alone:
     // `Children[0].Label` becomes `children[0].label`, `URL` becomes `url`.

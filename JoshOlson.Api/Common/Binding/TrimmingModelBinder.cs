@@ -1,4 +1,4 @@
-using JoshOlson.Api.Common.Extensions;
+using JoshOlson.Shared.Extensions;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
 
 namespace JoshOlson.Api.Common.Binding;

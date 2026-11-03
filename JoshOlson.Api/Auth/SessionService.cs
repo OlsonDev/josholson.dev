@@ -1,6 +1,6 @@
 using System.Net;
-using JoshOlson.Api.Common.Extensions;
 using JoshOlson.Api.Http;
+using JoshOlson.Shared.Extensions;
 using Microsoft.Extensions.Options;
 using NodaTime;
 

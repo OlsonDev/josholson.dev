@@ -1,4 +1,4 @@
-using JoshOlson.Api.Common.Extensions;
+using JoshOlson.Shared.Extensions;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Validation;
 

@@ -1,5 +1,7 @@
 #!/usr/bin/env dotnet
 #:package Microsoft.CodeAnalysis.CSharp
+#:project ../JoshOlson.Shared
+#:property PublishAot=false
 // A list is either on the line of its opening token or one item per line, never "wrapped, but with several items on a
 // line". Applies to the lists below with two or more items. Allowed: every item starts on the opening line
 // (`Foo(a, b, c)`, even if the last item runs on), or every item starts on a line of its own and none on the opening
@@ -7,15 +9,13 @@
 // the rest. A list that is the value of a declaration (field, property, local, expression body) must also be one item
 // per line, not all on the opening line. Covers argument, parameter, type-argument, type-parameter, attribute, tuple,
 // initializer, collection expression, and enum member lists. Run through mise: mise run lists:check
+using JoshOlson.Shared.IO;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 var options = CSharpParseOptions.Default.WithPreprocessorSymbols("INCLUDE_TESTS");
-var files = new[] { "JoshOlson.Api", "JoshOlson.Database", "scripts", ".githooks" }
-  .SelectMany(directory => Directory.EnumerateFiles(directory, "*.cs", SearchOption.AllDirectories))
-  .Where(path => !path.Split(Path.DirectorySeparatorChar).Any(part => part is "bin" or "obj"))
-  .Order(StringComparer.Ordinal);
+var files = SourceFiles.Enumerate(["JoshOlson.Api", "JoshOlson.Database", "JoshOlson.Shared", "scripts", ".githooks"], "*.cs");
 
 var violations = 0;
 foreach (var path in files) {

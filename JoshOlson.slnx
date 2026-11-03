@@ -6,4 +6,5 @@
   </Folder>
   <Project Path="JoshOlson.Api/JoshOlson.Api.csproj" />
   <Project Path="JoshOlson.Database/JoshOlson.Database.csproj" />
+  <Project Path="JoshOlson.Shared/JoshOlson.Shared.csproj" />
 </Solution>

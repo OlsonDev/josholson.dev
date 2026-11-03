@@ -1,11 +1,10 @@
+using JoshOlson.Shared.Extensions;
+
 namespace JoshOlson.Database.Layers;
 
-// A layer name ends up in database names, so it is lower-kebab-case: letters, digits, and single hyphens.
+// A layer name ends up in database names, so it is kebab-case (the database's text.kebab_case) that starts with a
+// lowercase letter and is at most 40 characters.
 public static class LayerName {
   public static bool IsValid(string name)
-    => name.Length is > 0 and <= 40
-    && name[0] is >= 'a' and <= 'z'
-    && name[^1] is not '-'
-    && !name.Contains("--", StringComparison.Ordinal)
-    && name.All(character => character is >= 'a' and <= 'z' or >= '0' and <= '9' or '-');
+    => name.IsKebabCase() && name.Length <= 40 && char.IsAsciiLetterLower(name[0]);
 }

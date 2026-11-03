@@ -1,6 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using JoshOlson.Api.Common.Extensions;
+using JoshOlson.Shared.Extensions;
 
 namespace JoshOlson.Api.Common.Binding;
 

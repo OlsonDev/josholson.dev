@@ -1,7 +1,7 @@
 using System.Text.Json;
 using Xunit;
 
-namespace JoshOlson.Api.Common.Extensions;
+namespace JoshOlson.Shared.Extensions;
 
 public class StringExtensionsTests {
   [Theory]
@@ -42,4 +42,27 @@ public class StringExtensionsTests {
   [InlineData("foo", 0, "")]
   public void Truncate_KeepsAtMostTheLength(string value, int maxLength, string expected)
     => Assert.Equal(expected, value.Truncate(maxLength));
+
+  [Theory]
+  [InlineData("foo")]
+  [InlineData("foo-bar")]
+  [InlineData("foo-bar-42")]
+  [InlineData("2foo")]
+  [InlineData("f")]
+  public void IsKebabCase_LowercaseWordsJoinedByHyphens_ReturnsTrue(string value)
+    => Assert.True(value.IsKebabCase());
+
+  [Theory]
+  [InlineData("")]
+  [InlineData("Foo")]
+  [InlineData("foo_bar")]
+  [InlineData("foo--bar")]
+  [InlineData("-foo")]
+  [InlineData("foo-")]
+  [InlineData("foo.bar")]
+  [InlineData("foo bar")]
+  [InlineData("foo\n")]
+  [InlineData("fóo")]
+  public void IsKebabCase_Otherwise_ReturnsFalse(string value)
+    => Assert.False(value.IsKebabCase());
 }

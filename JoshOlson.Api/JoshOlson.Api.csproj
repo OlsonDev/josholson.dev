@@ -23,6 +23,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="../JoshOlson.Shared/JoshOlson.Shared.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="Dapper" />
     <PackageReference Include="Fido2" />
     <PackageReference Include="Flurl.Http" />
