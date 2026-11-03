@@ -2,6 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-10-22
+- Amended 2026-11-03: the pages are to be rendered from `migrations/schema.lock.yaml`, not from a live database ([ADR 0034, lock file and branch-safe migration](0034-seed-lock-file-and-branch-safe-migration.md)). The layout below stays; only the source changes, and until that is built the script still reads the dev database.
 
 ## Context
 

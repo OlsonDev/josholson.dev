@@ -3,7 +3,9 @@
   "explorer.incrementalNaming": "smart",
   "files.insertFinalNewline": true,
   "files.readonlyInclude": {
-    "docs/schema/**": true
+    "docs/schema/**": true,
+    "JoshOlson.Database/migrations/schema.lock.yaml": true,
+    "JoshOlson.Database/seeds/**": true
   },
   "files.trimTrailingWhitespace": true,
   "git.rebaseWhenSync": true,

@@ -49,7 +49,7 @@ tables:
 
 ## Migrating seeds
 
-`JoshOlson.Database/migrations/schema.lock.yaml` is generated, never edited by hand. It records the migration version the seeds were last migrated to, a checksum per versioned migration up to it, and each column's type and seed policy ([ADR 0034, lock file and branch-safe migration](adr/0034-seed-lock-file-and-branch-safe-migration.md)). `seeds:migrate`, parent first, for each node:
+`JoshOlson.Database/migrations/schema.lock.yaml` is generated, never edited by hand. It records the migration version the seeds were last migrated to, a checksum per versioned migration up to it, and the schema those migrations produce (each column's type, domain, and seed policy, and the foreign keys; `docs/schema` is rendered from it as well) ([ADR 0034, lock file and branch-safe migration](adr/0034-seed-lock-file-and-branch-safe-migration.md)). `seeds:migrate`, parent first, for each node:
 
 1. Build the database at the locked version (migrations 1 through N, a cached template) and apply the chain root to node.
 2. Apply the next migration. The result is the node's migrated full state.
@@ -59,6 +59,8 @@ tables:
 Only layers whose diff changed are rewritten, and a per-layer summary is printed for review. Additive migrations need no seed work.
 
 If two branches claim the same migration number, `seeds:check` names the first migration that differs from the lock. Rename yours to the next number, take the main branch's `seeds/` and `migrations/schema.lock.yaml` wholesale, and rerun `seeds:migrate`.
+
+If you only edit an already-applied migration's comment or whitespace, its checksum changes. `seeds:accept <version>` rebuilds with the edited file and, only if the catalog still equals the lock and every layer still exports to its own file, records the new checksum as accepted. If either differs, the edit changes something the seeds see, so add a new migration instead. The checksum is the SHA-256 of the raw file bytes; nothing is normalized.
 
 ## Export
 
