@@ -56,17 +56,17 @@ foreach (var test in tests) {
 }
 
 string[][] triggers = [
-  ["api/Directory.Packages.props"],
+  ["Directory.Packages.props"],
   ["README.md", ".editorconfig"],
-  ["api/.editorconfig"],
-  ["api/JoshOlson.Api/JoshOlson.Api.csproj"],
-  ["api/Directory.Build.props"],
+  ["JoshOlson.Api/.editorconfig"],
+  ["JoshOlson.Api/JoshOlson.Api.csproj"],
+  ["Directory.Build.props"],
   ["scripts/analyzers.cs"],
 ];
 string[][] nonTriggers = [
   [],
   ["README.md"],
-  ["api/JoshOlson.Api/Tags/TagController.cs"],
+  ["JoshOlson.Api/Tags/TagController.cs"],
   ["scripts/missing-tests.cs"],
   ["docs/editorconfig.md"],
 ];
@@ -84,16 +84,16 @@ foreach (var (paths, expected) in triggers.Select(paths => (paths, true)).Concat
 string[][] scriptTriggers = [
   ["scripts/schema-docs.cs"],
   [".githooks/pre-commit.cs"],
-  ["api/JoshOlson.Api/Tags/TagController.cs", "scripts/analyzers.cs"],
+  ["JoshOlson.Api/Tags/TagController.cs", "scripts/analyzers.cs"],
   ["Directory.Build.props"],
+  ["Directory.Packages.props"],
   [".editorconfig"],
 ];
 string[][] scriptNonTriggers = [
   [],
   ["README.md"],
-  ["api/JoshOlson.Api/Tags/TagController.cs"],
+  ["JoshOlson.Api/Tags/TagController.cs"],
   ["scripts/README.md"],
-  ["api/Directory.Packages.props"],
   ["docs/adr/0030-analyzers.md"],
 ];
 foreach (var (paths, expected) in scriptTriggers.Select(paths => (paths, true)).Concat(scriptNonTriggers.Select(paths => (paths, false)))) {

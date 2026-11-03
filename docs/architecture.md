@@ -1,6 +1,6 @@
 # Architecture
 
-Status: planned. Only the database container exists today; `api/` and `web/` are not built yet.
+Status: planned. Only the database container exists today; `JoshOlson.Api/` is partly built and `web/` does not exist yet.
 
 ## Topology
 

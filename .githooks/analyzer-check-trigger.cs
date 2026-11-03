@@ -8,7 +8,7 @@ internal static class AnalyzerCheckTrigger {
 
   // The scripts are checked by building them, which a change to any script or to the settings they build with can break.
   public static bool IsScriptCheckNeeded(IEnumerable<string> stagedPaths)
-    => stagedPaths.Any(path => Path.GetFileName(path) is ".editorconfig" or "Directory.Build.props"
+    => stagedPaths.Any(path => Path.GetFileName(path) is ".editorconfig" or "Directory.Build.props" or "Directory.Packages.props"
                             || path.EndsWith(".cs", StringComparison.Ordinal)
                             && (path.StartsWith("scripts/", StringComparison.Ordinal)
                               || path.StartsWith(".githooks/", StringComparison.Ordinal)));

@@ -11,16 +11,16 @@ Personal website for Josh Olson: www.josholson.dev (SvelteKit SSR) and api.josho
 
 ## Layout
 
-- `database/migrations/`: Flyway-style `V#__name.sql` (versioned) and `R__name.sql` (repeatable)
-- `database/provisioning/`: one-off scripts run as the owner after migrations (API role; needs a password, so not a migration)
-- `database/seeds/`: seed layers (🚧 tool not built yet)
+- `JoshOlson.Database/migrations/`: Flyway-style `V#__name.sql` (versioned) and `R__name.sql` (repeatable)
+- `JoshOlson.Database/provisioning/`: one-off scripts run as the owner after migrations (API role; needs a password, so not a migration)
+- `JoshOlson.Database/seeds/`: seed layers (🚧 tool not built yet). The seed tool will be this project's code ([ADR 0033](../docs/adr/0033-scoped-databases-per-test.md), a scoped database per test)
 - `compose.yaml`: production-safe. `compose.dev.yaml`: dev only, always load explicitly
-- `api/`: the .NET solution (`JoshOlson.slnx`) with one project, `JoshOlson.Api`, in feature folders (one per feature, plus `Common/` for cross-cutting code). Tests sit beside the code as `*.Tests.cs` ([ADR 0023](../docs/adr/0023-api-feature-folders-and-colocated-tests.md))
+- `JoshOlson.slnx` (root): the .NET solution. `JoshOlson.Api/` is the API, in feature folders (one per feature, plus `Common/` for cross-cutting code). Tests sit beside the code as `*.Tests.cs` ([ADR 0023](../docs/adr/0023-api-feature-folders-and-colocated-tests.md))
 - `web/`: 🚧 not created yet
 - `mise.toml`: pinned tools (bun, dotnet, gh) and tasks. `tools/`: image for the dev `tools` container, which runs Waypoint (no Windows build)
 - `docs/schema/`: generated from the dev database (a page per table, domains, Mermaid ER diagrams). Never edit by hand; run `mise run schema:doc`. `scripts/`: repo tooling as .NET file-based apps (`schema-docs.cs` builds those docs)
-- `Directory.Build.props` (root): build settings and analyzers for the loose scripts in `scripts/` and `.githooks/`; `api/` has its own
-- `.githooks/`: `commit-msg` (gitmoji format check) and `pre-commit` (branch name check, the analyzer rule check when packages or `.editorconfig` are staged, and the script check when scripts, hooks, `.editorconfig`, or `Directory.Build.props` are staged) hooks, .NET file-based apps
+- `Directory.Build.props`, `Directory.Packages.props`, `global.json`, `.editorconfig`, and `BannedSymbols.txt` (root): build settings, central package versions, and analyzers for every project and for the loose scripts in `scripts/` and `.githooks/`. A script's `#:package` line omits the version, which comes from `Directory.Packages.props`
+- `.githooks/`: `commit-msg` (gitmoji format check) and `pre-commit` (branch name check, the analyzer rule check when packages or `.editorconfig` are staged, and the script check when scripts, hooks, `.editorconfig`, `Directory.Build.props`, or `Directory.Packages.props` are staged) hooks, .NET file-based apps
 - `docs/`: architecture, database, seeding, product, and `adr/` decision records
 - `.claude/rules/`: conventions, loaded when matching files are touched
 - `.claude/settings.json` and `.claude/hooks/`: hooks that keep Claude from committing (see Commits)
@@ -54,7 +54,7 @@ mise run db:provision
 Mint a one-time enrollment token for the first passkey, or for recovery when every passkey is lost (creates the account on first use; the display name is ignored afterwards). The token is printed once and expires in 15 minutes. Auth settings are the `Auth` section (`Auth__RelyingPartyId`, `Auth__AllowedOrigin`, `Auth__CookieDomain`, and so on; the defaults are for `localhost`):
 
 ```
-dotnet run --project api/JoshOlson.Api -- enroll "Display Name"
+dotnet run --project JoshOlson.Api -- enroll "Display Name"
 ```
 
 Try the passkey endpoints with a real security key and no front end. The API must be running (`ASPNETCORE_URLS=http://localhost:5000`, with `ConnectionStrings__Default`); the script plays the browser through libfido2's `fido2-cred` and `fido2-assert`, so it asks for the key's PIN and a touch at each step. `enroll` registers the key with a token from the command above, then signs in with it and prints the ids that `sign-in` needs. Pass `--device /dev/hidrawN` when two keys are plugged in. The credential is bound to `--rp-id` (`localhost` by default), so it is a development credential:

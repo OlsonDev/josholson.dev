@@ -10,9 +10,8 @@ using System.Reflection;
 using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
-using System.Xml.Linq;
 
-const string Project = "api/JoshOlson.Api";
+const string Project = "JoshOlson.Api";
 const string EditorConfigPath = ".editorconfig";
 const string Marker = "# analyzers:unreviewed";
 
@@ -110,18 +109,6 @@ if (stale.Count > 0) {
   Console.WriteLine($"Configured but no longer shipped: {string.Join(", ", stale)}");
 }
 
-// The scripts reference these analyzers from the root Directory.Build.props, which cannot use central package
-// management, so its versions must equal the ones api/Directory.Packages.props pins.
-var central = XDocument.Load("api/Directory.Packages.props").Descendants("PackageVersion")
-  .ToDictionary(item => (string)item.Attribute("Include")!, item => (string)item.Attribute("Version")!, StringComparer.OrdinalIgnoreCase);
-var drift = XDocument.Load("Directory.Build.props").Descendants("PackageReference")
-  .Select(item => (Name: (string)item.Attribute("Include")!, Version: (string?)item.Attribute("Version")))
-  .Where(package => central.TryGetValue(package.Name, out var version) && !string.Equals(version, package.Version, StringComparison.Ordinal))
-  .ToList();
-foreach (var package in drift) {
-  Console.WriteLine($"Version drift: Directory.Build.props has {package.Name} {package.Version}, api/Directory.Packages.props has {central[package.Name]}.");
-}
-
 if (mode is "check") {
   foreach (var rule in missing) {
     Console.WriteLine($"  {rule.Id}  {rule.Package}  ({rule.Describe()})  {rule.Title}");
@@ -129,7 +116,7 @@ if (mode is "check") {
   if (missing.Count > 0) {
     Console.WriteLine("Decide each one, or run `mise run analyzers:add` to append them at their current behavior.");
   }
-  return missing.Count > 0 || drift.Count > 0 ? 1 : 0;
+  return missing.Count > 0 ? 1 : 0;
 }
 
 if (missing.Count is 0) {

@@ -6,7 +6,7 @@ using System.Text.RegularExpressions;
 
 var strict = args.Contains("--strict");
 var untested = new Regex(@"(Payloads|Registration)\.cs$|^Program\.cs$");
-var missing = Directory.EnumerateFiles("api", "*.cs", SearchOption.AllDirectories)
+var missing = Directory.EnumerateFiles("JoshOlson.Api", "*.cs", SearchOption.AllDirectories)
   .Where(path => !path.Split(Path.DirectorySeparatorChar).Any(part => part is "bin" or "obj") && !path.EndsWith(".Tests.cs", StringComparison.Ordinal) && !untested.IsMatch(Path.GetFileName(path)) && !File.Exists(Path.ChangeExtension(path, ".Tests.cs")))
   .Order(StringComparer.Ordinal)
   .ToList();

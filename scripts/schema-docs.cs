@@ -1,5 +1,5 @@
 #!/usr/bin/env dotnet
-#:package Npgsql@10.0.3
+#:package Npgsql
 // Generates docs/schema (Markdown with Mermaid diagrams) from the dev database's catalogs.
 // Run through mise, which supplies the connection settings from .env (see mise.toml):
 //   mise run schema:doc     regenerate docs/schema

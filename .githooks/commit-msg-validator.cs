@@ -1,4 +1,4 @@
-#:package EmojiToolkit@16.0.0
+#:package EmojiToolkit
 
 using System.Globalization;
 using EmojiToolkit;

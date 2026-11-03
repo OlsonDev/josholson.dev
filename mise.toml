@@ -42,24 +42,24 @@ _.file = ".env"
 # rerun after a migration adds a schema. The password comes from POSTGRES_API_PASSWORD in .env.
 [tasks."db:provision"]
 description = "Create or update the DML-only API role in the dev database"
-run = "podman compose -f compose.yaml -f compose.dev.yaml exec -T postgres psql -U $POSTGRES_USER -d $POSTGRES_DB -v ON_ERROR_STOP=1 -v api_password=$POSTGRES_API_PASSWORD < database/provisioning/api_role.sql"
+run = "podman compose -f compose.yaml -f compose.dev.yaml exec -T postgres psql -U $POSTGRES_USER -d $POSTGRES_DB -v ON_ERROR_STOP=1 -v api_password=$POSTGRES_API_PASSWORD < JoshOlson.Database/provisioning/api_role.sql"
 
 [tasks."db:provision".env]
 _.file = ".env"
 
 # The test tasks read .env for the dev database (POSTGRES_*) and run as the josholson_api role, so start the database
 # and run db:provision first (see CLAUDE.md).
-# Tests live beside the code as *.Tests.cs and are compiled in for Debug (see api/JoshOlson.Api/JoshOlson.Api.csproj).
+# Tests live beside the code as *.Tests.cs and are compiled in for Debug (see JoshOlson.Api/JoshOlson.Api.csproj).
 [tasks.test]
 description = "Run the API tests (Debug build, tests compiled in)"
-run = "dotnet test --project api/JoshOlson.Api"
+run = "dotnet test --project JoshOlson.Api"
 
 [tasks.test.env]
 _.file = ".env"
 
 [tasks."test:release"]
 description = "Run the API tests against a Release build"
-run = "dotnet test --project api/JoshOlson.Api -c Release -p:IncludeTests=true"
+run = "dotnet test --project JoshOlson.Api -c Release -p:IncludeTests=true"
 
 [tasks."test:release".env]
 _.file = ".env"

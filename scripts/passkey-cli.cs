@@ -1,13 +1,13 @@
 #!/usr/bin/env dotnet
-#:package Fido2@4.3.1
-#:package Flurl.Http@4.0.2
+#:package Fido2
+#:package Flurl.Http
 #:property PublishAot=false
 // Plays the browser against a running API with a real security key (Red or Purple), through libfido2's fido2-cred and
 // fido2-assert, so the passkey endpoints can be tried without a front end (ADR 0027, passkey auth, and ADR 0031,
 // Red, Purple, or a phone). It asks for the key's PIN and a touch for each step.
 //
 //   dotnet run scripts/passkey-cli.cs -- enroll <token>
-//       Registers the key with an enrollment token (`dotnet run --project api/JoshOlson.Api -- enroll "Name"`), then
+//       Registers the key with an enrollment token (`dotnet run --project JoshOlson.Api -- enroll "Name"`), then
 //       signs in with it and prints the session's user and passkeys. Prints the ids that `sign-in` needs.
 //   dotnet run scripts/passkey-cli.cs -- sign-in --credential-id <base64url> --user-handle <base64url>
 //       Signs in with an already registered key.
