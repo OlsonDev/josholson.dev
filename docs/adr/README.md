@@ -53,3 +53,6 @@ Template:
 - [0031](0031-three-passkeys-and-phone-registration.md): Sign in with Red, Purple, or a phone; register the phone from a signed-in page
 - [0032](0032-constructor-injection-in-tests.md): Constructor injection in tests (`Xunit.DependencyInjection`)
 - [0033](0033-scoped-databases-per-test.md): A scoped database per test, baked seed templates, and a scope header
+- [0034](0034-seed-lock-file-and-branch-safe-migration.md): Seed lock file with migration checksums, and all-or-nothing, branch-safe `seeds:migrate`
+- [0035](0035-typed-seed-values-and-relative-times.md): Typed seed values from the column type, per-column relative times against an anchor, and fixtures from the baked template
+- [0036](0036-shared-library.md): A shared library for utilities (`JoshOlson.Shared`)
