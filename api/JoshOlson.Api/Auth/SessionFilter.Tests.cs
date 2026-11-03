@@ -11,6 +11,11 @@ namespace JoshOlson.Api.Auth;
 public class SessionFilterTests {
   // Every public endpoint, by name. Adding one here is the explicit decision that it needs no session.
   private static readonly string[] _PublicActions = [
+    "EnrollmentController.Enroll",
+    "EnrollmentController.Options",
+    "SignInController.Options",
+    "SignInController.SignIn",
+    "SignInController.SignOut",
     "TagController.Get",
     "TagController.GetAll",
   ];
@@ -52,6 +57,9 @@ public class SessionFilterTests {
   [InlineData("POST", "/tags")]
   [InlineData("PUT", "/tags/1")]
   [InlineData("DELETE", "/tags/1")]
+  [InlineData("GET", "/auth/me")]
+  [InlineData("GET", "/auth/passkeys")]
+  [InlineData("POST", "/auth/passkeys/registration/options")]
   public async Task ProtectedEndpoint_WithoutASession_ReturnsUnauthorized(string method, string url) {
     using var request = new HttpRequestMessage(new(method), url);
 

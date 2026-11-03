@@ -34,6 +34,13 @@ public sealed class AuthUserRepository {
     return await _connection.QuerySingleOrDefaultAsync<AuthUser>(sql, parameters, cancellationToken);
   }
 
+  // The first user by key. There is one account (ADR 0027, passkey auth), so this is the owner.
+  public async Task<AuthUser?> GetFirstAsync(CancellationToken cancellationToken)
+    => await GetByConditionAsync(
+      "u.user_id = (SELECT min(first.user_id) FROM auth.user AS first)",
+      new { },
+      cancellationToken);
+
   public async Task<int> CreateAsync(string displayName, byte[] userHandle, CancellationToken cancellationToken) {
     var sql = """
       INSERT INTO auth.user (

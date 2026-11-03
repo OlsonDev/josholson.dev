@@ -30,9 +30,11 @@ public static class Startup {
       .AddPayloadValidation()
       .AddAuth(configuration);
 
-    // A clock the test moves by hand, shared with the services in its scope, where the API uses the system clock.
+    // A clock the test moves by hand, shared with the services in its scope, where the API uses the system clock. The
+    // stores that hold ceremony state are per scope too, so they see that clock and one test cannot see another's.
     services.AddScoped<FakeClock>();
     services.AddScoped<IClock>(provider => provider.GetRequiredService<FakeClock>());
+    services.AddScoped(typeof(SingleUseStore<>));
 
     // Helpers that build and remove a feature's test data are named `*TestData` and registered the same way.
     var testDataTypes = Assembly.GetExecutingAssembly().GetTypes().Where(IsTestData);
