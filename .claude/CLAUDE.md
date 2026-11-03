@@ -51,6 +51,19 @@ Create or update the DML-only API role in the dev database (needs `POSTGRES_API_
 mise run db:provision
 ```
 
+Mint a one-time enrollment token for the first passkey, or for recovery when every passkey is lost (creates the account on first use; the display name is ignored afterwards). The token is printed once and expires in 15 minutes. Auth settings are the `Auth` section (`Auth__RelyingPartyId`, `Auth__AllowedOrigin`, `Auth__CookieDomain`, and so on; the defaults are for `localhost`):
+
+```
+dotnet run --project api/JoshOlson.Api -- enroll "Display Name"
+```
+
+Try the passkey endpoints with a real security key and no front end. The API must be running (`ASPNETCORE_URLS=http://localhost:5000`, with `ConnectionStrings__Default`); the script plays the browser through libfido2's `fido2-cred` and `fido2-assert`, so it asks for the key's PIN and a touch at each step. `enroll` registers the key with a token from the command above, then signs in with it and prints the ids that `sign-in` needs. Pass `--device /dev/hidrawN` when two keys are plugged in. The credential is bound to `--rp-id` (`localhost` by default), so it is a development credential:
+
+```
+mise run passkey enroll <token>
+mise run passkey sign-in --credential-id <id> --user-handle <id>
+```
+
 Regenerate the schema docs after changing migrations, and check them for drift (both read the running dev database):
 
 ```
@@ -86,7 +99,7 @@ Build every loose script with the style rules and analyzers on (`dotnet format` 
 mise run scripts:check
 ```
 
-Check that no wrapped list (arguments, parameters, initializers) has several items on one line ([csharp.md](rules/csharp.md), the "Lists" bullet):
+Check that no wrapped list (arguments, parameters, initializers) has several items on one line, and that a declared list of two or more items is one item per line ([csharp.md](rules/csharp.md), the "Lists" bullet):
 
 ```
 mise run lists:check

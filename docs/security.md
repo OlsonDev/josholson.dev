@@ -31,8 +31,10 @@ Rules for code and operations. Where the schema already enforces something, the 
 
 - SQL: parameters only, never string-built values ([csharp.md](../.claude/rules/csharp.md)). The API role cannot change structure, which limits the damage of a mistake.
 - XSS: Svelte escapes interpolated text. Treat `{@html ...}` as unsafe, and sanitize any rendered Markdown (blog posts) or user-supplied HTML (contact messages) before it reaches it.
-- CSRF: SvelteKit rejects cross-origin form POSTs by checking `Origin`, which depends on `ORIGIN` being right behind the proxy ([architecture.md](architecture.md)). Cookies are `HttpOnly`, `Secure`, and `SameSite`.
-- CORS: allow only the `www` origin on the API.
+- CSRF: SvelteKit rejects cross-origin form POSTs by checking `Origin`, which depends on `ORIGIN` being right behind the proxy ([architecture.md](architecture.md)). That covers only SvelteKit's own forms, so the API protects itself: `OriginCheckMiddleware` refuses any `POST`, `PUT`, or `DELETE` whose `Origin` is not exactly the `www` origin (403), and a request body must be `application/json` (415), which forces a CORS preflight. Cookies are `HttpOnly`, `Secure`, and `SameSite=Lax` (ADR 0027, passkey auth and direct browser-to-API calls).
+- CORS: allow only the `www` origin on the API, as an exact match with credentials, never `*`. Responses carry `Vary: Origin`, and a preflight is cached for an hour.
+- Sessions: an opaque 256-bit token in a cookie, only its SHA-256 hash in `auth.session`. 7 days idle, 30 days absolute. Authenticated is the default: a global `SessionFilter` returns 401 for any action without a valid session unless it is marked `[AllowAnonymous]`. `SessionFilterTests` lists every public action by name, so a new endpoint is protected until someone adds it there on purpose.
+- Passkeys: the owner signs in with a passkey and there is no password. Adding or removing a passkey takes a second ceremony with an already registered passkey, so a stolen session cookie cannot change the set (ADR 0031, Red, Purple, or a phone). Enrollment tokens are single-use, expire after 15 minutes, and are stored hashed; only someone with a shell on the server can mint one (`JoshOlson.Api enroll`).
 - Uploads: identify files by content (SHA-256) and check type against `blob.mime_type`, never by the client's file name or declared type ([ADR 0008](adr/0008-content-addressed-blobs.md)).
 
 ## Public forms

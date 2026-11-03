@@ -1,9 +1,9 @@
 # ADR 0031: Sign in with Red, Purple, or a phone; register the phone from a signed-in page
 
-- Status: Proposed
+- Status: Accepted
 - Date: 2026-10-30
 
-Builds on [ADR 0027](0027-passkey-auth-and-direct-browser-to-api.md), which is also Proposed. Items marked **Confirm** need an answer before this is accepted.
+Builds on [ADR 0027](0027-passkey-auth-and-direct-browser-to-api.md). Accepted and built. The one **Confirm** item left (Firefox for Linux, under Consequences) needs a browser test and does not block the API.
 
 ## Context
 
@@ -54,7 +54,7 @@ Registration endpoints:
 An AAGUID names the authenticator model (for example "Token2 PIN Plus Security Key Series"), not the individual device. With attestation `none`, browsers replace it with all zeros, so `auth.passkey` has no `aaguid` column.
 
 - On registration the API checks the AAGUID in the attested credential data. If it is not all zeros, it throws instead of ignoring it. The point is to learn that an authenticator reports one, and so decide whether to add the column.
-- The exception message names the AAGUID and, when it can, the model. It looks the AAGUID up in the [FIDO Metadata Service](https://fidoalliance.org/metadata/) (MDS3, a signed list of certified authenticators) and, failing that, in the community `passkey-authenticator-aaguids` list, then says what it found. The lookup is best effort and never decides anything: a lookup failure or an unknown AAGUID still throws.
+- The exception message names the AAGUID and, when it can, the model. It looks the AAGUID up in the community `passkey-authenticator-aaguids` list (with Flurl) and says what it found. The [FIDO Metadata Service](https://fidoalliance.org/metadata/) (MDS3, a signed list of certified authenticators) is not consulted: its blob is a signed JWT that needs verifying, and the community list names the same models. The lookup is best effort and never decides anything: a lookup failure or an unknown AAGUID still throws.
 - Seeing the exception means attestation or a browser changed. Decide then whether to add the column, and for what (labels, or restricting which models may register).
 - Checked on 2026-10-30: Red and Purple are the same model and report AAGUID `eabb46cc-e241-80bf-ae9e-96fa6d2975cf`, which MDS3 lists as "TOKEN2 PIN Plus Security Key Series" (FIDO certified). With `none` the site still sees zeros.
 

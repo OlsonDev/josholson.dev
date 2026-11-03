@@ -27,6 +27,10 @@ services:
   #   depends_on:
   #     postgres:
   #       condition: service_healthy
+  #   environment:
+  #     Auth__RelyingPartyId: josholson.dev
+  #     Auth__AllowedOrigin: https://www.josholson.dev
+  #     Auth__CookieDomain: .josholson.dev
   #   ports:
   #     - "${API_PORT:-8081}:8080"   # Caddy: api.josholson.dev
   #

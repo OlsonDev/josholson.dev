@@ -1,11 +1,11 @@
 # ADR 0027: Passkey auth and direct browser-to-API calls
 
-- Status: Proposed
+- Status: Accepted
 - Date: 2026-10-28
 
 ## Context
 
-The admin area (contact form submissions, résumé editors) needs "secure auth". There is one account, the site owner's. Caddy fronts `www.josholson.dev` (SvelteKit, server-side rendered) and `api.josholson.dev` (the C# API). Schema today: `auth.user`, `auth.user_email`, and `auth.session` (SHA-256 token hash, expiry, IP, user agent).
+The admin area (contact form submissions, résumé editors) needs "secure auth". There is one account, the site owner's. Caddy fronts `www.josholson.dev` (SvelteKit, server-side rendered) and `api.josholson.dev` (the C# API). Schema today: `auth.user`, `auth.user_email`, and `auth.session` (SHA-256 token hash, expiration, IP, user agent).
 
 ## Decision
 
@@ -27,13 +27,13 @@ SvelteKit serves pages and may call the API server to server to render a page. O
 - **Browser side:** the native `navigator.credentials` API with its JSON helpers (`PublicKeyCredential.parseCreationOptionsFromJSON` and `toJSON`). The owner signs in from Chrome and Firefox on Windows, Linux, and Android, so check support in those when the sign-in page is built; `@simplewebauthn/browser` is the fallback. Verification stays in the API, with the data.
 - **Storage: a typed `auth.passkey` table** keyed to `auth.user`, with a credential id (bytes, unique), the COSE public key, a signature counter, transports, the backup-eligible and backed-up flags, a nickname, and created and last-used times (no AAGUID, see [ADR 0031](0031-three-passkeys-and-phone-registration.md)). A user has several passkeys, so they cannot be one JSON blob: the counter updates need real columns and constraints, and the table shows up in `docs/schema`.
 - **User handle.** WebAuthn needs an opaque per-user handle of at most 64 random bytes with no personal data. It is a unique column on `auth.user`.
-- **`auth.identity`** has no role if passkeys are the only login, so it is dropped. Nothing has been deployed, so it is removed from `V008__auth.sql` rather than dropped by a new migration. A table for an external login provider can be added if one is ever wanted.
+- **`auth.identity`** has no role if passkeys are the only login, so it is dropped. Nothing has been deployed, so it is removed from `V009__auth.sql` rather than dropped by a new migration. A table for an external login provider can be added if one is ever wanted.
 
 ### Bootstrap and recovery
 
 There is one account and the server owner has shell access, so both are operational rather than self-service:
 
-- **First credential.** A CLI command on the server mints a one-time enrollment token (stored as a hash, with a short expiry) and prints it. Presenting it to the API starts passkey registration.
+- **First credential.** `JoshOlson.Api enroll [display name]` on the server mints a one-time enrollment token and prints it. The token is stored as a SHA-256 hash in `auth.enrollment_token` and expires after 15 minutes. The display name creates the account on first use and is ignored afterwards. Presenting the token to `POST /auth/enrollment/options` starts passkey registration; `POST /auth/enrollment` verifies it, uses the token up in the same transaction that stores the passkey, and signs the owner in.
 - **Recovery.** Register at least two passkeys on different devices. If both are lost, run the same CLI command again.
 
 ## Alternatives considered

@@ -28,6 +28,7 @@ What the site does. Pages and features:
     - Stored in database
     - Email sent to me
 - Secret admin page
-  - Secure auth
+  - Sign in with a passkey: Red, Purple, or a phone (no password)
+  - Passkey page (`/admin/passkeys`): list, add a phone or a security key, rename, and remove, each change confirmed with a passkey already registered
   - Contact form submission list page
   - Editors for JSON Resume

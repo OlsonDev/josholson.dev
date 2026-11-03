@@ -46,9 +46,9 @@ Template:
 - [0024](0024-scoped-open-connection-per-request.md): One open connection per request
 - [0025](0025-camelcase-dapper-parameters.md): camelCase Dapper parameters
 - [0026](0026-rest-json-with-controllers.md): REST and JSON with Controllers
-- [0027](0027-passkey-auth-and-direct-browser-to-api.md): Passkey auth and direct browser-to-API calls (Proposed)
+- [0027](0027-passkey-auth-and-direct-browser-to-api.md): Passkey auth and direct browser-to-API calls
 - [0028](0028-editorconfig-enforces-csharp-style.md): `.editorconfig` enforces C# style; top-level `Program.cs`
 - [0029](0029-nodatime-for-time.md): NodaTime for time in the API
 - [0030](0030-analyzers.md): BannedApiAnalyzers, Meziantou.Analyzer, and Roslynator
-- [0031](0031-three-passkeys-and-phone-registration.md): Sign in with Red, Purple, or a phone; register the phone from a signed-in page (Proposed)
+- [0031](0031-three-passkeys-and-phone-registration.md): Sign in with Red, Purple, or a phone; register the phone from a signed-in page
 - [0032](0032-constructor-injection-in-tests.md): Constructor injection in tests (`Xunit.DependencyInjection`)
