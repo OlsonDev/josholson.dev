@@ -1,3 +1,4 @@
+using JoshOlson.Database.Yaml;
 using YamlDotNet.Core;
 using YamlDotNet.RepresentationModel;
 
@@ -30,15 +31,15 @@ public static class LayerParser {
     if (!LayerName.IsValid(name)) {
       throw new SeedFormatException($"'{name}' is not a layer name: use lower-kebab-case, 40 characters at most.");
     }
-    var root = LoadRoot(name, yaml);
-    CheckKeys(name, "the layer", root, _LayerKeys);
+    var root = YamlNodes.LoadRoot(name, yaml);
+    YamlNodes.CheckKeys(name, "the layer", root, _LayerKeys);
 
-    var description = Scalar(name, "description", Required(name, root, "description"));
+    var description = Scalar(name, "description", YamlNodes.Required(name, root, "description"));
     if (string.IsNullOrWhiteSpace(description)) {
       throw new SeedFormatException($"{name}: description is empty.");
     }
     string? extends = null;
-    if (Find(root, "extends") is { } extendsNode) {
+    if (YamlNodes.Find(root, "extends") is { } extendsNode) {
       extends = Scalar(name, "extends", extendsNode);
       if (extends is null || !LayerName.IsValid(extends)) {
         throw new SeedFormatException($"{name}: extends '{extends}' is not a layer name.");
@@ -46,11 +47,11 @@ public static class LayerParser {
     }
 
     List<TableChange> tables = [];
-    if (Find(root, "tables") is { } tablesNode) {
+    if (YamlNodes.Find(root, "tables") is { } tablesNode) {
       var tableMap = tablesNode as YamlMappingNode
         ?? throw new SeedFormatException($"{name}: tables must be a mapping of schema.table to changes.");
       foreach (var (key, value) in tableMap.Children) {
-        tables.Add(ParseTable(name, Key(name, key), value));
+        tables.Add(ParseTable(name, YamlNodes.Key(name, key), value));
       }
     }
     return new() {
@@ -67,7 +68,7 @@ public static class LayerParser {
     }
     var map = node as YamlMappingNode
       ?? throw new SeedFormatException($"{layer}: {table} must be a mapping with upsert and delete lists.");
-    CheckKeys(layer, table, map, _TableKeys);
+    YamlNodes.CheckKeys(layer, table, map, _TableKeys);
     return new() {
       Table = table,
       Upserts = Rows(layer, table, "upsert", map),
@@ -76,7 +77,7 @@ public static class LayerParser {
   }
 
   private static List<Dictionary<string, string?>> Rows(string layer, string table, string key, YamlMappingNode map) {
-    if (Find(map, key) is not { } node) {
+    if (YamlNodes.Find(map, key) is not { } node) {
       return [];
     }
     var sequence = node as YamlSequenceNode
@@ -90,7 +91,7 @@ public static class LayerParser {
       }
       Dictionary<string, string?> values = new(row.Children.Count, StringComparer.Ordinal);
       foreach (var (column, value) in row.Children) {
-        var columnName = Key(layer, column);
+        var columnName = YamlNodes.Key(layer, column);
         if (!values.TryAdd(columnName, Scalar(layer, $"{table}.{columnName}", value))) {
           throw new SeedFormatException($"{layer}: a {table}.{key} row repeats column '{columnName}'.");
         }
@@ -100,39 +101,7 @@ public static class LayerParser {
     return rows;
   }
 
-  private static YamlMappingNode LoadRoot(string name, string yaml) {
-    var stream = new YamlStream();
-    try {
-      using StringReader reader = new(yaml);
-      stream.Load(reader);
-    } catch (YamlException exception) {
-      throw new SeedFormatException($"{name}: {exception.Message}", exception);
-    }
-    return stream.Documents.Count is 1 && stream.Documents[0].RootNode is YamlMappingNode root
-      ? root
-      : throw new SeedFormatException($"{name}: the file must hold one YAML mapping.");
-  }
-
-  private static void CheckKeys(string layer, string where, YamlMappingNode map, string[] allowed) {
-    foreach (var key in map.Children.Keys) {
-      var text = Key(layer, key);
-      if (!allowed.Contains(text, StringComparer.Ordinal)) {
-        throw new SeedFormatException($"{layer}: unknown key '{text}' in {where} (expected {string.Join(", ", allowed)}).");
-      }
-    }
-  }
-
-  private static YamlNode? Find(YamlMappingNode map, string key)
-    => map.Children.FirstOrDefault(pair => pair.Key is YamlScalarNode { Value: { } value } && string.Equals(value, key, StringComparison.Ordinal)).Value;
-
-  private static YamlNode Required(string layer, YamlMappingNode map, string key)
-    => Find(map, key) ?? throw new SeedFormatException($"{layer}: {key} is required.");
-
-  private static string Key(string layer, YamlNode node)
-    => node is YamlScalarNode { Value: { Length: > 0 } value }
-      ? value
-      : throw new SeedFormatException($"{layer}: a mapping key must be plain text.");
-
+  // A layer value: a plain `~`, `null`, or empty value is NULL, and a quoted one is the text.
   private static string? Scalar(string layer, string where, YamlNode node) {
     if (node is not YamlScalarNode scalar) {
       throw new SeedFormatException($"{layer}: {where} must be a single value.");

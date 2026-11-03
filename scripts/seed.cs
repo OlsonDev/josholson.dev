@@ -4,6 +4,7 @@
 // The seed tool's command line, a thin layer over JoshOlson.Database (ADR 0033). Run through mise from the repo root:
 //   mise run seeds:list   print the layer tree with row counts per table
 // 🚧 bake, seed, seed:test, and seed:clean arrive with the database side of the tool.
+using JoshOlson.Database;
 using JoshOlson.Database.Layers;
 
 const string SeedsDirectory = "JoshOlson.Database/seeds";
