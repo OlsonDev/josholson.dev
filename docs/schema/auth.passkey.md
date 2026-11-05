@@ -2,19 +2,19 @@
 
 ## Columns
 
-| Name                 | Type                                         |   Nullable | Default                        |
-| -------------------- | -------------------------------------------- | ---------: | ------------------------------ |
-| `passkey_id`         | [`INTEGER`][pg:integer]                      | `NOT NULL` | `GENERATED ALWAYS AS IDENTITY` |
-| `user_id`            | [`INTEGER`][pg:integer]                      | `NOT NULL` |                                |
-| `credential_id`      | [`BYTEA`][pg:bytea]                          | `NOT NULL` |                                |
-| `public_key`         | [`BYTEA`][pg:bytea]                          | `NOT NULL` |                                |
-| `sign_count`         | [`BIGINT`][pg:bigint]                        | `NOT NULL` | `0`                            |
-| `transports`         | [`SMALLINT[]`][pg:smallint]                  | `NOT NULL` | `'{}'::smallint[]`             |
-| `is_backup_eligible` | [`BOOLEAN`][pg:boolean]                      | `NOT NULL` |                                |
-| `is_backed_up`       | [`BOOLEAN`][pg:boolean]                      | `NOT NULL` |                                |
-| `nickname`           | [`text.trimmed`][domain:text.trimmed]        | `NOT NULL` |                                |
-| `created_utc`        | [`TIMESTAMPTZ`][pg:timestamp-with-time-zone] | `NOT NULL` | `now()`                        |
-| `last_used_utc`      | [`TIMESTAMPTZ`][pg:timestamp-with-time-zone] |     `NULL` |                                |
+| Name                 | Type                                  |   Nullable | Default                        |
+| -------------------- | ------------------------------------- | ---------: | ------------------------------ |
+| `passkey_id`         | [`INTEGER`][pg:integer]               | `NOT NULL` | `GENERATED ALWAYS AS IDENTITY` |
+| `user_id`            | [`INTEGER`][pg:integer]               | `NOT NULL` |                                |
+| `credential_id`      | [`BYTEA`][pg:bytea]                   | `NOT NULL` |                                |
+| `public_key`         | [`BYTEA`][pg:bytea]                   | `NOT NULL` |                                |
+| `sign_count`         | [`BIGINT`][pg:bigint]                 | `NOT NULL` | `0`                            |
+| `transports`         | [`SMALLINT[]`][pg:smallint]           | `NOT NULL` | `'{}'::smallint[]`             |
+| `is_backup_eligible` | [`BOOLEAN`][pg:boolean]               | `NOT NULL` |                                |
+| `is_backed_up`       | [`BOOLEAN`][pg:boolean]               | `NOT NULL` |                                |
+| `nickname`           | [`text.trimmed`][domain:text.trimmed] | `NOT NULL` |                                |
+| `created_utc`        | [`TIMESTAMPTZ`][pg:timestamptz]       | `NOT NULL` | `now()`                        |
+| `last_used_utc`      | [`TIMESTAMPTZ`][pg:timestamptz]       |     `NULL` |                                |
 
 ## Constraints
 
@@ -90,5 +90,5 @@ erDiagram
 [pg:bytea]: https://www.postgresql.org/docs/19/datatype-binary.html
 [pg:integer]: https://www.postgresql.org/docs/19/datatype-numeric.html#DATATYPE-INT
 [pg:smallint]: https://www.postgresql.org/docs/19/datatype-numeric.html#DATATYPE-INT
-[pg:timestamp-with-time-zone]: https://www.postgresql.org/docs/19/datatype-datetime.html
+[pg:timestamptz]: https://www.postgresql.org/docs/19/datatype-datetime.html
 [table:auth.user]: auth.user.md

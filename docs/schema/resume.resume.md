@@ -2,27 +2,27 @@
 
 ## Columns
 
-| Name                    | Type                                         |   Nullable | Default                        |
-| ----------------------- | -------------------------------------------- | ---------: | ------------------------------ |
-| `resume_id`             | [`INTEGER`][pg:integer]                      | `NOT NULL` | `GENERATED ALWAYS AS IDENTITY` |
-| `slug`                  | [`text.kebab_case`][domain:text.kebab_case]  | `NOT NULL` |                                |
-| `title`                 | [`text.trimmed`][domain:text.trimmed]        | `NOT NULL` |                                |
-| `private_notes`         | [`text.trimmed`][domain:text.trimmed]        |     `NULL` |                                |
-| `is_default`            | [`BOOLEAN`][pg:boolean]                      | `NOT NULL` | `false`                        |
-| `is_published`          | [`BOOLEAN`][pg:boolean]                      | `NOT NULL` | `false`                        |
-| `created_utc`           | [`TIMESTAMPTZ`][pg:timestamp-with-time-zone] | `NOT NULL` | `now()`                        |
-| `name`                  | [`text.trimmed`][domain:text.trimmed]        | `NOT NULL` |                                |
-| `label`                 | [`text.trimmed`][domain:text.trimmed]        |     `NULL` |                                |
-| `image_blob_id`         | [`INTEGER`][pg:integer]                      |     `NULL` |                                |
-| `email`                 | [`text.email`][domain:text.email]            |     `NULL` |                                |
-| `phone`                 | [`text.trimmed`][domain:text.trimmed]        |     `NULL` |                                |
-| `url`                   | [`text.url`][domain:text.url]                |     `NULL` |                                |
-| `summary`               | [`text.trimmed`][domain:text.trimmed]        |     `NULL` |                                |
-| `location_address`      | [`text.trimmed`][domain:text.trimmed]        |     `NULL` |                                |
-| `location_postal_code`  | [`text.trimmed`][domain:text.trimmed]        |     `NULL` |                                |
-| `location_city`         | [`text.trimmed`][domain:text.trimmed]        |     `NULL` |                                |
-| `location_region`       | [`text.trimmed`][domain:text.trimmed]        |     `NULL` |                                |
-| `location_country_code` | [`TEXT`][pg:text]                            |     `NULL` |                                |
+| Name                    | Type                                        |   Nullable | Default                        |
+| ----------------------- | ------------------------------------------- | ---------: | ------------------------------ |
+| `resume_id`             | [`INTEGER`][pg:integer]                     | `NOT NULL` | `GENERATED ALWAYS AS IDENTITY` |
+| `slug`                  | [`text.kebab_case`][domain:text.kebab_case] | `NOT NULL` |                                |
+| `title`                 | [`text.trimmed`][domain:text.trimmed]       | `NOT NULL` |                                |
+| `private_notes`         | [`text.trimmed`][domain:text.trimmed]       |     `NULL` |                                |
+| `is_default`            | [`BOOLEAN`][pg:boolean]                     | `NOT NULL` | `false`                        |
+| `is_published`          | [`BOOLEAN`][pg:boolean]                     | `NOT NULL` | `false`                        |
+| `created_utc`           | [`TIMESTAMPTZ`][pg:timestamptz]             | `NOT NULL` | `now()`                        |
+| `name`                  | [`text.trimmed`][domain:text.trimmed]       | `NOT NULL` |                                |
+| `label`                 | [`text.trimmed`][domain:text.trimmed]       |     `NULL` |                                |
+| `image_blob_id`         | [`INTEGER`][pg:integer]                     |     `NULL` |                                |
+| `email`                 | [`text.email`][domain:text.email]           |     `NULL` |                                |
+| `phone`                 | [`text.trimmed`][domain:text.trimmed]       |     `NULL` |                                |
+| `url`                   | [`text.url`][domain:text.url]               |     `NULL` |                                |
+| `summary`               | [`text.trimmed`][domain:text.trimmed]       |     `NULL` |                                |
+| `location_address`      | [`text.trimmed`][domain:text.trimmed]       |     `NULL` |                                |
+| `location_postal_code`  | [`text.trimmed`][domain:text.trimmed]       |     `NULL` |                                |
+| `location_city`         | [`text.trimmed`][domain:text.trimmed]       |     `NULL` |                                |
+| `location_region`       | [`text.trimmed`][domain:text.trimmed]       |     `NULL` |                                |
+| `location_country_code` | [`TEXT`][pg:text]                           |     `NULL` |                                |
 
 ## Constraints
 
@@ -333,7 +333,7 @@ erDiagram
 [pg:boolean]: https://www.postgresql.org/docs/19/datatype-boolean.html
 [pg:integer]: https://www.postgresql.org/docs/19/datatype-numeric.html#DATATYPE-INT
 [pg:text]: https://www.postgresql.org/docs/19/datatype-character.html
-[pg:timestamp-with-time-zone]: https://www.postgresql.org/docs/19/datatype-datetime.html
+[pg:timestamptz]: https://www.postgresql.org/docs/19/datatype-datetime.html
 [table:blob.blob]: blob.blob.md
 [table:resume.award]: resume.award.md
 [table:resume.certificate]: resume.certificate.md

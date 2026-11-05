@@ -2,17 +2,17 @@
 
 ## Columns
 
-| Name                 | Type                                         |   Nullable | Default                        |
-| -------------------- | -------------------------------------------- | ---------: | ------------------------------ |
-| `blob_id`            | [`INTEGER`][pg:integer]                      | `NOT NULL` | `GENERATED ALWAYS AS IDENTITY` |
-| `sha256`             | [`hash.sha256`][domain:hash.sha256]          | `NOT NULL` |                                |
-| `mime_type_id`       | [`INTEGER`][pg:integer]                      | `NOT NULL` |                                |
-| `byte_size`          | [`BIGINT`][pg:bigint]                        | `NOT NULL` |                                |
-| `width`              | [`INTEGER`][pg:integer]                      |     `NULL` |                                |
-| `height`             | [`INTEGER`][pg:integer]                      |     `NULL` |                                |
-| `thumbhash`          | [`BYTEA`][pg:bytea]                          |     `NULL` |                                |
-| `original_file_name` | [`text.trimmed`][domain:text.trimmed]        |     `NULL` |                                |
-| `created_utc`        | [`TIMESTAMPTZ`][pg:timestamp-with-time-zone] | `NOT NULL` | `now()`                        |
+| Name                 | Type                                  |   Nullable | Default                        |
+| -------------------- | ------------------------------------- | ---------: | ------------------------------ |
+| `blob_id`            | [`INTEGER`][pg:integer]               | `NOT NULL` | `GENERATED ALWAYS AS IDENTITY` |
+| `sha256`             | [`hash.sha256`][domain:hash.sha256]   | `NOT NULL` |                                |
+| `mime_type_id`       | [`INTEGER`][pg:integer]               | `NOT NULL` |                                |
+| `byte_size`          | [`BIGINT`][pg:bigint]                 | `NOT NULL` |                                |
+| `width`              | [`INTEGER`][pg:integer]               |     `NULL` |                                |
+| `height`             | [`INTEGER`][pg:integer]               |     `NULL` |                                |
+| `thumbhash`          | [`BYTEA`][pg:bytea]                   |     `NULL` |                                |
+| `original_file_name` | [`text.trimmed`][domain:text.trimmed] |     `NULL` |                                |
+| `created_utc`        | [`TIMESTAMPTZ`][pg:timestamptz]       | `NOT NULL` | `now()`                        |
 
 ## Constraints
 
@@ -218,7 +218,7 @@ erDiagram
 [pg:bigint]: https://www.postgresql.org/docs/19/datatype-numeric.html#DATATYPE-INT
 [pg:bytea]: https://www.postgresql.org/docs/19/datatype-binary.html
 [pg:integer]: https://www.postgresql.org/docs/19/datatype-numeric.html#DATATYPE-INT
-[pg:timestamp-with-time-zone]: https://www.postgresql.org/docs/19/datatype-datetime.html
+[pg:timestamptz]: https://www.postgresql.org/docs/19/datatype-datetime.html
 [table:blob.mime_type]: blob.mime_type.md
 [table:blog.post]: blog.post.md
 [table:resume.education]: resume.education.md

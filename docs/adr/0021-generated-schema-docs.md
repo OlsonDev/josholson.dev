@@ -3,6 +3,7 @@
 - Status: Accepted
 - Date: 2026-10-22
 - Amended 2026-11-03: the pages are to be rendered from `migrations/schema.lock.yaml`, not from a live database ([ADR 0034, lock file and branch-safe migration](0034-seed-lock-file-and-branch-safe-migration.md)). The layout below stays; only the source changes, and until that is built the script still reads the dev database.
+- Amended 2026-11-04: the script reads the dev database through the seed tool's catalog reader (`SchemaCatalog` in `JoshOlson.Database`) instead of its own queries, and renders the same model the lock is made from. Types are shown in the lock's spelling (`TIMESTAMPTZ`, not `TIMESTAMP WITH TIME ZONE`), and a column of a type the seed tool does not support stops the run with its table and column named.
 
 ## Context
 
@@ -10,7 +11,7 @@
 
 ## Decision
 
-`scripts/schema-docs.cs` reads the catalogs directly (Npgsql, declared with `#:package` in the file-based app) and writes all the Markdown itself, committed in `docs/schema/`. `docs/database.md` keeps design notes only and points there.
+`scripts/schema-docs.cs` reads the catalogs through the seed tool's catalog reader (Npgsql, referenced as `JoshOlson.Database` from the file-based app) and writes all the Markdown itself, committed in `docs/schema/`. `docs/database.md` keeps design notes only and points there.
 
 - **One page per table**, named `{schema}.{table}.md`, plus `domains.md` and a `README.md` index grouped by schema with a diagram of every relation.
 - **Columns**: Name, Type, Nullable, Default, in that order, with a Comment column only when some column has a comment. Nullable reads `NULL` or `NOT NULL` and is right-aligned. Default is last because it can be long, and identity and generated columns say so there.
@@ -36,10 +37,10 @@
 
 ## Consequences
 
-- We own the renderer and maintain it. The catalog queries are standard (`pg_attribute`, `pg_constraint`, `pg_index`, `pg_type`) but need checking after a Postgres major version.
+- We own the renderer and maintain it. The catalog queries (in the reader, not the script) are standard (`pg_attribute`, `pg_constraint`, `pg_index`, `pg_type`) but need checking after a Postgres major version.
 - The first run restores the Npgsql package, so it needs network access once.
-- Type links cover the built-in types in the `TypeDocs` table in the script. A type that is neither in that table nor a domain (a less common built-in, or an enum) is shown without a link, and the script prints a warning naming it. Add it to `TypeDocs` to link it. Every type in use links today.
-- Built-in types are capitalized everywhere (`INTEGER`, `TIMESTAMPTZ`, `VARCHAR(20)`), using the short names Postgres accepts for the multi-word ones (Mermaid forbids spaces). Domains and other types keep the names Postgres prints (`text.kebab_case`).
+- Type links cover the types the seed tool supports, in the `_TypeDocs` table in the script. A supported type with no entry there is shown without a link, and the script prints a warning naming it; add it to `_TypeDocs` to link it. Every type in use links today. The link labels are in the lock's spelling (`pg:timestamptz`).
+- Built-in types are capitalized everywhere (`INTEGER`, `TIMESTAMPTZ`, `DECIMAL(9, 6)`), in the spelling the lock uses, so the multi-word names never appear (Mermaid forbids spaces). Domains keep their names (`text.kebab_case`).
 - Mermaid attributes are fixed as type, name, key, so the key (PK, FK, UK) cannot come first, and attribute text takes no Markdown formatting.
 - The check no longer sees the Postgres version, so a Postgres upgrade is not drift by itself.
 - Every Mermaid diagram parsed successfully with `mermaid.parse` when this was written. That check is not automated.

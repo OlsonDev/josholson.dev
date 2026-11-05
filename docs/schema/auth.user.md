@@ -2,13 +2,13 @@
 
 ## Columns
 
-| Name           | Type                                         |   Nullable | Default                        |
-| -------------- | -------------------------------------------- | ---------: | ------------------------------ |
-| `user_id`      | [`INTEGER`][pg:integer]                      | `NOT NULL` | `GENERATED ALWAYS AS IDENTITY` |
-| `display_name` | [`text.trimmed`][domain:text.trimmed]        | `NOT NULL` |                                |
-| `user_handle`  | [`BYTEA`][pg:bytea]                          | `NOT NULL` |                                |
-| `is_active`    | [`BOOLEAN`][pg:boolean]                      | `NOT NULL` | `true`                         |
-| `created_utc`  | [`TIMESTAMPTZ`][pg:timestamp-with-time-zone] | `NOT NULL` | `now()`                        |
+| Name           | Type                                  |   Nullable | Default                        |
+| -------------- | ------------------------------------- | ---------: | ------------------------------ |
+| `user_id`      | [`INTEGER`][pg:integer]               | `NOT NULL` | `GENERATED ALWAYS AS IDENTITY` |
+| `display_name` | [`text.trimmed`][domain:text.trimmed] | `NOT NULL` |                                |
+| `user_handle`  | [`BYTEA`][pg:bytea]                   | `NOT NULL` |                                |
+| `is_active`    | [`BOOLEAN`][pg:boolean]               | `NOT NULL` | `true`                         |
+| `created_utc`  | [`TIMESTAMPTZ`][pg:timestamptz]       | `NOT NULL` | `now()`                        |
 
 ## Constraints
 
@@ -111,7 +111,7 @@ erDiagram
 [pg:boolean]: https://www.postgresql.org/docs/19/datatype-boolean.html
 [pg:bytea]: https://www.postgresql.org/docs/19/datatype-binary.html
 [pg:integer]: https://www.postgresql.org/docs/19/datatype-numeric.html#DATATYPE-INT
-[pg:timestamp-with-time-zone]: https://www.postgresql.org/docs/19/datatype-datetime.html
+[pg:timestamptz]: https://www.postgresql.org/docs/19/datatype-datetime.html
 [table:auth.enrollment_token]: auth.enrollment_token.md
 [table:auth.passkey]: auth.passkey.md
 [table:auth.session]: auth.session.md

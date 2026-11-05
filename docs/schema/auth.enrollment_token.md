@@ -2,14 +2,14 @@
 
 ## Columns
 
-| Name                  | Type                                         |   Nullable | Default                        |
-| --------------------- | -------------------------------------------- | ---------: | ------------------------------ |
-| `enrollment_token_id` | [`INTEGER`][pg:integer]                      | `NOT NULL` | `GENERATED ALWAYS AS IDENTITY` |
-| `user_id`             | [`INTEGER`][pg:integer]                      | `NOT NULL` |                                |
-| `token_hash`          | [`hash.sha256`][domain:hash.sha256]          | `NOT NULL` |                                |
-| `created_utc`         | [`TIMESTAMPTZ`][pg:timestamp-with-time-zone] | `NOT NULL` | `now()`                        |
-| `expires_utc`         | [`TIMESTAMPTZ`][pg:timestamp-with-time-zone] | `NOT NULL` |                                |
-| `used_utc`            | [`TIMESTAMPTZ`][pg:timestamp-with-time-zone] |     `NULL` |                                |
+| Name                  | Type                                |   Nullable | Default                        |
+| --------------------- | ----------------------------------- | ---------: | ------------------------------ |
+| `enrollment_token_id` | [`INTEGER`][pg:integer]             | `NOT NULL` | `GENERATED ALWAYS AS IDENTITY` |
+| `user_id`             | [`INTEGER`][pg:integer]             | `NOT NULL` |                                |
+| `token_hash`          | [`hash.sha256`][domain:hash.sha256] | `NOT NULL` |                                |
+| `created_utc`         | [`TIMESTAMPTZ`][pg:timestamptz]     | `NOT NULL` | `now()`                        |
+| `expires_utc`         | [`TIMESTAMPTZ`][pg:timestamptz]     | `NOT NULL` |                                |
+| `used_utc`            | [`TIMESTAMPTZ`][pg:timestamptz]     |     `NULL` |                                |
 
 ## Constraints
 
@@ -79,5 +79,5 @@ erDiagram
 
 [domain:hash.sha256]: domains.md#hashsha256
 [pg:integer]: https://www.postgresql.org/docs/19/datatype-numeric.html#DATATYPE-INT
-[pg:timestamp-with-time-zone]: https://www.postgresql.org/docs/19/datatype-datetime.html
+[pg:timestamptz]: https://www.postgresql.org/docs/19/datatype-datetime.html
 [table:auth.user]: auth.user.md

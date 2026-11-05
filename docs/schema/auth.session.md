@@ -2,16 +2,16 @@
 
 ## Columns
 
-| Name            | Type                                         |   Nullable | Default                        |
-| --------------- | -------------------------------------------- | ---------: | ------------------------------ |
-| `session_id`    | [`INTEGER`][pg:integer]                      | `NOT NULL` | `GENERATED ALWAYS AS IDENTITY` |
-| `user_id`       | [`INTEGER`][pg:integer]                      | `NOT NULL` |                                |
-| `token_hash`    | [`hash.sha256`][domain:hash.sha256]          | `NOT NULL` |                                |
-| `created_utc`   | [`TIMESTAMPTZ`][pg:timestamp-with-time-zone] | `NOT NULL` | `now()`                        |
-| `expires_utc`   | [`TIMESTAMPTZ`][pg:timestamp-with-time-zone] | `NOT NULL` |                                |
-| `last_seen_utc` | [`TIMESTAMPTZ`][pg:timestamp-with-time-zone] | `NOT NULL` | `now()`                        |
-| `ip`            | [`INET`][pg:inet]                            |     `NULL` |                                |
-| `user_agent_id` | [`INTEGER`][pg:integer]                      |     `NULL` |                                |
+| Name            | Type                                |   Nullable | Default                        |
+| --------------- | ----------------------------------- | ---------: | ------------------------------ |
+| `session_id`    | [`INTEGER`][pg:integer]             | `NOT NULL` | `GENERATED ALWAYS AS IDENTITY` |
+| `user_id`       | [`INTEGER`][pg:integer]             | `NOT NULL` |                                |
+| `token_hash`    | [`hash.sha256`][domain:hash.sha256] | `NOT NULL` |                                |
+| `created_utc`   | [`TIMESTAMPTZ`][pg:timestamptz]     | `NOT NULL` | `now()`                        |
+| `expires_utc`   | [`TIMESTAMPTZ`][pg:timestamptz]     | `NOT NULL` |                                |
+| `last_seen_utc` | [`TIMESTAMPTZ`][pg:timestamptz]     | `NOT NULL` | `now()`                        |
+| `ip`            | [`INET`][pg:inet]                   |     `NULL` |                                |
+| `user_agent_id` | [`INTEGER`][pg:integer]             |     `NULL` |                                |
 
 ## Constraints
 
@@ -100,6 +100,6 @@ erDiagram
 [domain:hash.sha256]: domains.md#hashsha256
 [pg:inet]: https://www.postgresql.org/docs/19/datatype-net-types.html
 [pg:integer]: https://www.postgresql.org/docs/19/datatype-numeric.html#DATATYPE-INT
-[pg:timestamp-with-time-zone]: https://www.postgresql.org/docs/19/datatype-datetime.html
+[pg:timestamptz]: https://www.postgresql.org/docs/19/datatype-datetime.html
 [table:auth.user]: auth.user.md
 [table:http.user_agent]: http.user_agent.md

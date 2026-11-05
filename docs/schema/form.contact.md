@@ -2,21 +2,21 @@
 
 ## Columns
 
-| Name              | Type                                         |   Nullable | Default                        |
-| ----------------- | -------------------------------------------- | ---------: | ------------------------------ |
-| `contact_id`      | [`INTEGER`][pg:integer]                      | `NOT NULL` | `GENERATED ALWAYS AS IDENTITY` |
-| `name`            | [`text.trimmed`][domain:text.trimmed]        | `NOT NULL` |                                |
-| `email`           | [`text.email`][domain:text.email]            | `NOT NULL` |                                |
-| `subject`         | [`text.trimmed`][domain:text.trimmed]        |     `NULL` |                                |
-| `message`         | [`text.trimmed`][domain:text.trimmed]        | `NOT NULL` |                                |
-| `ip`              | [`INET`][pg:inet]                            |     `NULL` |                                |
-| `user_agent_id`   | [`INTEGER`][pg:integer]                      |     `NULL` |                                |
-| `is_spam`         | [`BOOLEAN`][pg:boolean]                      | `NOT NULL` | `false`                        |
-| `created_utc`     | [`TIMESTAMPTZ`][pg:timestamp-with-time-zone] | `NOT NULL` | `now()`                        |
-| `read_utc`        | [`TIMESTAMPTZ`][pg:timestamp-with-time-zone] |     `NULL` |                                |
-| `notified_utc`    | [`TIMESTAMPTZ`][pg:timestamp-with-time-zone] |     `NULL` |                                |
-| `notify_attempts` | [`INTEGER`][pg:integer]                      | `NOT NULL` | `0`                            |
-| `notify_error`    | [`text.trimmed`][domain:text.trimmed]        |     `NULL` |                                |
+| Name              | Type                                  |   Nullable | Default                        |
+| ----------------- | ------------------------------------- | ---------: | ------------------------------ |
+| `contact_id`      | [`INTEGER`][pg:integer]               | `NOT NULL` | `GENERATED ALWAYS AS IDENTITY` |
+| `name`            | [`text.trimmed`][domain:text.trimmed] | `NOT NULL` |                                |
+| `email`           | [`text.email`][domain:text.email]     | `NOT NULL` |                                |
+| `subject`         | [`text.trimmed`][domain:text.trimmed] |     `NULL` |                                |
+| `message`         | [`text.trimmed`][domain:text.trimmed] | `NOT NULL` |                                |
+| `ip`              | [`INET`][pg:inet]                     |     `NULL` |                                |
+| `user_agent_id`   | [`INTEGER`][pg:integer]               |     `NULL` |                                |
+| `is_spam`         | [`BOOLEAN`][pg:boolean]               | `NOT NULL` | `false`                        |
+| `created_utc`     | [`TIMESTAMPTZ`][pg:timestamptz]       | `NOT NULL` | `now()`                        |
+| `read_utc`        | [`TIMESTAMPTZ`][pg:timestamptz]       |     `NULL` |                                |
+| `notified_utc`    | [`TIMESTAMPTZ`][pg:timestamptz]       |     `NULL` |                                |
+| `notify_attempts` | [`INTEGER`][pg:integer]               | `NOT NULL` | `0`                            |
+| `notify_error`    | [`text.trimmed`][domain:text.trimmed] |     `NULL` |                                |
 
 ## Constraints
 
@@ -99,5 +99,5 @@ erDiagram
 [pg:boolean]: https://www.postgresql.org/docs/19/datatype-boolean.html
 [pg:inet]: https://www.postgresql.org/docs/19/datatype-net-types.html
 [pg:integer]: https://www.postgresql.org/docs/19/datatype-numeric.html#DATATYPE-INT
-[pg:timestamp-with-time-zone]: https://www.postgresql.org/docs/19/datatype-datetime.html
+[pg:timestamptz]: https://www.postgresql.org/docs/19/datatype-datetime.html
 [table:http.user_agent]: http.user_agent.md

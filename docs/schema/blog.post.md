@@ -2,21 +2,21 @@
 
 ## Columns
 
-| Name            | Type                                         |   Nullable | Default                        |
-| --------------- | -------------------------------------------- | ---------: | ------------------------------ |
-| `post_id`       | [`INTEGER`][pg:integer]                      | `NOT NULL` | `GENERATED ALWAYS AS IDENTITY` |
-| `slug`          | [`text.kebab_case`][domain:text.kebab_case]  | `NOT NULL` |                                |
-| `title`         | [`text.trimmed`][domain:text.trimmed]        | `NOT NULL` |                                |
-| `summary`       | [`text.trimmed`][domain:text.trimmed]        |     `NULL` |                                |
-| `body`          | [`text.trimmed`][domain:text.trimmed]        | `NOT NULL` |                                |
-| `cover_blob_id` | [`INTEGER`][pg:integer]                      |     `NULL` |                                |
-| `series_id`     | [`INTEGER`][pg:integer]                      |     `NULL` |                                |
-| `series_order`  | [`INTEGER`][pg:integer]                      |     `NULL` |                                |
-| `canonical_url` | [`text.url`][domain:text.url]                |     `NULL` |                                |
-| `is_featured`   | [`BOOLEAN`][pg:boolean]                      | `NOT NULL` | `false`                        |
-| `published_utc` | [`TIMESTAMPTZ`][pg:timestamp-with-time-zone] |     `NULL` |                                |
-| `updated_utc`   | [`TIMESTAMPTZ`][pg:timestamp-with-time-zone] |     `NULL` |                                |
-| `created_utc`   | [`TIMESTAMPTZ`][pg:timestamp-with-time-zone] | `NOT NULL` | `now()`                        |
+| Name            | Type                                        |   Nullable | Default                        |
+| --------------- | ------------------------------------------- | ---------: | ------------------------------ |
+| `post_id`       | [`INTEGER`][pg:integer]                     | `NOT NULL` | `GENERATED ALWAYS AS IDENTITY` |
+| `slug`          | [`text.kebab_case`][domain:text.kebab_case] | `NOT NULL` |                                |
+| `title`         | [`text.trimmed`][domain:text.trimmed]       | `NOT NULL` |                                |
+| `summary`       | [`text.trimmed`][domain:text.trimmed]       |     `NULL` |                                |
+| `body`          | [`text.trimmed`][domain:text.trimmed]       | `NOT NULL` |                                |
+| `cover_blob_id` | [`INTEGER`][pg:integer]                     |     `NULL` |                                |
+| `series_id`     | [`INTEGER`][pg:integer]                     |     `NULL` |                                |
+| `series_order`  | [`INTEGER`][pg:integer]                     |     `NULL` |                                |
+| `canonical_url` | [`text.url`][domain:text.url]               |     `NULL` |                                |
+| `is_featured`   | [`BOOLEAN`][pg:boolean]                     | `NOT NULL` | `false`                        |
+| `published_utc` | [`TIMESTAMPTZ`][pg:timestamptz]             |     `NULL` |                                |
+| `updated_utc`   | [`TIMESTAMPTZ`][pg:timestamptz]             |     `NULL` |                                |
+| `created_utc`   | [`TIMESTAMPTZ`][pg:timestamptz]             | `NOT NULL` | `now()`                        |
 
 ## Constraints
 
@@ -130,7 +130,7 @@ erDiagram
 [domain:text.url]: domains.md#texturl
 [pg:boolean]: https://www.postgresql.org/docs/19/datatype-boolean.html
 [pg:integer]: https://www.postgresql.org/docs/19/datatype-numeric.html#DATATYPE-INT
-[pg:timestamp-with-time-zone]: https://www.postgresql.org/docs/19/datatype-datetime.html
+[pg:timestamptz]: https://www.postgresql.org/docs/19/datatype-datetime.html
 [table:blob.blob]: blob.blob.md
 [table:blog.post__tag__tag]: blog.post__tag__tag.md
 [table:blog.series]: blog.series.md

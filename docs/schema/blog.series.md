@@ -2,13 +2,13 @@
 
 ## Columns
 
-| Name          | Type                                         |   Nullable | Default                        |
-| ------------- | -------------------------------------------- | ---------: | ------------------------------ |
-| `series_id`   | [`INTEGER`][pg:integer]                      | `NOT NULL` | `GENERATED ALWAYS AS IDENTITY` |
-| `slug`        | [`text.kebab_case`][domain:text.kebab_case]  | `NOT NULL` |                                |
-| `title`       | [`text.trimmed`][domain:text.trimmed]        | `NOT NULL` |                                |
-| `description` | [`text.trimmed`][domain:text.trimmed]        |     `NULL` |                                |
-| `created_utc` | [`TIMESTAMPTZ`][pg:timestamp-with-time-zone] | `NOT NULL` | `now()`                        |
+| Name          | Type                                        |   Nullable | Default                        |
+| ------------- | ------------------------------------------- | ---------: | ------------------------------ |
+| `series_id`   | [`INTEGER`][pg:integer]                     | `NOT NULL` | `GENERATED ALWAYS AS IDENTITY` |
+| `slug`        | [`text.kebab_case`][domain:text.kebab_case] | `NOT NULL` |                                |
+| `title`       | [`text.trimmed`][domain:text.trimmed]       | `NOT NULL` |                                |
+| `description` | [`text.trimmed`][domain:text.trimmed]       |     `NULL` |                                |
+| `created_utc` | [`TIMESTAMPTZ`][pg:timestamptz]             | `NOT NULL` | `now()`                        |
 
 ## Constraints
 
@@ -71,5 +71,5 @@ erDiagram
 [domain:text.kebab_case]: domains.md#textkebab_case
 [domain:text.trimmed]: domains.md#texttrimmed
 [pg:integer]: https://www.postgresql.org/docs/19/datatype-numeric.html#DATATYPE-INT
-[pg:timestamp-with-time-zone]: https://www.postgresql.org/docs/19/datatype-datetime.html
+[pg:timestamptz]: https://www.postgresql.org/docs/19/datatype-datetime.html
 [table:blog.post]: blog.post.md

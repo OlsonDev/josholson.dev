@@ -2,14 +2,14 @@
 
 ## Columns
 
-| Name            | Type                                         |   Nullable | Default                        |
-| --------------- | -------------------------------------------- | ---------: | ------------------------------ |
-| `user_email_id` | [`INTEGER`][pg:integer]                      | `NOT NULL` | `GENERATED ALWAYS AS IDENTITY` |
-| `user_id`       | [`INTEGER`][pg:integer]                      | `NOT NULL` |                                |
-| `email`         | [`text.email`][domain:text.email]            | `NOT NULL` |                                |
-| `is_primary`    | [`BOOLEAN`][pg:boolean]                      | `NOT NULL` | `false`                        |
-| `verified_utc`  | [`TIMESTAMPTZ`][pg:timestamp-with-time-zone] |     `NULL` |                                |
-| `created_utc`   | [`TIMESTAMPTZ`][pg:timestamp-with-time-zone] | `NOT NULL` | `now()`                        |
+| Name            | Type                              |   Nullable | Default                        |
+| --------------- | --------------------------------- | ---------: | ------------------------------ |
+| `user_email_id` | [`INTEGER`][pg:integer]           | `NOT NULL` | `GENERATED ALWAYS AS IDENTITY` |
+| `user_id`       | [`INTEGER`][pg:integer]           | `NOT NULL` |                                |
+| `email`         | [`text.email`][domain:text.email] | `NOT NULL` |                                |
+| `is_primary`    | [`BOOLEAN`][pg:boolean]           | `NOT NULL` | `false`                        |
+| `verified_utc`  | [`TIMESTAMPTZ`][pg:timestamptz]   |     `NULL` |                                |
+| `created_utc`   | [`TIMESTAMPTZ`][pg:timestamptz]   | `NOT NULL` | `now()`                        |
 
 ## Constraints
 
@@ -82,5 +82,5 @@ erDiagram
 [domain:text.email]: domains.md#textemail
 [pg:boolean]: https://www.postgresql.org/docs/19/datatype-boolean.html
 [pg:integer]: https://www.postgresql.org/docs/19/datatype-numeric.html#DATATYPE-INT
-[pg:timestamp-with-time-zone]: https://www.postgresql.org/docs/19/datatype-datetime.html
+[pg:timestamptz]: https://www.postgresql.org/docs/19/datatype-datetime.html
 [table:auth.user]: auth.user.md
