@@ -18,6 +18,9 @@ public class DomainResolverTests {
     => new() {
       Name = name,
       Type = ColumnType.Parse(type),
+      NotNull = false,
+      DefaultExpression = null,
+      Comment = null,
       Checks = [],
     };
 

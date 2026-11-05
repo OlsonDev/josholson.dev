@@ -64,7 +64,7 @@ public class SchemaLockParserTests {
   public void Parse_TwoChecksWithTheSameName_Throws() {
     var text = _Valid.Replace(
       "      - { name: slug_format, expression: \"CHECK ((VALUE ~ '^[a-z0-9-]+$'::text))\" }",
-      "      - { name: slug_format, expression: \"CHECK ((VALUE ~ '^[a-z0-9-]+$'::text))\" }\n      - { name: slug_format, expression: \"CHECK ((VALUE <> ''::text))\" }",
+      "      - { name: slug_format, expression: \"CHECK ((VALUE ~ '^[a-z0-9-]+$'::text))\" }\n      - { name: slug_format, expression: \"CHECK ((VALUE != ''::text))\" }",
       StringComparison.Ordinal);
 
     var exception = Assert.Throws<SeedFormatException>(() => SchemaLockParser.Parse(text));
@@ -74,7 +74,7 @@ public class SchemaLockParserTests {
 
   [Fact]
   public void Parse_ColumnWithAnUnknownDomain_NamesTheColumn() {
-    var exception = Assert.Throws<SeedFormatException>(() => SchemaLockParser.Parse(_Valid.Replace("type: foo.short_slug }", "type: foo.nope }", StringComparison.Ordinal)));
+    var exception = Assert.Throws<SeedFormatException>(() => SchemaLockParser.Parse(_Valid.Replace("type: foo.short_slug,", "type: foo.nope,", StringComparison.Ordinal)));
 
     Assert.Contains("foo.bar.slug", exception.Message, StringComparison.Ordinal);
     Assert.Contains("foo.nope", exception.Message, StringComparison.Ordinal);
@@ -116,7 +116,7 @@ public class SchemaLockParserTests {
 
   [Fact]
   public void Parse_TableWithoutAPrimaryKey_HasAnEmptyKey() {
-    var parsed = SchemaLockParser.Parse(_Valid.Replace("    primary_key: [tag_id]\n", "", StringComparison.Ordinal));
+    var parsed = SchemaLockParser.Parse(_Valid.Replace("    primary_key: [tag_id]\n    primary_key_name: pk_tag\n", "", StringComparison.Ordinal));
 
     Assert.Empty(parsed.Tables[2].PrimaryKey);
   }
@@ -142,6 +142,7 @@ public class SchemaLockParserTests {
     var text = SchemaLockWriter.Write(new() {
       Version = 0,
       Migrations = [],
+      Schemas = [],
       Domains = [],
       Tables = [],
     });
@@ -158,23 +159,28 @@ public class SchemaLockParserTests {
           file: V003__bar.sql
           checksum: {{SchemaLockSample.Bbb}}
           accepted_checksums: [{{SchemaLockSample.Ccc}}]
+      schemas:
+        foo: Things and their tags
       domains:
         foo.slug:
           checks:
             - name: slug_format
               expression: "CHECK ((VALUE ~ '^[a-z0-9-]+$'::text))"
+          comment: A URL slug
           type: text
         foo.short_slug: { type: foo.slug, checks: [{ name: short_slug_length, expression: "CHECK ((length(VALUE) <= 20))" }] }
-        foo.coords: { type: "decimal(9, 6)" }
+        foo.coords: { type: "decimal(9, 6)", default_expression: "0::numeric", not_null: true }
         foo.tag_ids:
           type: smallint[]
       tables:
         foo.tag:
           columns:
             - { name: tag_id, type: smallint, generated_as: identity-by-default }
-            - { name: price, type: "decimal(12, 2)" }
+            - { name: price, type: "decimal(12, 2)", default_expression: "0.00" }
+          primary_key_name: pk_tag
           primary_key: [tag_id]
         foo.link:
+          primary_key_name: pk_link
           primary_key:
             - bar_id
             - tag_id
@@ -192,17 +198,28 @@ public class SchemaLockParserTests {
             - { name: tags, type: foo.tag_ids, nullable: true }
         foo.bar:
           primary_key: [bar_id]
+          primary_key_name: pk_bar
+          comment: A bar
+          indexes:
+            - name: ix_bar_created
+              definition: CREATE INDEX ix_bar_created ON foo.bar USING btree (created_utc)
+          checks:
+            - { expression: "CHECK ((name != ''::text))", name: ck_bar_name }
+          unique:
+            - name: uq_bar_slug
+              columns: [slug]
+              definition: UNIQUE (slug)
           columns:
             - name: bar_id
               type: bigint
               generated_as: identity-always
-            - { name: slug, type: foo.short_slug }
+            - { name: slug, type: foo.short_slug, comment: Public identifier }
             - { name: name, type: text }
             - { type: text, name: note, nullable: true }
-            - { name: created_utc, type: timestamptz, policy: relative }
+            - { name: created_utc, type: timestamptz, policy: relative, default_expression: now() }
             - { name: published_utc, type: timestamptz, nullable: true, policy: absolute }
             - { name: lat, type: foo.coords, nullable: true }
-            - { name: slug_length, type: integer, generated_as: expression-stored }
+            - { name: slug_length, type: integer, generated_as: expression-stored, generated_expression: length(slug) }
       """;
 
   [Fact]
@@ -220,15 +237,14 @@ public class SchemaLockParserTests {
   public void RoundTrip_NamesThatNeedQuoting() {
     var schemaLock = SchemaLockSample.Create() with {
       Tables = [
-        new() {
-          Name = "foo.bar",
+        SchemaLockSample.NewTable("foo.bar") with {
           Columns = [
             SchemaLockSample.Column("my col: \"x\"", "text"),
             SchemaLockSample.Column("-dash", "text"),
             SchemaLockSample.Column("null", "text"),
           ],
           PrimaryKey = [],
-          ForeignKeys = [],
+          PrimaryKeyName = null,
         },
       ],
     };
@@ -257,7 +273,7 @@ public class SchemaLockParserTests {
   [InlineData("  foo.link:", "  foolink:")]
   [InlineData("  foo.link:", "  foo.bar:")]
   [InlineData("  foo.tag:\n    columns:", "  foo.tag:\n    colums:")]
-  [InlineData("  foo.tag:\n    columns:\n      - { name: tag_id, type: smallint, generated_as: identity-by-default }\n      - { name: price, type: \"decimal(12, 2)\" }\n    primary_key: [tag_id]", "  foo.tag:\n    columns: []")]
+  [InlineData("  foo.tag:\n    columns:\n      - { name: tag_id, type: smallint, generated_as: identity-by-default }\n      - { name: price, type: \"decimal(12, 2)\", default_expression: 0.00 }\n    primary_key: [tag_id]", "  foo.tag:\n    columns: []")]
   [InlineData("name: name, type: text", "name: name, type: interval")]
   [InlineData("nullable: true, policy", "nullable: maybe, policy")]
   [InlineData("primary_key: [bar_id, tag_id]", "primary_key: [bar_id, nope]")]
@@ -267,13 +283,13 @@ public class SchemaLockParserTests {
   [InlineData("{ name: bar_id, type: bigint }", "{ name: bar_id, type: bigint, nullable: true }")]
   [InlineData("    primary_key: [tag_id]", "    primary_key: [tag_id]\n    primary_key: [tag_id]")]
   [InlineData("{ name: bar_id, type: bigint }", "{ name: bar_id, type: bigint, primary_key: 1 }")]
-  [InlineData("type: timestamptz, policy: relative", "type: timestamptz")]
+  [InlineData("default_expression: \"now()\", policy: relative", "default_expression: \"now()\"")]
   [InlineData("name: name, type: text", "name: name, type: text, policy: relative")]
   [InlineData("policy: relative", "policy: sometimes")]
   [InlineData("generated_as: identity-always", "generated_as: sometimes")]
   [InlineData("generated_as: identity-always", "generated: identity-always")]
   [InlineData("generated_as: expression-stored", "generated_as: stored")]
-  [InlineData("{ name: slug, type: foo.short_slug }", "{ name: slug, type: foo.nope }")]
+  [InlineData("{ name: slug, type: foo.short_slug,", "{ name: slug, type: foo.nope,")]
   [InlineData("{ name: lat, type: foo.coords, nullable: true }", "{ name: lat, type: foo.coords, nullable: true, policy: relative }")]
   [InlineData("{ name: tags, type: foo.tag_ids,", "{ name: tags, type: \"foo.tag_ids[]\",")]
   [InlineData("type: \"decimal(12, 2)\"", "type: \"decimal(12,2)\"")]
@@ -285,10 +301,35 @@ public class SchemaLockParserTests {
   [InlineData("    type: \"decimal(9, 6)\"", "    typo: \"decimal(9, 6)\"")]
   [InlineData("  foo.coords:", "  coords:")]
   [InlineData("  foo.coords:", "  foo.slug:")]
-  [InlineData("  foo.slug:\n    type: text\n    checks:", "  foo.slug:\n    type: text\n    check:")]
+  [InlineData("  foo.slug:\n    type: text\n    comment: \"A URL slug\"\n    checks:", "  foo.slug:\n    type: text\n    comment: \"A URL slug\"\n    check:")]
   [InlineData("{ name: slug_format, expression:", "{ name: slug_format, text:")]
   [InlineData("expression: \"CHECK ((length(VALUE) <= 20))\"", "expression: \"\"")]
   [InlineData("domains:\n", "domains: nope\n")]
+  [InlineData("schemas:\n  foo: \"Things and their tags\"", "schemas:\n  foo.x: \"Things and their tags\"")]
+  [InlineData("schemas:\n  foo: \"Things and their tags\"", "schemas:\n  foo: \"\"")]
+  [InlineData("schemas:\n  foo: \"Things and their tags\"", "schemas:\n  foo: [a, b]")]
+  [InlineData("not_null: true", "not_null: maybe")]
+  [InlineData("default_expression: \"0::numeric\"", "default_expression: \"\"")]
+  [InlineData("comment: \"A URL slug\"", "comment: \"\"")]
+  [InlineData("    type: \"decimal(9, 6)\"", "    type: \"decimal(9, 6)\"\n    colour: red")]
+  [InlineData("    comment: \"A bar\"", "    comment: \"\"")]
+  [InlineData("    primary_key_name: pk_bar\n", "")]
+  [InlineData("    primary_key: [tag_id]\n", "")]
+  [InlineData("generated_as: identity-always }", "generated_as: identity-always, default_expression: \"1\" }")]
+  [InlineData("generated_as: identity-always }", "generated_as: identity-always, generated_expression: \"1\" }")]
+  [InlineData(", generated_expression: \"length(slug)\"", "")]
+  [InlineData("generated_expression: \"length(slug)\"", "generated_expression: \"\"")]
+  [InlineData("generated_as: expression-stored,", "generated_as: expression-stored, default_expression: \"1\",")]
+  [InlineData("default_expression: \"now()\", policy", "default_expression: \"\", policy")]
+  [InlineData("comment: \"Public identifier\"", "comment: \"\"")]
+  [InlineData("columns: [slug], definition", "columns: [nope], definition")]
+  [InlineData("columns: [slug], definition", "columns: [], definition")]
+  [InlineData("definition: \"UNIQUE (slug)\"", "definition: \"\"")]
+  [InlineData("{ name: uq_bar_slug,", "{ nme: uq_bar_slug,")]
+  [InlineData("    unique:\n", "    unique: nope\n")]
+  [InlineData("expression: \"CHECK ((name != ''::text))\"", "expression: \"\"")]
+  [InlineData("{ name: ix_bar_created, definition:", "{ name: ix_bar_created, def:")]
+  [InlineData("definition: \"CREATE INDEX ix_bar_created ON foo.bar USING btree (created_utc)\"", "definition: \"\"")]
   [InlineData("{ name: note,", "{ name: name,")]
   [InlineData("{ name: name,", "{ name: name, color: red,")]
   [InlineData("references: foo.bar,", "references: foo.nope,")]

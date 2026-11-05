@@ -32,6 +32,7 @@ public class SchemaLockTests {
     => new() {
       Version = 2,
       Migrations = [Locked(1, "foo", _Original), Locked(2, "bar", _Other)],
+      Schemas = [],
       Domains = [],
       Tables = [],
     };

@@ -2,10 +2,11 @@ using JoshOlson.Database.Schema;
 
 namespace JoshOlson.Database.Locks;
 
-// One lock that exercises everything the file format has: an accepted checksum; domains over a base type, over another
-// domain, with a modifier and over an array, with and without checks; a nullable column; identity and expression
-// columns; a composite primary key; both time policies; array and `decimal` types; and foreign keys with and without
-// actions and deferral. Shared by the writer and parser tests.
+// One lock that exercises everything the file format has: an accepted checksum; a schema comment; domains over a base
+// type, over another domain, with a modifier and over an array, with and without checks, defaults, and comments; a
+// nullable column; identity and expression columns; defaults and comments; a composite primary key; unique and check
+// constraints; both time policies; array and `decimal` types; foreign keys with and without actions and deferral; and an
+// index. Shared by the writer and parser tests.
 internal static class SchemaLockSample {
   public static readonly string Aaa = new('a', 64);
   public static readonly string Bbb = new('b', 64);
@@ -28,34 +29,61 @@ internal static class SchemaLockSample {
           AcceptedChecksums = [Ccc],
         },
       ],
-      Domains = [
-        NewDomain("foo.slug", "text", ("slug_format", "CHECK ((VALUE ~ '^[a-z0-9-]+$'::text))")),
-        NewDomain("foo.short_slug", "foo.slug", ("short_slug_length", "CHECK ((length(VALUE) <= 20))")),
-        NewDomain("foo.coords", "decimal(9, 6)"),
-        NewDomain("foo.tag_ids", "smallint[]"),
+      Schemas = [
+        new() {
+          Name = "foo",
+          Comment = "Things and their tags",
+        },
       ],
+      Domains = Domains(),
       Tables = Tables(),
     };
 
+  private static List<Domain> Domains()
+    => [
+      NewDomain("foo.slug", "text", ("slug_format", "CHECK ((VALUE ~ '^[a-z0-9-]+$'::text))")) with { Comment = "A URL slug" },
+      NewDomain("foo.short_slug", "foo.slug", ("short_slug_length", "CHECK ((length(VALUE) <= 20))")),
+      NewDomain("foo.coords", "decimal(9, 6)") with { NotNull = true, DefaultExpression = "0::numeric" },
+      NewDomain("foo.tag_ids", "smallint[]"),
+    ];
+
   private static List<Table> Tables()
     => [
-      new() {
-        Name = "foo.bar",
+      NewTable("foo.bar") with {
+        Comment = "A bar",
         Columns = [
           Column("bar_id", "bigint", generatedAs: GeneratedAs.IdentityAlways),
-          Column("slug", "foo.short_slug"),
+          Column("slug", "foo.short_slug") with { Comment = "Public identifier" },
           Column("name", "text"),
           Column("note", "text", nullable: true),
-          Column("created_utc", "timestamptz", policy: TimePolicy.Relative),
+          Column("created_utc", "timestamptz", policy: TimePolicy.Relative) with { DefaultExpression = "now()" },
           Column("published_utc", "timestamptz", nullable: true, policy: TimePolicy.Absolute),
           Column("lat", "foo.coords", nullable: true),
-          Column("slug_length", "integer", generatedAs: GeneratedAs.ExpressionStored),
+          Column("slug_length", "integer", generatedAs: GeneratedAs.ExpressionStored) with { GeneratedExpression = "length(slug)" },
         ],
         PrimaryKey = ["bar_id"],
-        ForeignKeys = [],
+        PrimaryKeyName = "pk_bar",
+        UniqueConstraints = [
+          new() {
+            Name = "uq_bar_slug",
+            Columns = ["slug"],
+            Definition = "UNIQUE (slug)",
+          },
+        ],
+        Checks = [
+          new() {
+            Name = "ck_bar_name",
+            Expression = "CHECK ((name != ''::text))",
+          },
+        ],
+        Indexes = [
+          new() {
+            Name = "ix_bar_created",
+            Definition = "CREATE INDEX ix_bar_created ON foo.bar USING btree (created_utc)",
+          },
+        ],
       },
-      new() {
-        Name = "foo.link",
+      NewTable("foo.link") with {
         Columns = [
           Column("bar_id", "bigint"),
           Column("tag_id", "smallint"),
@@ -63,19 +91,19 @@ internal static class SchemaLockSample {
           Column("tags", "foo.tag_ids", nullable: true),
         ],
         PrimaryKey = ["bar_id", "tag_id"],
+        PrimaryKeyName = "pk_link",
         ForeignKeys = [
           ForeignKey("link_bar", ["bar_id"], "foo.bar", ["bar_id"], onDelete: ReferentialAction.Cascade),
           ForeignKey("link_tag", ["tag_id"], "foo.tag", ["tag_id"], onUpdate: ReferentialAction.Restrict, deferrable: true),
         ],
       },
-      new() {
-        Name = "foo.tag",
+      NewTable("foo.tag") with {
         Columns = [
           Column("tag_id", "smallint", generatedAs: GeneratedAs.IdentityByDefault),
-          Column("price", "decimal(12, 2)"),
+          Column("price", "decimal(12, 2)") with { DefaultExpression = "0.00" },
         ],
         PrimaryKey = ["tag_id"],
-        ForeignKeys = [],
+        PrimaryKeyName = "pk_tag",
       },
     ];
 
@@ -83,6 +111,9 @@ internal static class SchemaLockSample {
     => new() {
       Name = name,
       Type = ColumnType.Parse(type),
+      NotNull = false,
+      DefaultExpression = null,
+      Comment = null,
       Checks = [.. checks.Select(check => new CheckConstraint { Name = check.Name, Expression = check.Expression })],
     };
 
@@ -97,7 +128,10 @@ internal static class SchemaLockSample {
       Type = ColumnType.Parse(type),
       Nullable = nullable,
       GeneratedAs = generatedAs,
+      GeneratedExpression = null,
+      DefaultExpression = null,
       Policy = policy,
+      Comment = null,
     };
 
   public static ForeignKey ForeignKey(
@@ -120,11 +154,20 @@ internal static class SchemaLockSample {
       InitiallyDeferred = deferred,
     };
 
-  public static Table Table(string name, params ForeignKey[] foreignKeys)
+  // A table with one `id` column that is its primary key, nothing else; tests add what they need with `with`.
+  public static Table NewTable(string name)
     => new() {
       Name = name,
+      Comment = null,
       Columns = [Column("id", "bigint")],
       PrimaryKey = ["id"],
-      ForeignKeys = [.. foreignKeys],
+      PrimaryKeyName = $"pk_{name.Split('.')[1]}",
+      UniqueConstraints = [],
+      Checks = [],
+      ForeignKeys = [],
+      Indexes = [],
     };
+
+  public static Table Table(string name, params ForeignKey[] foreignKeys)
+    => NewTable(name) with { ForeignKeys = [.. foreignKeys] };
 }

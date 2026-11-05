@@ -10,6 +10,7 @@ namespace JoshOlson.Database.Locks;
 public sealed record SchemaLock {
   public required int Version { get; init; }
   public required List<LockedMigration> Migrations { get; init; }
+  public required List<SchemaComment> Schemas { get; init; }
   public required List<Domain> Domains { get; init; }
   public required List<Table> Tables { get; init; }
 
