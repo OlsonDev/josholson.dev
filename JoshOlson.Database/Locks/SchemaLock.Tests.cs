@@ -1,3 +1,4 @@
+using JoshOlson.Database.Schema;
 using JoshOlson.Shared.Extensions;
 using Xunit;
 
@@ -31,6 +32,7 @@ public class SchemaLockTests {
     => new() {
       Version = 2,
       Migrations = [Locked(1, "foo", _Original), Locked(2, "bar", _Other)],
+      Domains = [],
       Tables = [],
     };
 
@@ -142,4 +144,91 @@ public class SchemaLockTests {
   [Fact]
   public void WithAcceptedChecksum_UnknownVersion_Throws()
     => Assert.Throws<SeedFormatException>(() => NewLock().WithAcceptedChecksum(9, _Edited));
+
+  private static SchemaLock WithTables(params Table[] tables)
+    => NewLock() with { Tables = [.. tables] };
+
+  private static ForeignKey References(string referencedTable, bool deferrable = false, bool deferred = false)
+    => SchemaLockSample.ForeignKey($"fk_{referencedTable}", ["id"], referencedTable, ["id"], deferrable: deferrable, deferred: deferred);
+
+  [Fact]
+  public void InsertOrder_PutsEveryTableAfterTheTablesItReferences() {
+    var order = SchemaLockSample.Create().InsertOrder();
+
+    Assert.Equal(["foo.bar", "foo.tag", "foo.link"], order.Select(table => table.Name));
+  }
+
+  [Fact]
+  public void DeleteOrder_IsTheReverse() {
+    var order = SchemaLockSample.Create().DeleteOrder();
+
+    Assert.Equal(["foo.link", "foo.tag", "foo.bar"], order.Select(table => table.Name));
+  }
+
+  [Fact]
+  public void InsertOrder_UnrelatedTablesAreOrderedByName() {
+    var order = WithTables(SchemaLockSample.Table("foo.c"), SchemaLockSample.Table("foo.a"), SchemaLockSample.Table("foo.b")).InsertOrder();
+
+    Assert.Equal(["foo.a", "foo.b", "foo.c"], order.Select(table => table.Name));
+  }
+
+  [Fact]
+  public void InsertOrder_ChainsFollowTheReferences() {
+    var order = WithTables(
+      SchemaLockSample.Table("foo.a", References("foo.b")),
+      SchemaLockSample.Table("foo.b", References("foo.c")),
+      SchemaLockSample.Table("foo.c")).InsertOrder();
+
+    Assert.Equal(["foo.c", "foo.b", "foo.a"], order.Select(table => table.Name));
+  }
+
+  [Fact]
+  public void InsertOrder_ATableReferencingItselfIsNotACycle() {
+    var order = WithTables(SchemaLockSample.Table("foo.a", References("foo.a")), SchemaLockSample.Table("foo.b")).InsertOrder();
+
+    Assert.Equal(["foo.a", "foo.b"], order.Select(table => table.Name));
+  }
+
+  [Fact]
+  public void InsertOrder_AnInitiallyDeferredKeyBreaksALoop() {
+    var order = WithTables(
+      SchemaLockSample.Table("foo.a", References("foo.b")),
+      SchemaLockSample.Table("foo.b", References("foo.a", deferrable: true, deferred: true))).InsertOrder();
+
+    Assert.Equal(["foo.b", "foo.a"], order.Select(table => table.Name));
+  }
+
+  [Fact]
+  public void InsertOrder_ADeferrableKeyThatIsNotDeferredStillConstrains() {
+    var exception = Assert.Throws<SeedFormatException>(() => WithTables(
+      SchemaLockSample.Table("foo.a", References("foo.b")),
+      SchemaLockSample.Table("foo.b", References("foo.a", deferrable: true))).InsertOrder());
+
+    Assert.Contains("foo.a, foo.b", exception.Message, StringComparison.Ordinal);
+  }
+
+  [Fact]
+  public void InsertOrder_ALoopWithNoDeferredKey_ThrowsNamingTheTables() {
+    var exception = Assert.Throws<SeedFormatException>(() => WithTables(
+      SchemaLockSample.Table("foo.a", References("foo.b")),
+      SchemaLockSample.Table("foo.b", References("foo.c")),
+      SchemaLockSample.Table("foo.c", References("foo.a")),
+      SchemaLockSample.Table("foo.d")).InsertOrder());
+
+    Assert.Contains("foo.a, foo.b, foo.c", exception.Message, StringComparison.Ordinal);
+    Assert.DoesNotContain("foo.d", exception.Message, StringComparison.Ordinal);
+  }
+
+  [Fact]
+  public void InsertOrder_ReferenceToATableNotInTheLock_Throws()
+    => Assert.Throws<SeedFormatException>(() => WithTables(SchemaLockSample.Table("foo.a", References("foo.gone"))).InsertOrder());
+
+  [Fact]
+  public void InsertOrder_DoesNotChangeTheLock() {
+    var schemaLock = SchemaLockSample.Create();
+
+    _ = schemaLock.InsertOrder();
+
+    Assert.Equal(["foo.bar", "foo.link", "foo.tag"], schemaLock.Tables.Select(table => table.Name));
+  }
 }

@@ -49,7 +49,7 @@ tables:
 
 ## Migrating seeds
 
-`JoshOlson.Database/migrations/schema.lock.yaml` is generated, never edited by hand. It records the migration version the seeds were last migrated to, a checksum per versioned migration up to it, and the schema those migrations produce (each column's type, domain, and seed policy, and the foreign keys; `docs/schema` is rendered from it as well) ([ADR 0034, lock file and branch-safe migration](adr/0034-seed-lock-file-and-branch-safe-migration.md)). `seeds:migrate`, parent first, for each node:
+`JoshOlson.Database/migrations/schema.lock.yaml` is generated, never edited by hand. It records the migration version the seeds were last migrated to, a checksum per versioned migration up to it, and the schema those migrations produce (each column's type and seed policy, the domains with their checks, and the keys; `docs/schema` is rendered from it as well) ([ADR 0034, lock file and branch-safe migration](adr/0034-seed-lock-file-and-branch-safe-migration.md)). `seeds:migrate`, parent first, for each node:
 
 1. Build the database at the locked version (migrations 1 through N, a cached template) and apply the chain root to node.
 2. Apply the next migration. The result is the node's migrated full state.

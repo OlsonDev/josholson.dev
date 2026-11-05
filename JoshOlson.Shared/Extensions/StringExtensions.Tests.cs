@@ -19,6 +19,17 @@ public class StringExtensionsTests {
     => Assert.Equal(expected, path.ToCamelCasePath());
 
   [Theory]
+  [InlineData("", "")]
+  [InlineData("Foo", "foo")]
+  [InlineData("foo", "foo")]
+  [InlineData("FooBar", "foo-bar")]
+  [InlineData("FooBarBaz", "foo-bar-baz")]
+  [InlineData("Foo2Bar", "foo2-bar")]
+  [InlineData("fooBar", "foo-bar")]
+  public void ToKebabCase_PutsAHyphenBeforeEachCapital(string name, string expected)
+    => Assert.Equal(expected, name.ToKebabCase());
+
+  [Theory]
   [InlineData("URL")]
   [InlineData("IDNumber")]
   [InlineData("TagID")]

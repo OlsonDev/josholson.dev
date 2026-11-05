@@ -34,6 +34,14 @@ internal static class YamlNodes {
   public static YamlNode Required(string context, YamlMappingNode map, string key)
     => Find(map, key) ?? throw new SeedFormatException($"{context}: {key} is required.");
 
+  // The text of a key that must be there and hold a single value.
+  public static string RequiredText(string context, YamlMappingNode map, string key)
+    => Text(context, key, Required(context, map, key));
+
+  // The text of a key that may be absent (null) but, when there, must hold a single value.
+  public static string? OptionalText(string context, YamlMappingNode map, string key)
+    => Find(map, key) is { } node ? Text(context, key, node) : null;
+
   public static string Key(string context, YamlNode node)
     => node is YamlScalarNode { Value: { Length: > 0 } value }
       ? value

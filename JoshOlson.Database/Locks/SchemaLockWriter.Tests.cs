@@ -17,17 +17,46 @@ public class SchemaLockWriterTests {
           checksum: {{SchemaLockSample.Bbb}}
           accepted_checksums:
             - {{SchemaLockSample.Ccc}}
+      domains:
+        foo.slug:
+          type: text
+          checks:
+            - { name: slug_format, expression: "CHECK ((VALUE ~ '^[a-z0-9-]+$'::text))" }
+        foo.short_slug:
+          type: foo.slug
+          checks:
+            - { name: short_slug_length, expression: "CHECK ((length(VALUE) <= 20))" }
+        foo.coords:
+          type: "decimal(9, 6)"
+        foo.tag_ids:
+          type: "smallint[]"
       tables:
         foo.bar:
-          - { name: bar_id, type: bigint, primary_key: 1 }
-          - { name: name, type: text }
-          - { name: note, type: text, nullable: true }
-          - { name: created_utc, type: timestamptz, policy: relative }
-          - { name: published_utc, type: timestamptz, nullable: true, policy: absolute }
+          columns:
+            - { name: bar_id, type: bigint, generated_as: identity-always }
+            - { name: slug, type: foo.short_slug }
+            - { name: name, type: text }
+            - { name: note, type: text, nullable: true }
+            - { name: created_utc, type: timestamptz, policy: relative }
+            - { name: published_utc, type: timestamptz, nullable: true, policy: absolute }
+            - { name: lat, type: foo.coords, nullable: true }
+            - { name: slug_length, type: integer, generated_as: expression-stored }
+          primary_key: [bar_id]
         foo.link:
-          - { name: bar_id, type: bigint, primary_key: 1 }
-          - { name: tag_id, type: smallint, primary_key: 2 }
-          - { name: flags, type: "smallint[]", nullable: true }
+          columns:
+            - { name: bar_id, type: bigint }
+            - { name: tag_id, type: smallint }
+            - { name: flags, type: "smallint[]", nullable: true }
+            - { name: tags, type: foo.tag_ids, nullable: true }
+          primary_key: [bar_id, tag_id]
+          foreign_keys:
+            - { name: link_bar, columns: [bar_id], references: foo.bar, referenced_columns: [bar_id], on_delete: cascade }
+            - { name: link_tag, columns: [tag_id], references: foo.tag, referenced_columns: [tag_id], on_update: restrict, deferrable: true }
+        foo.tag:
+          columns:
+            - { name: tag_id, type: smallint, generated_as: identity-by-default }
+            - { name: price, type: "decimal(12, 2)" }
+          primary_key: [tag_id]
 
       """;
 
@@ -48,11 +77,22 @@ public class SchemaLockWriterTests {
     var text = SchemaLockWriter.Write(new() {
       Version = 0,
       Migrations = [],
+      Domains = [],
       Tables = [],
     });
 
     Assert.Contains("migrations: []\n", text, StringComparison.Ordinal);
     Assert.Contains("tables: {}\n", text, StringComparison.Ordinal);
+    Assert.DoesNotContain("domains", text, StringComparison.Ordinal);
+  }
+
+  [Fact]
+  public void Write_ACheckExpression_KeepsItsQuotesAndComparisonsReadable() {
+    var text = SchemaLockWriter.Write(SchemaLockSample.Create());
+
+    Assert.Contains("'^[a-z0-9-]+$'::text", text, StringComparison.Ordinal);
+    Assert.Contains("<= 20", text, StringComparison.Ordinal);
+    Assert.DoesNotContain("\\u", text, StringComparison.Ordinal);
   }
 
   [Fact]
@@ -65,6 +105,8 @@ public class SchemaLockWriterTests {
             SchemaLockSample.Column("my col", "text"),
             SchemaLockSample.Column("-dash", "text"),
           ],
+          PrimaryKey = [],
+          ForeignKeys = [],
         },
       ],
     };
@@ -73,6 +115,33 @@ public class SchemaLockWriterTests {
 
     Assert.Contains("{ name: \"my col\", type: text }", text, StringComparison.Ordinal);
     Assert.Contains("{ name: \"-dash\", type: text }", text, StringComparison.Ordinal);
+  }
+
+  [Fact]
+  public void Write_TableWithoutAPrimaryKey_LeavesTheKeyOut() {
+    var schemaLock = SchemaLockSample.Create() with {
+      Tables = [SchemaLockSample.Table("foo.bar") with { PrimaryKey = [] }],
+    };
+
+    Assert.DoesNotContain("primary_key", SchemaLockWriter.Write(schemaLock), StringComparison.Ordinal);
+  }
+
+  [Fact]
+  public void Write_CompositeForeignKey_ListsEveryColumnInOrder() {
+    var schemaLock = SchemaLockSample.Create() with {
+      Tables = [
+        SchemaLockSample.Table("foo.bar") with {
+          ForeignKeys = [SchemaLockSample.ForeignKey("bar_baz", ["a", "b"], "foo.baz", ["x", "y"], deferrable: true, deferred: true)],
+        },
+      ],
+    };
+
+    var text = SchemaLockWriter.Write(schemaLock);
+
+    Assert.Contains(
+      "{ name: bar_baz, columns: [a, b], references: foo.baz, referenced_columns: [x, y], deferrable: true, deferred: true }",
+      text,
+      StringComparison.Ordinal);
   }
 
   [Fact]

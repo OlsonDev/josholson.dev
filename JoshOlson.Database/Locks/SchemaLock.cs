@@ -1,3 +1,4 @@
+using JoshOlson.Database.Schema;
 using JoshOlson.Shared.Extensions;
 
 namespace JoshOlson.Database.Locks;
@@ -9,7 +10,8 @@ namespace JoshOlson.Database.Locks;
 public sealed record SchemaLock {
   public required int Version { get; init; }
   public required List<LockedMigration> Migrations { get; init; }
-  public required List<LockedTable> Tables { get; init; }
+  public required List<Domain> Domains { get; init; }
+  public required List<Table> Tables { get; init; }
 
   // Compares the migrations on disk to the ones the seeds were migrated against, by version.
   public LockCheck Check(List<MigrationFile> onDisk) {
@@ -75,6 +77,45 @@ public sealed record SchemaLock {
     return found
       ? this with { Migrations = migrations }
       : throw new SeedFormatException($"The lock has no migration with version {version.ToInvariantString()}.");
+  }
+
+  // The tables in an order rows can be inserted in: each one after every table its foreign keys point at, ties broken by
+  // name so the order never changes between runs. A table's reference to itself, and a key that is initially deferred
+  // (checked only when the transaction ends), do not constrain the order. Mutually referencing tables with no deferred
+  // key between them cannot be loaded at all, and that is an error naming them.
+  public List<Table> InsertOrder() {
+    var known = Tables.Select(table => table.Name).ToHashSet(StringComparer.Ordinal);
+    var dependencies = new Dictionary<string, HashSet<string>>(StringComparer.Ordinal);
+    foreach (var table in Tables) {
+      var parents = new HashSet<string>(StringComparer.Ordinal);
+      foreach (var key in table.ForeignKeys.Where(key => !key.InitiallyDeferred && !string.Equals(key.ReferencedTable, table.Name, StringComparison.Ordinal))) {
+        if (!known.Contains(key.ReferencedTable)) {
+          throw new SeedFormatException($"{table.Name} foreign key {key.Name} references {key.ReferencedTable}, which is not in the lock.");
+        }
+        parents.Add(key.ReferencedTable);
+      }
+      dependencies[table.Name] = parents;
+    }
+
+    List<Table> ordered = new(Tables.Count);
+    HashSet<string> placed = new(StringComparer.Ordinal);
+    var remaining = Tables.OrderBy(table => table.Name, StringComparer.Ordinal).ToList();
+    while (remaining.Count > 0) {
+      var next = remaining.FirstOrDefault(table => dependencies[table.Name].All(placed.Contains))
+        ?? throw new SeedFormatException(
+          $"These tables reference each other, and no deferred foreign key breaks the loop, so rows cannot be inserted: {string.Join(", ", remaining.Select(table => table.Name))}.");
+      ordered.Add(next);
+      placed.Add(next.Name);
+      remaining.Remove(next);
+    }
+    return ordered;
+  }
+
+  // The reverse of the insert order: each table before the tables its foreign keys point at.
+  public List<Table> DeleteOrder() {
+    var ordered = InsertOrder();
+    ordered.Reverse();
+    return ordered;
   }
 
   private static MigrationProblem Problem(int version, MigrationProblemKind kind, string message)
