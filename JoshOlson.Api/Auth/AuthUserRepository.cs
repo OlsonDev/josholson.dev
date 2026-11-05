@@ -1,4 +1,4 @@
-using JoshOlson.Api.Common.Extensions;
+using JoshOlson.Shared.Data;
 using Npgsql;
 
 namespace JoshOlson.Api.Auth;

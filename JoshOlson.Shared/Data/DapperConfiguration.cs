@@ -4,10 +4,11 @@ using System.Runtime.CompilerServices;
 using Dapper;
 using NodaTime;
 
-namespace JoshOlson.Api.Common.Db;
+namespace JoshOlson.Shared.Data;
 
-// Dapper settings every query needs. A module initializer runs once when the assembly loads, so the API and the
-// repository tests (which never run Program.cs) get the same settings in any test order.
+// Dapper settings every query needs. A module initializer runs once when the assembly loads, so every project that goes
+// through `NpgsqlConnectionExtensions` (the API, the seed tool, their tests, which never run `Program.cs`) gets the same
+// settings in any test order.
 public static class DapperConfiguration {
   [ModuleInitializer]
   public static void Configure() {
@@ -17,6 +18,9 @@ public static class DapperConfiguration {
     SqlMapper.AddTypeHandler(new InstantHandler());
     // Likewise for the `inet` column that holds a session's IP address.
     SqlMapper.AddTypeHandler(new IpAddressHandler());
+    // A `text[]` column fills a `List<string>`. Dapper would otherwise expand a list parameter into one parameter per
+    // item, for an `IN` list, which is not what an array parameter wants.
+    SqlMapper.AddTypeHandler(new StringListHandler());
   }
 
   private sealed class IpAddressHandler : SqlMapper.TypeHandler<IPAddress?> {
@@ -33,5 +37,13 @@ public static class DapperConfiguration {
 
     public override void SetValue(IDbDataParameter parameter, Instant value)
       => parameter.Value = value;
+  }
+
+  private sealed class StringListHandler : SqlMapper.TypeHandler<List<string>> {
+    public override List<string> Parse(object value)
+      => [.. (string[])value];
+
+    public override void SetValue(IDbDataParameter parameter, List<string>? value)
+      => parameter.Value = value is null ? DBNull.Value : value.ToArray();
   }
 }

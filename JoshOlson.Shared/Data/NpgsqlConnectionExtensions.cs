@@ -1,7 +1,7 @@
 using Dapper;
 using Npgsql;
 
-namespace JoshOlson.Api.Common.Extensions;
+namespace JoshOlson.Shared.Data;
 
 // Dapper calls that always carry the cancellation token, so a repository passes the SQL, the parameters, and the
 // token instead of building a CommandDefinition for each query. The token is required: Dapper's own overloads without

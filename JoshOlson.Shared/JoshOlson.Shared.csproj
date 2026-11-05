@@ -1,10 +1,11 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <!--
-    Utilities shared by the other projects and by scripts. Base class library only (NodaTime at most): nothing from
-    ASP.NET, Npgsql, or Dapper, so any project or script can reference it. Tests live next to the code as *.Tests.cs,
-    as in JoshOlson.Api. IncludeTests defaults to on for Debug and off otherwise. Pass -p:IncludeTests=true|false to
-    override. xunit.v3 needs an executable, so with tests in the assembly is one, and without them it is a plain library.
+    Utilities shared by the other projects and by scripts: the base class library plus the packages every project uses
+    for data (Dapper, Npgsql, NodaTime), and nothing from ASP.NET, so any project or script can reference it. Tests live
+    next to the code as *.Tests.cs, as in JoshOlson.Api. IncludeTests defaults to on for Debug and off otherwise. Pass
+    -p:IncludeTests=true|false to override. xunit.v3 needs an executable, so with tests in the assembly is one, and
+    without them it is a plain library.
   -->
   <PropertyGroup>
     <IncludeTests Condition="'$(IncludeTests)' == ''">$([System.String]::Equals('$(Configuration)', 'Debug'))</IncludeTests>
@@ -14,11 +15,18 @@
     <Compile Remove="**/*.Tests.cs" Condition="'$(IncludeTests)' != 'true'" />
   </ItemGroup>
 
+  <ItemGroup>
+    <PackageReference Include="Dapper" />
+    <PackageReference Include="NodaTime" />
+    <PackageReference Include="Npgsql" />
+  </ItemGroup>
+
   <PropertyGroup Condition="'$(IncludeTests)' == 'true'">
     <OutputType>Exe</OutputType>
   </PropertyGroup>
 
   <ItemGroup Condition="'$(IncludeTests)' == 'true'">
+    <PackageReference Include="Npgsql.NodaTime" />
     <PackageReference Include="xunit.v3.mtp-v2" PrivateAssets="all" />
   </ItemGroup>
 

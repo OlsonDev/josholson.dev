@@ -1,9 +1,9 @@
 using Npgsql;
 using Xunit;
 
-namespace JoshOlson.Api.Common.Extensions;
+namespace JoshOlson.Shared.Data;
 
-public class NpgsqlConnectionExtensionsTests {
+public class NpgsqlConnectionExtensionsTests : IAsyncLifetime {
   private const string _TwoRowsSql = """
     SELECT
         generate_series(1, 2)  AS n
@@ -40,10 +40,13 @@ public class NpgsqlConnectionExtensionsTests {
     """;
 
   private readonly CancellationToken _cancellationToken = TestContext.Current.CancellationToken;
-  private readonly NpgsqlConnection _connection;
+  private NpgsqlConnection _connection = null!;
 
-  public NpgsqlConnectionExtensionsTests(NpgsqlConnection connection)
-    => _connection = connection;
+  public async ValueTask InitializeAsync()
+    => _connection = await TestDatabase.DataSource.OpenConnectionAsync(_cancellationToken);
+
+  public async ValueTask DisposeAsync()
+    => await _connection.DisposeAsync();
 
   [Fact]
   public async Task Queries_ReturnRowsWithAndWithoutParameters() {

@@ -1,6 +1,6 @@
 using Dapper;
 using JoshOlson.Api.Common.Db;
-using JoshOlson.Api.Common.Extensions;
+using JoshOlson.Shared.Data;
 using Npgsql;
 
 namespace JoshOlson.Api.Tags;

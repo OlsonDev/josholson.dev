@@ -1,5 +1,5 @@
-using JoshOlson.Api.Common.Extensions;
 using JoshOlson.Api.Common.Testing;
+using JoshOlson.Shared.Data;
 using NodaTime;
 using Npgsql;
 using Xunit;

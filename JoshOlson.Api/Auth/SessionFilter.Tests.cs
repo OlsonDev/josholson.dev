@@ -1,5 +1,5 @@
 using System.Net;
-using JoshOlson.Api.Common.Extensions;
+using JoshOlson.Shared.Data;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc.Controllers;
 using Microsoft.AspNetCore.Mvc.Testing;
