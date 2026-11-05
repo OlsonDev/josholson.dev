@@ -140,9 +140,9 @@ public static partial class SchemaLockParser {
   private static Domain ParseDomain(string name, YamlNode node) {
     var map = YamlNodes.Mapping(_Context, $"domain {name}", node);
     YamlNodes.CheckKeys(_Context, $"domain {name}", map, _DomainKeys);
-    var typeText = YamlNodes.RequiredText(_Context, map, "type");
-    if (!ColumnType.TryParse(typeText, out var type)) {
-      throw new SeedFormatException($"{_Context}: domain {name} has type '{typeText}', which the seed tool does not support.");
+    var type = YamlNodes.RequiredText(_Context, map, "type");
+    if (!ColumnType.TryParse(type, out _)) {
+      throw new SeedFormatException($"{_Context}: domain {name} has type '{type}', which the seed tool does not support.");
     }
     return new() {
       Name = name,

@@ -98,7 +98,7 @@ public static class SchemaLockWriter {
 
   private static void WriteDomain(List<string> lines, Domain domain) {
     lines.Add($"  {Scalar(domain.Name)}:");
-    lines.Add($"    type: {Scalar(domain.Type.ToString())}");
+    lines.Add($"    type: {Scalar(domain.Type)}");
     if (domain.NotNull) {
       lines.Add("    not_null: true");
     }
@@ -142,10 +142,13 @@ public static class SchemaLockWriter {
   private static string ColumnLine(Column column) {
     List<string> parts = [
       $"name: {Scalar(column.Name)}",
-      $"type: {Scalar(column.Type.ToString())}",
+      $"type: {Scalar(column.Type)}",
     ];
     if (column.Nullable) {
       parts.Add("nullable: true");
+    }
+    if (column.DeclaredNullable && !column.Nullable) {
+      parts.Add("declared_nullable: true");
     }
     if (column.GeneratedAs is { } generatedAs) {
       parts.Add($"generated_as: {generatedAs.ToKebabCase()}");

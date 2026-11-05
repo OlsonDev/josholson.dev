@@ -21,6 +21,7 @@ public static partial class SchemaLockParser {
     "name",
     "type",
     "nullable",
+    "declared_nullable",
     "generated_as",
     "generated_expression",
     "default_expression",
@@ -128,9 +129,14 @@ public static partial class SchemaLockParser {
     YamlNodes.CheckKeys(_Context, $"a column of {table}", map, _ColumnKeys);
     var name = YamlNodes.RequiredText(_Context, map, "name");
     var where = $"{table}.{name}";
-    var typeText = YamlNodes.RequiredText(_Context, map, "type");
-    if (!ColumnType.TryParse(typeText, out var type)) {
-      throw new SeedFormatException($"{_Context}: {where} has type '{typeText}', which the seed tool does not support.");
+    var type = YamlNodes.RequiredText(_Context, map, "type");
+    if (!ColumnType.TryParse(type, out _)) {
+      throw new SeedFormatException($"{_Context}: {where} has type '{type}', which the seed tool does not support.");
+    }
+    var nullable = OptionalFlag(where, map, "nullable");
+    var declaredOnly = OptionalFlag(where, map, "declared_nullable");
+    if (nullable && declaredOnly) {
+      throw new SeedFormatException($"{_Context}: {where} says declared_nullable, which is only written for a column that is not nullable (it is already declared nullable when nullable is true).");
     }
 
     var generatedAs = OptionalWord<GeneratedAs>(where, map, "generated_as");
@@ -147,7 +153,8 @@ public static partial class SchemaLockParser {
     return new() {
       Name = name,
       Type = type,
-      Nullable = OptionalFlag(where, map, "nullable"),
+      DeclaredNullable = nullable || declaredOnly,
+      Nullable = nullable,
       GeneratedAs = generatedAs,
       GeneratedExpression = generatedExpression,
       DefaultExpression = defaultExpression,

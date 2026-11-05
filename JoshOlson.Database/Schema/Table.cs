@@ -4,7 +4,7 @@ namespace JoshOlson.Database.Schema;
 // order with the constraint's name (empty and null when the table has none); and its unique constraints, check
 // constraints, foreign keys, and indexes by name. Only indexes that do not back a constraint are listed. The tables'
 // own constraints and indexes are what the docs show and what `seeds:accept` compares.
-public sealed record Table {
+public sealed record Table : INamed {
   public required string Name { get; init; }
   public required string? Comment { get; init; }
   public required List<Column> Columns { get; init; }

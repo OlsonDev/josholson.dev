@@ -43,7 +43,7 @@ public class SchemaLockWriterTests {
             - { name: note, type: text, nullable: true }
             - { name: created_utc, type: timestamptz, default_expression: "now()", policy: relative }
             - { name: published_utc, type: timestamptz, nullable: true, policy: absolute }
-            - { name: lat, type: foo.coords, nullable: true }
+            - { name: lat, type: foo.coords, declared_nullable: true }
             - { name: slug_length, type: integer, generated_as: expression-stored, generated_expression: "length(slug)" }
           primary_key: [bar_id]
           primary_key_name: pk_bar

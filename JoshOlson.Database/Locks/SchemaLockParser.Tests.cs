@@ -24,15 +24,18 @@ public class SchemaLockParserTests {
 
     var bar = parsed.Tables[0].Columns;
     Assert.Equal(GeneratedAs.IdentityAlways, bar[0].GeneratedAs);
-    Assert.Equal(new ColumnType("foo.short_slug", null, IsArray: false), bar[1].Type);
+    Assert.Equal("foo.short_slug", bar[1].Type);
     Assert.True(bar[3].Nullable);
+    Assert.True(bar[3].DeclaredNullable);
+    Assert.False(bar[6].Nullable);
+    Assert.True(bar[6].DeclaredNullable);
     Assert.Equal(TimePolicy.Relative, bar[4].Policy);
     Assert.Equal(TimePolicy.Absolute, bar[5].Policy);
     Assert.Equal(GeneratedAs.ExpressionStored, bar[7].GeneratedAs);
     var link = parsed.Tables[1].Columns;
-    Assert.Equal(new ColumnType("smallint", null, IsArray: true), link[2].Type);
+    Assert.Equal("smallint[]", link[2].Type);
     Assert.Null(link[2].GeneratedAs);
-    Assert.Equal(new ColumnType("decimal", "12, 2", IsArray: false), parsed.Tables[2].Columns[1].Type);
+    Assert.Equal("decimal(12, 2)", parsed.Tables[2].Columns[1].Type);
   }
 
   [Fact]
@@ -40,9 +43,9 @@ public class SchemaLockParserTests {
     var domains = SchemaLockParser.Parse(_Valid).Domains;
 
     Assert.Equal(["foo.slug", "foo.short_slug", "foo.coords", "foo.tag_ids"], domains.Select(domain => domain.Name));
-    Assert.Equal(ColumnType.Parse("foo.slug"), domains[1].Type);
-    Assert.Equal(ColumnType.Parse("decimal(9, 6)"), domains[2].Type);
-    Assert.Equal(ColumnType.Parse("smallint[]"), domains[3].Type);
+    Assert.Equal("foo.slug", domains[1].Type);
+    Assert.Equal("decimal(9, 6)", domains[2].Type);
+    Assert.Equal("smallint[]", domains[3].Type);
     var check = Assert.Single(domains[0].Checks);
     Assert.Equal("slug_format", check.Name);
     Assert.Equal("CHECK ((VALUE ~ '^[a-z0-9-]+$'::text))", check.Expression);
@@ -218,7 +221,7 @@ public class SchemaLockParserTests {
             - { type: text, name: note, nullable: true }
             - { name: created_utc, type: timestamptz, policy: relative, default_expression: now() }
             - { name: published_utc, type: timestamptz, nullable: true, policy: absolute }
-            - { name: lat, type: foo.coords, nullable: true }
+            - { name: lat, type: foo.coords, declared_nullable: true }
             - { name: slug_length, type: integer, generated_as: expression-stored, generated_expression: length(slug) }
       """;
 
@@ -290,7 +293,8 @@ public class SchemaLockParserTests {
   [InlineData("generated_as: identity-always", "generated: identity-always")]
   [InlineData("generated_as: expression-stored", "generated_as: stored")]
   [InlineData("{ name: slug, type: foo.short_slug,", "{ name: slug, type: foo.nope,")]
-  [InlineData("{ name: lat, type: foo.coords, nullable: true }", "{ name: lat, type: foo.coords, nullable: true, policy: relative }")]
+  [InlineData("{ name: lat, type: foo.coords, declared_nullable: true }", "{ name: lat, type: foo.coords, declared_nullable: true, policy: relative }")]
+  [InlineData("{ name: lat, type: foo.coords, declared_nullable: true }", "{ name: lat, type: foo.coords, nullable: true, declared_nullable: true }")]
   [InlineData("{ name: tags, type: foo.tag_ids,", "{ name: tags, type: \"foo.tag_ids[]\",")]
   [InlineData("type: \"decimal(12, 2)\"", "type: \"decimal(12,2)\"")]
   [InlineData("type: \"decimal(12, 2)\"", "type: \"numeric(12, 2)\"")]

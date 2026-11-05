@@ -58,7 +58,7 @@ internal static class SchemaLockSample {
           Column("note", "text", nullable: true),
           Column("created_utc", "timestamptz", policy: TimePolicy.Relative) with { DefaultExpression = "now()" },
           Column("published_utc", "timestamptz", nullable: true, policy: TimePolicy.Absolute),
-          Column("lat", "foo.coords", nullable: true),
+          Column("lat", "foo.coords") with { DeclaredNullable = true },
           Column("slug_length", "integer", generatedAs: GeneratedAs.ExpressionStored) with { GeneratedExpression = "length(slug)" },
         ],
         PrimaryKey = ["bar_id"],
@@ -110,7 +110,7 @@ internal static class SchemaLockSample {
   public static Domain NewDomain(string name, string type, params (string Name, string Expression)[] checks)
     => new() {
       Name = name,
-      Type = ColumnType.Parse(type),
+      Type = type,
       NotNull = false,
       DefaultExpression = null,
       Comment = null,
@@ -125,7 +125,8 @@ internal static class SchemaLockSample {
     TimePolicy? policy = null)
     => new() {
       Name = name,
-      Type = ColumnType.Parse(type),
+      Type = type,
+      DeclaredNullable = nullable,
       Nullable = nullable,
       GeneratedAs = generatedAs,
       GeneratedExpression = null,

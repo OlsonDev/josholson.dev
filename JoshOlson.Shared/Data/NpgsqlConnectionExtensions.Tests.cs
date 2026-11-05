@@ -42,6 +42,10 @@ public class NpgsqlConnectionExtensionsTests : IAsyncLifetime {
   private readonly CancellationToken _cancellationToken = TestContext.Current.CancellationToken;
   private NpgsqlConnection _connection = null!;
 
+  private sealed record KeyedItem {
+    public required string Name { get; init; }
+  }
+
   public async ValueTask InitializeAsync()
     => _connection = await TestDatabase.DataSource.OpenConnectionAsync(_cancellationToken);
 
@@ -65,6 +69,53 @@ public class NpgsqlConnectionExtensionsTests : IAsyncLifetime {
 
     Assert.Equal(1, await data.ReadSingleAsync<int>());
     Assert.Equal("foo", await data.ReadSingleAsync<string>());
+  }
+
+  [Fact]
+  public async Task QueryDictionaryAsync_KeysEachRowAndLeavesTheKeyOutOfTheItem() {
+    var sql = """
+      SELECT
+          n            AS id
+        , 'item' || n  AS name
+      FROM (SELECT) AS _
+      JOIN generate_series(1, 2)  AS g (n)  ON TRUE;
+      """;
+
+    var items = await _connection.QueryDictionaryAsync<int, KeyedItem>(sql, null, "name", _cancellationToken);
+
+    Assert.Equal(["item1", "item2"], [items[1].Name, items[2].Name]);
+  }
+
+  [Fact]
+  public async Task QueryDictionaryAsync_DuplicateKey_Throws() {
+    var sql = """
+      SELECT
+          1            AS id
+        , 'item' || n  AS name
+      FROM (SELECT) AS _
+      JOIN generate_series(1, 2)  AS g (n)  ON TRUE;
+      """;
+
+    await Assert.ThrowsAsync<ArgumentException>(
+      () => _connection.QueryDictionaryAsync<int, KeyedItem>(sql, null, "name", _cancellationToken));
+  }
+
+  [Fact]
+  public async Task QueryGroupedAsync_GroupsRowsByKeyInRowOrder() {
+    var sql = """
+      SELECT
+          n % 2        AS id
+        , 'item' || n  AS name
+      FROM (SELECT) AS _
+      JOIN generate_series(1, 3)  AS g (n)  ON TRUE
+      ORDER BY n;
+      """;
+
+    var groups = await _connection.QueryGroupedAsync<int, KeyedItem>(sql, null, "name", _cancellationToken);
+
+    Assert.Equal(["item1", "item3"], groups[1].Select(item => item.Name));
+    Assert.Equal(["item2"], groups[0].Select(item => item.Name));
+    Assert.False(groups.ContainsKey(2));
   }
 
   [Fact]

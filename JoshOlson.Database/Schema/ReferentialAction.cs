@@ -1,7 +1,7 @@
 namespace JoshOlson.Database.Schema;
 
 // A foreign key's ON DELETE or ON UPDATE action.
-public enum ReferentialAction {
+public enum ReferentialAction : short {
   NoAction = 1,
   Restrict = 2,
   Cascade = 3,

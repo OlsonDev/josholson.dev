@@ -17,7 +17,7 @@ public class DomainResolverTests {
   private static Domain NewDomain(string name, string type)
     => new() {
       Name = name,
-      Type = ColumnType.Parse(type),
+      Type = type,
       NotNull = false,
       DefaultExpression = null,
       Comment = null,
@@ -35,7 +35,7 @@ public class DomainResolverTests {
   [InlineData("foo.tag_ids", SeedType.SmallInt, true)]
   [InlineData("foo.small_tag_ids", SeedType.SmallInt, true)]
   public void Resolve_FollowsDomainsToTheBaseType(string text, SeedType seed, bool isArray)
-    => Assert.Equal(new ResolvedType(seed, isArray), DomainResolver.Resolve(ColumnType.Parse(text), _Domains));
+    => Assert.Equal(new ResolvedType(seed, isArray), DomainResolver.Resolve(text, _Domains));
 
   [Theory]
   [InlineData("foo.nope")]
@@ -43,6 +43,7 @@ public class DomainResolverTests {
   [InlineData("foo.loop_a")]
   [InlineData("foo.tag_ids[]")]
   [InlineData("foo.small_tag_ids[]")]
-  public void Resolve_UnknownDomainLoopOrSecondDimension_ReturnsNull(string text)
-    => Assert.Null(DomainResolver.Resolve(ColumnType.Parse(text), _Domains));
+  [InlineData("interval")]
+  public void Resolve_UnsupportedTypeUnknownDomainLoopOrSecondDimension_ReturnsNull(string text)
+    => Assert.Null(DomainResolver.Resolve(text, _Domains));
 }

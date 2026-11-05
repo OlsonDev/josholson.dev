@@ -131,7 +131,7 @@ if (isBar) {
 - Repository classes only run queries. Logic that isn't a query belongs in a service.
 - Queries that differ only in their filter share one private method. It holds the select list once and takes the `ON` condition (SQL the code wrote, never request data) and the parameters; each public `Get...By...` method is a one-line call into it (`PasskeyRepository.GetAllByConditionAsync`). Add a filter by adding a method, not by copying the query.
 - Run queries through the `NpgsqlConnection` extensions in `JoshOlson.Shared/Data/NpgsqlConnectionExtensions` (`QueryAsync<T>`, `QuerySingleAsync<T>`, `QuerySingleOrDefaultAsync<T>`, `QueryMultipleAsync`, `ExecuteAsync`): pass the `sql`, the `parameters`, then the `CancellationToken`. They build the `CommandDefinition`, so the token cannot be forgotten. Import `JoshOlson.Shared.Data`; without it, Dapper's own overloads apply, and they take no token. Every project that touches the database (the API, the seed tool) goes through it, so Dapper's settings are the same everywhere ([ADR 0036, the shared library](../../docs/adr/0036-shared-library.md)).
-- `JoshOlson.Shared/Data/DapperConfiguration` runs at assembly load (a module initializer, so tests get it too). It sets `DefaultTypeMap.MatchNamesWithUnderscores = true` so `bar_id` fills `BarId` (name a column alias for its property, and the row type needs no mapping code), and registers handlers for NodaTime's `Instant`, for `IPAddress`, and for `List<string>` (a `text[]` column or parameter), which Dapper rejects or expands otherwise. A column Dapper cannot fill from the database type (such as `SMALLINT[]` into an enum list) is read into a private row record and converted. A row record is a `sealed record` of `required` properties, with any computed member (such as a `FullName` joining `Schema` and `Name`) beside them.
+- `JoshOlson.Shared/Data/DapperConfiguration` runs at assembly load (a module initializer, so tests get it too). It sets `DefaultTypeMap.MatchNamesWithUnderscores = true` so `bar_id` fills `BarId` (name a column alias for its property, and the row type needs no mapping code), and registers handlers for NodaTime's `Instant`, for `IPAddress`, and for `List<string>` (a `text[]` column or parameter), which Dapper rejects or expands otherwise. Have the query do the translating (a `CASE` that returns the enum's number, `{(short)Foo.Bar}`, or `(a.x || '.' || b.y)` for a full name) so the result fills the model type directly, with no row type in between. Enums are `: short`, the smallest type Postgres has, and Dapper fills one from a `smallint`. To look rows up by a key in code (a parent's children), use `QueryDictionaryAsync<TKey, T>` for one row per key and `QueryGroupedAsync<TKey, T>` for a list per key: the first column is the key, everything from the `splitOn` column on fills the `T`, so the model carries no database ids.
 - Insert with `RETURNING` and read the key with `QuerySingleAsync<int>`.
 - Aggregate in SQL (`count`, `sum`), not in C#.
 
@@ -144,7 +144,7 @@ public async Task<List<Bar>> GetCorgesAsync(int barId, CancellationToken cancell
     FROM (SELECT)   AS _
     JOIN foo.bar    AS b  ON b.foo_id          = @barId
     JOIN foo.corge  AS c  ON c.bar_id          = b.bar_id
-                         AND c.current_status  = {(int)CorgeStatus.Active}
+                         AND c.current_status  = {(short)CorgeStatus.Active}
     ORDER BY c.sort_order, c.corge_id;
     """;
   var parameters = new { barId };
@@ -165,6 +165,8 @@ public async Task<List<Bar>> GetCorgesAsync(int barId, CancellationToken cancell
 ## SQL in C#
 
 SQL in a string follows [sql.md](sql.md) for formatting, naming, and style, the same as a `.sql` file.
+
+- Alignment is computed on the text as written in C#. An interpolated expression (`{Foo("bar")}`) counts at its width in the source, as if it were the SQL itself, not at the width of what it expands to. The string is read as C# far more often than as compiled text or in a debugger, and an expansion that depends on a parameter or a branch has no single width to align to. So the `AS` of a select list sits two spaces after the longest item in the source, interpolations included, and likewise for every other column of alignment in [sql.md](sql.md).
 
 - Never put a value into the SQL text, whether by interpolation or concatenation. Always use a parameter and pass the value separately.
   - It is how injection happens.

@@ -1,3 +1,5 @@
+using System.Collections.Concurrent;
+
 namespace JoshOlson.Database.Schema;
 
 // A column's type in the cleanest spelling a `CREATE TABLE` would use: a supported base type named for its `SeedType`
@@ -13,15 +15,24 @@ public readonly record struct ColumnType(string Name, string? Modifiers, bool Is
   public SeedType? Seed
     => IsDomain ? null : SeedOf(Name);
 
+  // The same few spellings come up for every column and again for every step of a domain chain, so each is parsed once.
+  // The result depends on the text alone, so the cache serves a lock being built and one being read alike.
+  private static readonly ConcurrentDictionary<string, ColumnType?> _Parsed = new(StringComparer.Ordinal);
+
   public static bool TryParse(string text, out ColumnType type) {
-    type = default;
+    var parsed = _Parsed.GetOrAdd(text, ParseUncached);
+    type = parsed.GetValueOrDefault();
+    return parsed.HasValue;
+  }
+
+  private static ColumnType? ParseUncached(string text) {
     var isArray = text.EndsWith("[]", StringComparison.Ordinal);
     var rest = isArray ? text[..^2] : text;
     string? modifiers = null;
     var open = rest.IndexOf('(');
     if (open >= 0) {
       if (!rest.EndsWith(')')) {
-        return false;
+        return null;
       }
       modifiers = rest[(open + 1)..^1];
       rest = rest[..open];
@@ -29,13 +40,12 @@ public readonly record struct ColumnType(string Name, string? Modifiers, bool Is
 
     if (rest.Contains('.')) {
       if (modifiers is not null || !IsDomainName(rest)) {
-        return false;
+        return null;
       }
     } else if (SeedOf(rest) is not { } seed || !AcceptsModifiers(seed, modifiers)) {
-      return false;
+      return null;
     }
-    type = new(rest, modifiers, isArray);
-    return true;
+    return new(rest, modifiers, isArray);
   }
 
   public static ColumnType Parse(string text)

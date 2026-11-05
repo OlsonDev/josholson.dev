@@ -1,6 +1,6 @@
 namespace JoshOlson.Database.Locks;
 
-public enum MigrationProblemKind {
+public enum MigrationProblemKind : short {
   // The lock has a version your migrations do not.
   Missing = 1,
 
