@@ -1,4 +1,3 @@
-using System.Globalization;
 using JoshOlson.Database.Locks;
 using JoshOlson.Database.Schema;
 using Npgsql;
@@ -8,6 +7,7 @@ namespace JoshOlson.Database.Catalog;
 
 // Reads the dev database (start and migrate it first, see CLAUDE.md). The scratch tests create a schema of their own as
 // the owner, read just that, and drop it, so they run one after another in this class and never disturb the real schemas.
+[Collection(CatalogCollection.Name)]
 public class SchemaCatalogTests {
   private const string _ScratchDdl = """
     CREATE SCHEMA {schema};
@@ -55,18 +55,8 @@ public class SchemaCatalogTests {
 
   private readonly CancellationToken _cancellationToken = TestContext.Current.CancellationToken;
 
-  private static string ConnectionString() {
-    var password = Environment.GetEnvironmentVariable("POSTGRES_PASSWORD")
-      ?? throw new InvalidOperationException("POSTGRES_PASSWORD is not set. Start and migrate the dev database and run the tests with `mise run test`, which reads .env.");
-    return new NpgsqlConnectionStringBuilder {
-      Host = "127.0.0.1",
-      Port = int.Parse(Environment.GetEnvironmentVariable("POSTGRES_PORT") ?? "5432", CultureInfo.InvariantCulture),
-      Username = Environment.GetEnvironmentVariable("POSTGRES_USER") ?? "josholson",
-      Password = password,
-      Database = Environment.GetEnvironmentVariable("POSTGRES_DB") ?? "josholson",
-      SslMode = SslMode.Disable,
-    }.ToString();
-  }
+  private static string ConnectionString()
+    => DatabaseEnvironment.OwnerConnectionString();
 
   private async Task<CatalogSchema> ReadAsync(CatalogOptions? options = null) {
     await using NpgsqlConnection connection = new(ConnectionString());

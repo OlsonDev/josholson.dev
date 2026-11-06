@@ -83,6 +83,12 @@ Print the seed layer tree with row counts per table:
 mise run seeds:list
 ```
 
+Write `migrations/schema.lock.yaml` from the dev database, which must have applied exactly the migrations on disk (run `mise run waypoint migrate` first). It reports every problem and writes nothing if there is one, and refuses while any seed layer exists (moving layers is not built yet; reads `.env`):
+
+```
+mise run seeds:migrate
+```
+
 Run every project's tests (the API's need the dev database running and provisioned; reads `.env`), against a Release build, and list source files with no sibling test:
 
 ```

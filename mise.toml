@@ -52,6 +52,15 @@ _.file = ".env"
 description = "Print the seed layer tree with row counts per table"
 run = "dotnet run scripts/seed.cs -- list"
 
+# Writes migrations/schema.lock.yaml from the dev database (ADR 0034, lock file and branch-safe migration). Run
+# `mise run waypoint migrate` first: the database must have applied exactly the migrations on disk. Reads .env.
+[tasks."seeds:migrate"]
+description = "Make migrations/schema.lock.yaml describe the dev database at the newest migration"
+run = "dotnet run scripts/seed.cs -- migrate"
+
+[tasks."seeds:migrate".env]
+_.file = ".env"
+
 # The test tasks read .env for the dev database (POSTGRES_*) and run as the josholson_api role, so start the database
 # and run db:provision first (see CLAUDE.md).
 # Tests live beside the code as *.Tests.cs and are compiled in for Debug (see JoshOlson.Api/JoshOlson.Api.csproj).

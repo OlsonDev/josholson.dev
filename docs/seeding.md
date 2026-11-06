@@ -58,6 +58,8 @@ tables:
 
 Only layers whose diff changed are rewritten, and a per-layer summary is printed for review. Additive migrations need no seed work.
 
+🚧 Built so far is the lock half. `mise run seeds:migrate` (`JoshOlson.Database/Migrate`) checks the lock against the migrations on disk (the same check `seeds:check` will run), checks that the dev database has applied exactly those migrations (Waypoint's history table: run `mise run waypoint migrate` first), reads its catalog, and writes the lock at the newest migration, keeping any accepted checksums. It reports every problem together and writes nothing if there is one. Moving layers (steps 1 to 4) is not built, so with any layer in `seeds/` it refuses instead of leaving the layers behind the lock.
+
 If two branches claim the same migration number, `seeds:check` names the first migration that differs from the lock. Rename yours to the next number, take the main branch's `seeds/` and `migrations/schema.lock.yaml` wholesale, and rerun `seeds:migrate`.
 
 If you only edit an already-applied migration's comment or whitespace, its checksum changes. `seeds:accept <version>` rebuilds with the edited file and, only if the catalog still equals the lock and every layer still exports to its own file, records the new checksum as accepted. If either differs, the edit changes something the seeds see, so add a new migration instead. The checksum is the SHA-256 of the raw file bytes; nothing is normalized.
