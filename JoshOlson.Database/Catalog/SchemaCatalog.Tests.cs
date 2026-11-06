@@ -59,7 +59,7 @@ public class SchemaCatalogTests {
     => DatabaseEnvironment.OwnerConnectionString();
 
   private async Task<CatalogSchema> ReadAsync(CatalogOptions? options = null) {
-    await using NpgsqlConnection connection = new(ConnectionString());
+    await using var connection = new NpgsqlConnection(ConnectionString());
     await connection.OpenAsync(_cancellationToken);
     return await SchemaCatalog.ReadAsync(connection, options ?? new(), _cancellationToken);
   }
@@ -67,14 +67,14 @@ public class SchemaCatalogTests {
   // Runs `ddl` (with {schema} filled in) in a schema of its own, passes the schema's name on, and drops it afterwards.
   private async Task<T> InScratchSchemaAsync<T>(string ddl, Func<string, Task<T>> body) {
     var schema = $"catalog_test_{Guid.NewGuid():N}";
-    await using NpgsqlConnection connection = new(ConnectionString());
+    await using var connection = new NpgsqlConnection(ConnectionString());
     await connection.OpenAsync(_cancellationToken);
     try {
-      await using NpgsqlCommand create = new(ddl.Replace("{schema}", schema, StringComparison.Ordinal), connection);
+      await using var create = new NpgsqlCommand(ddl.Replace("{schema}", schema, StringComparison.Ordinal), connection);
       await create.ExecuteNonQueryAsync(_cancellationToken);
       return await body(schema);
     } finally {
-      await using NpgsqlCommand drop = new($"DROP SCHEMA IF EXISTS {schema} CASCADE", connection);
+      await using var drop = new NpgsqlCommand($"DROP SCHEMA IF EXISTS {schema} CASCADE", connection);
       await drop.ExecuteNonQueryAsync(CancellationToken.None);
     }
   }
@@ -82,7 +82,7 @@ public class SchemaCatalogTests {
   [Fact]
   public async Task ReadAsync_DevDatabase_ProducesALockThatWritesAndParsesBack() {
     var schema = await ReadAsync();
-    SchemaLock schemaLock = new() {
+    var schemaLock = new SchemaLock {
       Version = 0,
       Migrations = [],
       Schemas = schema.Schemas,
@@ -255,7 +255,7 @@ public class SchemaCatalogTests {
   public async Task ReadAsync_ScratchSchema_ProducesAValidLock() {
     var schema = await InScratchSchemaAsync(_ScratchDdl, async name
       => await ReadAsync(new() { OnlySchemas = [name] }));
-    SchemaLock schemaLock = new() {
+    var schemaLock = new SchemaLock {
       Version = 1,
       Migrations = [],
       Schemas = schema.Schemas,
@@ -332,9 +332,9 @@ public class SchemaCatalogTests {
 
   [Fact]
   public async Task ReadAsync_DoesNotLeaveTheSearchPathChanged() {
-    await using NpgsqlConnection connection = new(ConnectionString());
+    await using var connection = new NpgsqlConnection(ConnectionString());
     await connection.OpenAsync(_cancellationToken);
-    await using NpgsqlCommand show = new("SHOW search_path", connection);
+    await using var show = new NpgsqlCommand("SHOW search_path", connection);
     var before = (string?)await show.ExecuteScalarAsync(_cancellationToken);
 
     _ = await SchemaCatalog.ReadAsync(connection, new(), _cancellationToken);
@@ -355,7 +355,7 @@ public class SchemaCatalogTests {
   [InlineData("foo.outer[]", true, true)]
   [InlineData("foo.outer", false, false)]
   public void IsNullable_Domain_IsNotNullWhenItOrADomainItIsBuiltOnSaysSo(string type, bool declaredNullable, bool expected) {
-    Dictionary<string, Domain> domains = new(StringComparer.Ordinal) {
+    var domains = new Dictionary<string, Domain>(StringComparer.Ordinal) {
       ["foo.inner"] = SchemaLockSample.NewDomain("foo.inner", "text") with { NotNull = true },
       ["foo.outer"] = SchemaLockSample.NewDomain("foo.outer", "foo.inner"),
       ["foo.plain"] = SchemaLockSample.NewDomain("foo.plain", "text"),

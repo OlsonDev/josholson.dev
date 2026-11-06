@@ -17,7 +17,7 @@ public sealed record SchemaLock {
   // Compares the migrations on disk to the ones the seeds were migrated against, by version.
   public LockCheck Check(List<MigrationFile> onDisk) {
     var disk = onDisk.ToDictionary(migration => migration.Version);
-    List<MigrationProblem> problems = [];
+    var problems = new List<MigrationProblem>();
 
     foreach (var locked in Migrations) {
       var version = locked.Version.ToInvariantString();
@@ -63,7 +63,7 @@ public sealed record SchemaLock {
   // The lock with one more checksum accepted for the migration, kept in order and without duplicates. The tool calls
   // this only after checking the edit leaves every seed unaffected; the lock itself cannot tell.
   public SchemaLock WithAcceptedChecksum(int version, string checksum) {
-    List<LockedMigration> migrations = new(Migrations.Count);
+    var migrations = new List<LockedMigration>(Migrations.Count);
     var found = false;
     foreach (var migration in Migrations) {
       if (migration.Version != version) {
@@ -98,8 +98,8 @@ public sealed record SchemaLock {
       dependencies[table.Name] = parents;
     }
 
-    List<Table> ordered = new(Tables.Count);
-    HashSet<string> placed = new(StringComparer.Ordinal);
+    var ordered = new List<Table>(Tables.Count);
+    var placed = new HashSet<string>(StringComparer.Ordinal);
     var remaining = Tables.OrderBy(table => table.Name, StringComparer.Ordinal).ToList();
     while (remaining.Count > 0) {
       var next = remaining.FirstOrDefault(table => dependencies[table.Name].All(placed.Contains))

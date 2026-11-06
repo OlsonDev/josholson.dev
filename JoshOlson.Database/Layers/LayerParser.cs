@@ -46,7 +46,7 @@ public static class LayerParser {
       }
     }
 
-    List<TableChange> tables = [];
+    var tables = new List<TableChange>();
     if (YamlNodes.Find(root, "tables") is { } tablesNode) {
       var tableMap = tablesNode as YamlMappingNode
         ?? throw new SeedFormatException($"{name}: tables must be a mapping of schema.table to changes.");
@@ -82,14 +82,14 @@ public static class LayerParser {
     }
     var sequence = node as YamlSequenceNode
       ?? throw new SeedFormatException($"{layer}: {table}.{key} must be a list of rows.");
-    List<Dictionary<string, string?>> rows = new(sequence.Children.Count);
+    var rows = new List<Dictionary<string, string?>>(sequence.Children.Count);
     foreach (var item in sequence.Children) {
       var row = item as YamlMappingNode
         ?? throw new SeedFormatException($"{layer}: every {table}.{key} row must be a mapping of column to value.");
       if (row.Children.Count is 0) {
         throw new SeedFormatException($"{layer}: a {table}.{key} row is empty.");
       }
-      Dictionary<string, string?> values = new(row.Children.Count, StringComparer.Ordinal);
+      var values = new Dictionary<string, string?>(row.Children.Count, StringComparer.Ordinal);
       foreach (var (column, value) in row.Children) {
         var columnName = YamlNodes.Key(layer, column);
         if (!values.TryAdd(columnName, Scalar(layer, $"{table}.{columnName}", value))) {

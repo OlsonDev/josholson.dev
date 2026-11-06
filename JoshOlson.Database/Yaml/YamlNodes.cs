@@ -9,7 +9,7 @@ internal static class YamlNodes {
   public static YamlMappingNode LoadRoot(string context, string yaml) {
     var stream = new YamlStream();
     try {
-      using StringReader reader = new(yaml);
+      using var reader = new StringReader(yaml);
       stream.Load(reader);
     } catch (YamlException exception) {
       throw new SeedFormatException($"{context}: {exception.Message}", exception);

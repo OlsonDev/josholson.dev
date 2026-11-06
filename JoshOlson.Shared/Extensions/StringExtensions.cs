@@ -27,7 +27,7 @@ public static class StringExtensions {
 
     // PascalCase as lowercase words joined by hyphens: `SetNull` becomes `set-null`. Digits stay with the word before.
     public string ToKebabCase() {
-      StringBuilder kebab = new(value.Length + 4);
+      var kebab = new StringBuilder(value.Length + 4);
       foreach (var character in value) {
         if (char.IsAsciiLetterUpper(character)) {
           if (kebab.Length > 0) {

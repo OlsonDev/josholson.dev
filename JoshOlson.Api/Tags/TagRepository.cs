@@ -67,7 +67,7 @@ public sealed class TagRepository {
   }
 
   private static readonly SqlMemoizer<bool, bool, bool> _CheckTakenSql = new((checkSlug, checkName, exceptTag) => {
-    List<string> statements = [];
+    var statements = new List<string>();
     if (checkSlug) statements.Add(BuildTakenSql("slug", ignoreCase: false, exceptTag));
     if (checkName) statements.Add(BuildTakenSql("name", ignoreCase: true, exceptTag));
     return string.Join('\n', statements);

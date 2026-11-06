@@ -59,7 +59,7 @@ public static partial class SchemaLockParser {
 
   private static List<LockedMigration> ParseMigrations(int lockVersion, YamlNode node) {
     var sequence = YamlNodes.Sequence(_Context, "migrations", node);
-    List<LockedMigration> migrations = new(sequence.Children.Count);
+    var migrations = new List<LockedMigration>(sequence.Children.Count);
     foreach (var item in sequence.Children) {
       var map = YamlNodes.Mapping(_Context, "a migration", item);
       YamlNodes.CheckKeys(_Context, "a migration", map, _MigrationKeys);
@@ -75,7 +75,7 @@ public static partial class SchemaLockParser {
         throw new SeedFormatException($"{_Context}: migration {version.ToInvariantString()} is out of order or repeated.");
       }
 
-      List<string> acceptedChecksums = [];
+      var acceptedChecksums = new List<string>();
       if (YamlNodes.Find(map, "accepted_checksums") is { } acceptedNode) {
         foreach (var entry in YamlNodes.Sequence(_Context, $"{file} accepted_checksums", acceptedNode).Children) {
           var checksum = Checksum(file, YamlNodes.Text(_Context, $"{file} accepted_checksums", entry));
@@ -97,7 +97,7 @@ public static partial class SchemaLockParser {
 
   private static List<SchemaComment> ParseSchemas(YamlNode node) {
     var map = YamlNodes.Mapping(_Context, "schemas", node);
-    List<SchemaComment> schemas = new(map.Children.Count);
+    var schemas = new List<SchemaComment>(map.Children.Count);
     foreach (var (key, value) in map.Children) {
       var name = YamlNodes.Key(_Context, key);
       if (name.Contains('.')) {
@@ -117,7 +117,7 @@ public static partial class SchemaLockParser {
 
   private static List<Domain> ParseDomains(YamlNode node) {
     var map = YamlNodes.Mapping(_Context, "domains", node);
-    List<Domain> domains = new(map.Children.Count);
+    var domains = new List<Domain>(map.Children.Count);
     foreach (var (key, value) in map.Children) {
       var name = YamlNodes.Key(_Context, key);
       if (!ColumnType.IsDomainName(name)) {
@@ -157,7 +157,7 @@ public static partial class SchemaLockParser {
   // The checks of a domain or a table; `owner` says which ("domain foo.bar").
   private static List<CheckConstraint> ParseChecks(string owner, YamlNode node) {
     var sequence = YamlNodes.Sequence(_Context, $"{owner} checks", node);
-    List<CheckConstraint> checks = new(sequence.Children.Count);
+    var checks = new List<CheckConstraint>(sequence.Children.Count);
     foreach (var item in sequence.Children) {
       var map = YamlNodes.Mapping(_Context, $"a check of {owner}", item);
       YamlNodes.CheckKeys(_Context, $"a check of {owner}", map, _CheckKeys);

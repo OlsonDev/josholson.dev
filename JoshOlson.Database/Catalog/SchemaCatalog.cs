@@ -17,10 +17,10 @@ public static class SchemaCatalog {
     await using var transaction = await connection.BeginTransactionAsync(System.Data.IsolationLevel.RepeatableRead, cancellationToken);
     _ = await connection.ExecuteAsync("SET LOCAL search_path TO pg_catalog", parameters: null, cancellationToken);
 
-    CatalogRepository catalogRepository = new(connection, options);
+    var catalogRepository = new CatalogRepository(connection, options);
     var tables = await catalogRepository.GetTablesAsync(cancellationToken);
     var domains = await catalogRepository.GetDomainsAsync(cancellationToken);
-    CatalogRows rows = new() {
+    var rows = new CatalogRows {
       Schemas = await catalogRepository.GetSchemaCommentsAsync(cancellationToken),
       Tables = tables,
       Domains = domains,
@@ -38,10 +38,10 @@ public static class SchemaCatalog {
   }
 
   private static CatalogSchema Assemble(CatalogRows rows) {
-    List<string> problems = [];
+    var problems = new List<string>();
     var domains = BuildDomains(rows, problems);
     var domainsByName = domains.ToDictionary(domain => domain.Name, StringComparer.Ordinal);
-    List<Table> tables = new(rows.Tables.Count);
+    var tables = new List<Table>(rows.Tables.Count);
     foreach (var (key, table) in rows.Tables) {
       tables.Add(BuildTable(key, table, rows, domainsByName, problems));
     }
@@ -76,7 +76,7 @@ public static class SchemaCatalog {
   }
 
   private static List<Domain> BuildDomains(CatalogRows rows, List<string> problems) {
-    List<Domain> domains = new(rows.Domains.Count);
+    var domains = new List<Domain>(rows.Domains.Count);
     foreach (var (key, domain) in rows.Domains) {
       if (!ColumnType.TryParse(domain.Type, out _)) {
         problems.Add($"Domain {domain.Name} is built on '{domain.Type}', which the seed tool does not support.");

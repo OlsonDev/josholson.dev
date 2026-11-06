@@ -9,7 +9,7 @@ public static class MigrationFiles {
   // repository keeps every file LF-terminated UTF-8 (`.gitattributes`), so nothing needs normalizing, and a
   // normalization would have to guess which whitespace is significant.
   public static async Task<List<MigrationFile>> LoadAsync(string directory, CancellationToken cancellationToken) {
-    List<MigrationFile> migrations = [];
+    var migrations = new List<MigrationFile>();
     foreach (var path in Directory.EnumerateFiles(directory, "*.sql").Order(StringComparer.Ordinal)) {
       var file = Path.GetFileName(path);
       if (!TryParseVersion(file, out var version)) {

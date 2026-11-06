@@ -10,7 +10,7 @@ public static class DomainResolver {
       return null;
     }
     var isArray = current.IsArray;
-    HashSet<string> seen = new(StringComparer.Ordinal);
+    var seen = new HashSet<string>(StringComparer.Ordinal);
     while (current.Seed is null) {
       if (!seen.Add(current.Name)
           || !domains.TryGetValue(current.Name, out var domain)

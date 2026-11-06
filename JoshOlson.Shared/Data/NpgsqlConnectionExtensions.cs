@@ -35,7 +35,7 @@ public static class NpgsqlConnectionExtensions {
       string splitOn,
       CancellationToken cancellationToken
     ) where TKey : notnull {
-      Dictionary<TKey, List<T>> groups = [];
+      var groups = new Dictionary<TKey, List<T>>();
       foreach (var (key, item) in await QueryPairsAsync<TKey, T>(connection, sql, parameters, splitOn, cancellationToken)) {
         if (!groups.TryGetValue(key, out var list)) {
           list = [];

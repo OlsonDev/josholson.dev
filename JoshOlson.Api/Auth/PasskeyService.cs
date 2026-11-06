@@ -41,7 +41,7 @@ public sealed class PasskeyService {
 
   public async Task<List<PasskeyResponse>> GetAllAsync(int userId, CancellationToken cancellationToken) {
     var passkeys = await _passkeyRepository.GetAllAsync(userId, cancellationToken);
-    List<PasskeyResponse> responses = new(passkeys.Count);
+    var responses = new List<PasskeyResponse>(passkeys.Count);
     foreach (var passkey in passkeys) {
       responses.Add(new() {
         PasskeyId = passkey.PasskeyId,

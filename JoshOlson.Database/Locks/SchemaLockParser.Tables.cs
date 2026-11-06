@@ -50,7 +50,7 @@ public static partial class SchemaLockParser {
 
   private static List<Table> ParseTables(YamlNode node) {
     var map = YamlNodes.Mapping(_Context, "tables", node);
-    List<Table> tables = new(map.Children.Count);
+    var tables = new List<Table>(map.Children.Count);
     foreach (var (key, value) in map.Children) {
       var name = YamlNodes.Key(_Context, key);
       if (!IsQualifiedName(name)) {
@@ -113,7 +113,7 @@ public static partial class SchemaLockParser {
     if (sequence.Children.Count is 0) {
       throw new SeedFormatException($"{_Context}: table {table} has no columns.");
     }
-    List<Column> columns = new(sequence.Children.Count);
+    var columns = new List<Column>(sequence.Children.Count);
     foreach (var item in sequence.Children) {
       var column = ParseColumn(table, item);
       if (columns.Any(known => string.Equals(known.Name, column.Name, StringComparison.Ordinal))) {
@@ -165,7 +165,7 @@ public static partial class SchemaLockParser {
 
   private static List<UniqueConstraint> ParseUniqueConstraints(string table, List<Column> columns, YamlNode node) {
     var sequence = YamlNodes.Sequence(_Context, $"{table} unique", node);
-    List<UniqueConstraint> constraints = new(sequence.Children.Count);
+    var constraints = new List<UniqueConstraint>(sequence.Children.Count);
     foreach (var item in sequence.Children) {
       var map = YamlNodes.Mapping(_Context, $"a unique constraint of {table}", item);
       YamlNodes.CheckKeys(_Context, $"a unique constraint of {table}", map, _UniqueKeys);
@@ -189,7 +189,7 @@ public static partial class SchemaLockParser {
 
   private static List<TableIndex> ParseIndexes(string table, YamlNode node) {
     var sequence = YamlNodes.Sequence(_Context, $"{table} indexes", node);
-    List<TableIndex> indexes = new(sequence.Children.Count);
+    var indexes = new List<TableIndex>(sequence.Children.Count);
     foreach (var item in sequence.Children) {
       var map = YamlNodes.Mapping(_Context, $"an index of {table}", item);
       YamlNodes.CheckKeys(_Context, $"an index of {table}", map, _IndexKeys);
@@ -208,7 +208,7 @@ public static partial class SchemaLockParser {
 
   private static List<ForeignKey> ParseForeignKeys(string table, List<Column> columns, YamlNode node) {
     var sequence = YamlNodes.Sequence(_Context, $"{table} foreign_keys", node);
-    List<ForeignKey> keys = new(sequence.Children.Count);
+    var keys = new List<ForeignKey>(sequence.Children.Count);
     foreach (var item in sequence.Children) {
       var map = YamlNodes.Mapping(_Context, $"a foreign key of {table}", item);
       YamlNodes.CheckKeys(_Context, $"a foreign key of {table}", map, _ForeignKeyKeys);

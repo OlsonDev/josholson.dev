@@ -45,7 +45,7 @@ public sealed class LayerTree {
 
   // The layers to apply, root first, ending with the named layer.
   public List<SeedLayer> ChainTo(string name) {
-    List<SeedLayer> chain = [];
+    var chain = new List<SeedLayer>();
     var current = Get(name);
     while (true) {
       if (chain.Contains(current)) {
@@ -66,8 +66,8 @@ public sealed class LayerTree {
 
   // Every layer, each after its parent, siblings by name: the order templates are baked in.
   public List<SeedLayer> InBakeOrder() {
-    List<SeedLayer> ordered = new(_layers.Count);
-    Stack<SeedLayer> pending = new(Roots.AsEnumerable().Reverse());
+    var ordered = new List<SeedLayer>(_layers.Count);
+    var pending = new Stack<SeedLayer>(Roots.AsEnumerable().Reverse());
     while (pending.TryPop(out var layer)) {
       ordered.Add(layer);
       foreach (var child in ChildrenOf(layer.Name).AsEnumerable().Reverse()) {

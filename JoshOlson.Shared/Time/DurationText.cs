@@ -29,7 +29,7 @@ public static class DurationText {
     // Negating long.MinValue overflows, so work on the magnitude as an unsigned value.
     var magnitude = negative ? (ulong)-(microseconds + 1) + 1 : (ulong)microseconds;
 
-    List<string> parts = [];
+    var parts = new List<string>();
     AddUnit(parts, magnitude / _MicrosPerDay, 'd');
     AddUnit(parts, magnitude % _MicrosPerDay / _MicrosPerHour, 'h');
     AddUnit(parts, magnitude % _MicrosPerHour / _MicrosPerMinute, 'm');

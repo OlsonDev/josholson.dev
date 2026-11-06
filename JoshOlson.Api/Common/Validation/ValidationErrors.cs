@@ -18,7 +18,7 @@ public sealed class ValidationErrors {
   }
 
   public ValidationProblemDetails ToProblemDetails() {
-    Dictionary<string, string[]> errors = new(_errors.Count);
+    var errors = new Dictionary<string, string[]>(_errors.Count);
     foreach (var (field, messages) in _errors) errors[field] = [.. messages];
     return new(errors) {
       Status = StatusCodes.Status422UnprocessableEntity,

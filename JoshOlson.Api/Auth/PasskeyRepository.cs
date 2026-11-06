@@ -42,7 +42,7 @@ public sealed class PasskeyRepository {
       ORDER BY p.created_utc, p.passkey_id;
       """;
     var rows = await _connection.QueryAsync<PasskeyRow>(sql, parameters, cancellationToken);
-    List<Passkey> passkeys = new(rows.Count);
+    var passkeys = new List<Passkey>(rows.Count);
     foreach (var row in rows) passkeys.Add(row.ToPasskey());
     return passkeys;
   }
@@ -152,7 +152,7 @@ public sealed class PasskeyRepository {
     public required Instant? LastUsedUtc { get; init; }
 
     public Passkey ToPasskey() {
-      List<PasskeyTransport> transports = new(Transports.Length);
+      var transports = new List<PasskeyTransport>(Transports.Length);
       foreach (var transport in Transports) transports.Add((PasskeyTransport)transport);
       return new() {
         PasskeyId = PasskeyId,

@@ -64,7 +64,7 @@ public sealed class WebAuthnService {
       throw new UnexpectedAaguidException(credential.AaGuid, modelName);
     }
     var reported = credential.Transports ?? [];
-    List<PasskeyTransport> transports = new(reported.Length);
+    var transports = new List<PasskeyTransport>(reported.Length);
     foreach (var transport in reported) {
       if (ToTransport(transport) is { } known) transports.Add(known);
     }
@@ -108,7 +108,7 @@ public sealed class WebAuthnService {
     => userHandle is { Length: > 0 } && userHandle.AsSpan().SequenceEqual(user.UserHandle);
 
   private static List<PublicKeyCredentialDescriptor> ToDescriptors(List<Passkey> passkeys) {
-    List<PublicKeyCredentialDescriptor> descriptors = new(passkeys.Count);
+    var descriptors = new List<PublicKeyCredentialDescriptor>(passkeys.Count);
     foreach (var passkey in passkeys) {
       var transports = new AuthenticatorTransport[passkey.Transports.Count];
       for (var i = 0; i < transports.Length; i++) transports[i] = ToAuthenticatorTransport(passkey.Transports[i]);
