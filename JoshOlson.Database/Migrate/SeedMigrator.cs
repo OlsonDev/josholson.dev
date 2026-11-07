@@ -25,7 +25,7 @@ public static class SeedMigrator {
       problems.AddRange(existing.Check(onDisk).Problems.Select(problem => problem.Message));
     }
     if (Directory.Exists(options.SeedsDirectory)) {
-      var layers = (await LayerLoader.LoadAsync(options.SeedsDirectory, cancellationToken)).Count;
+      var layers = LayerLoader.Files(options.SeedsDirectory).Count;
       if (layers > 0) {
         problems.Add($"The seeds have {layers.ToInvariantString()} layer(s), and moving layers to a new migration is not built yet. Until it is, seeds:migrate only makes the lock while there are none.");
       }

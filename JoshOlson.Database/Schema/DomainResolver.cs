@@ -21,6 +21,6 @@ public static class DomainResolver {
       isArray |= next.IsArray;
       current = next;
     }
-    return new(current.Seed.Value, isArray);
+    return new(current.Seed.Value, isArray, current.Modifiers);
   }
 }

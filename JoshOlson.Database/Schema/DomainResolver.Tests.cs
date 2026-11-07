@@ -25,17 +25,17 @@ public class DomainResolverTests {
     };
 
   [Theory]
-  [InlineData("text", SeedType.Text, false)]
-  [InlineData("decimal(9, 6)[]", SeedType.Decimal, true)]
-  [InlineData("foo.slug", SeedType.Text, false)]
-  [InlineData("foo.slug[]", SeedType.Text, true)]
-  [InlineData("foo.short_slug", SeedType.Text, false)]
-  [InlineData("foo.short_slug[]", SeedType.Text, true)]
-  [InlineData("foo.coords", SeedType.Decimal, false)]
-  [InlineData("foo.tag_ids", SeedType.SmallInt, true)]
-  [InlineData("foo.small_tag_ids", SeedType.SmallInt, true)]
-  public void Resolve_FollowsDomainsToTheBaseType(string text, SeedType seed, bool isArray)
-    => Assert.Equal(new ResolvedType(seed, isArray), DomainResolver.Resolve(text, _Domains));
+  [InlineData("text", SeedType.Text, false, null)]
+  [InlineData("decimal(9, 6)[]", SeedType.Decimal, true, "9, 6")]
+  [InlineData("foo.slug", SeedType.Text, false, null)]
+  [InlineData("foo.slug[]", SeedType.Text, true, null)]
+  [InlineData("foo.short_slug", SeedType.Text, false, null)]
+  [InlineData("foo.short_slug[]", SeedType.Text, true, null)]
+  [InlineData("foo.coords", SeedType.Decimal, false, "9, 6")]
+  [InlineData("foo.tag_ids", SeedType.SmallInt, true, null)]
+  [InlineData("foo.small_tag_ids", SeedType.SmallInt, true, null)]
+  public void Resolve_FollowsDomainsToTheBaseType(string text, SeedType seed, bool isArray, string? modifiers)
+    => Assert.Equal(new ResolvedType(seed, isArray, modifiers), DomainResolver.Resolve(text, _Domains));
 
   [Theory]
   [InlineData("foo.nope")]

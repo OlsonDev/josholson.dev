@@ -8,6 +8,7 @@
 using JoshOlson.Database;
 using JoshOlson.Database.Catalog;
 using JoshOlson.Database.Layers;
+using JoshOlson.Database.Locks;
 using JoshOlson.Database.Migrate;
 using JoshOlson.Shared.Extensions;
 using Npgsql;
@@ -26,7 +27,7 @@ if (command is not "list") {
 
 LayerTree tree;
 try {
-  tree = await LayerLoader.LoadAsync(SeedsDirectory, CancellationToken.None);
+  tree = await LoadTreeAsync();
 } catch (SeedFormatException exception) {
   Console.Error.WriteLine(exception.Message);
   return 1;
@@ -69,4 +70,16 @@ static async Task<int> MigrateAsync() {
     Console.Error.WriteLine(exception.Message);
     return 1;
   }
+}
+
+// Layer values are typed by the lock, so the lock has to exist before there is a layer to read.
+static async Task<LayerTree> LoadTreeAsync() {
+  var lockPath = Path.Combine(MigrationsDirectory, SeedMigrator.LockFileName);
+  if (!File.Exists(lockPath)) {
+    return LayerLoader.Files(SeedsDirectory).Count > 0
+      ? throw new SeedFormatException($"{lockPath} does not exist. Run mise run seeds:migrate first.")
+      : new LayerTree([]);
+  }
+  var schemaLock = SchemaLockParser.Parse(await File.ReadAllTextAsync(lockPath, CancellationToken.None));
+  return await LayerLoader.LoadAsync(SeedsDirectory, new SeedSchema(schemaLock), CancellationToken.None);
 }

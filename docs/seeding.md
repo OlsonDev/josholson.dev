@@ -1,6 +1,6 @@
 # Seeding
 
-Status: design only. The tool is not built yet. Seeds are dev and test data; reference data lives in migrations.
+Status: partly built (the layer parser with typed values, the tree, the lock, and `seeds:migrate` for the lock; the database side is not). Seeds are dev and test data; reference data lives in migrations.
 
 ## Goals
 
@@ -32,7 +32,8 @@ tables:
 
 - A value's type is its column's type, from `schema.lock.yaml` ([ADR 0035, typed values and relative times](adr/0035-typed-seed-values-and-relative-times.md)). A plain `~`, `null`, or empty value is `NULL`; quoted (`"null"`) it is the string. `jsonb` is native YAML, arrays are sequences, composites are mappings.
 - A `timestamptz` column is relative by default: its values are signed offsets from the database's anchor (the time it was hydrated), so seeds never hold real dates. An offset is written like `-3d 4h 12m 0.0123s`: lowercase `d`, `h`, `m`, `s`, zero units left out, `0s` for zero, one `-` for the whole duration, exact to the microsecond. A column opts out with `@seed absolute` in its `COMMENT ON COLUMN`. The choice is per column, never per value.
-- 🚧 The parser built so far still reads every value as text. It changes to typed values with the lock file.
+- Formats by type: `boolean` is `true` or `false`; integers are digits with an optional sign, inside the type's range; a `decimal(p, s)` column refuses more digits than it holds, since Postgres would round them; an absolute `timestamptz` is a UTC instant (`2026-01-02T03:04:05.123456Z`), never finer than a microsecond; `bytea` is `\x` and hex digits, as Postgres prints it; `inet` is an address, with `/bits` for a network; inside `jsonb`, a plain `true`, `false`, `null`, and number are those JSON values and anything quoted is a string.
+- Parsing reads each value as its column's type from the lock (`mise run seeds:list` needs the lock to exist once there is a layer). A file that is not the shape above fails at the first fault. Past that, every problem with its tables and values is collected and reported together: an unknown table or column, a value that is not its column's type, a NULL in a `NOT NULL` column, a missing key column, a delete that holds more than the key, and a column generated from an expression.
 - Parsing and the tree (duplicate names, a missing parent, and cycles are errors) are `JoshOlson.Database/Layers`. `mise run seeds:list` prints the tree.
 
 ## IDs

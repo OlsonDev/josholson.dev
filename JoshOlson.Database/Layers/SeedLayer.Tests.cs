@@ -12,12 +12,12 @@ public class SeedLayerTests {
       Tables = [
         new() {
           Table = "foo.bar",
-          Upserts = [new() { ["bar_id"] = "1" }, new() { ["bar_id"] = "2" }],
-          Deletes = [new() { ["bar_id"] = "3" }],
+          Upserts = [new() { ["bar_id"] = new SeedValue.Integer(1) }, new() { ["bar_id"] = new SeedValue.Integer(2) }],
+          Deletes = [new() { ["bar_id"] = new SeedValue.Integer(3) }],
         },
         new() {
           Table = "foo.baz",
-          Upserts = [new() { ["baz_id"] = "1" }],
+          Upserts = [new() { ["baz_id"] = new SeedValue.Integer(1) }],
           Deletes = [],
         },
       ],
