@@ -44,6 +44,8 @@ tables:
 
 ## Build and run
 
+🚧 Built so far, with no database involved (`JoshOlson.Database/Seeding`): `LayerMerger` folds a chain of layers, root first, into the rows they come to (in each layer a table's deletes apply before its upserts; every problem is reported together, including a NOT NULL column with no default that no layer gives), and `SeedSql` turns those rows into typed `INSERT` statements in foreign-key order, with `OVERRIDING SYSTEM VALUE` for identity columns, `DEFAULT` for columns a row leaves out, and relative times worked out against a given anchor. Running them against a database is next.
+
 - `bake` (once called `compile-seeds`) resolves layers to SQL, orders inserts by foreign key, validates them against the current schema in a scratch database, and saves each layer's template with its typed fixtures.
 - Databases are cloned with `CREATE DATABASE ... TEMPLATE` on the one Postgres server ([ADR 0013](adr/0013-single-postgres-server-with-template-databases.md)): a template per schema version, a template per layer named by a hash of the migrations and layer source, and a clone per test ([ADR 0033, a scoped database per test](adr/0033-scoped-databases-per-test.md)). The tool is `JoshOlson.Database`.
 - The tool only touches databases with its own prefix plus the configured app database, uses a role with `CREATEDB` and no superuser, and refuses to run unless the host is allowlisted (localhost).

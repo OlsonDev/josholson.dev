@@ -7,8 +7,10 @@ namespace JoshOlson.Database.Layers;
 // resolve cannot be in a lock the parser accepted, so one here means the lock was built by hand and is refused.
 public sealed class SeedSchema {
   private readonly Dictionary<string, SeedTable> _tables = new(StringComparer.Ordinal);
+  private readonly SchemaLock _lock;
 
   public SeedSchema(SchemaLock schemaLock) {
+    _lock = schemaLock;
     var domains = new Dictionary<string, Domain>(StringComparer.Ordinal);
     foreach (var domain in schemaLock.Domains) {
       domains[domain.Name] = domain;
@@ -26,4 +28,8 @@ public sealed class SeedSchema {
 
   public SeedTable? Find(string table)
     => _tables.GetValueOrDefault(table);
+
+  // The tables in an order rows can be inserted in, each after the tables its foreign keys point at (`SchemaLock.InsertOrder`).
+  public List<SeedTable> InsertOrder()
+    => [.. _lock.InsertOrder().Select(table => _tables[table.Name])];
 }
