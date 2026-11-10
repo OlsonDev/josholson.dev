@@ -61,6 +61,29 @@ run = "dotnet run scripts/seed.cs -- migrate"
 [tasks."seeds:migrate".env]
 _.file = ".env"
 
+# Before the first deploy migrations may be rewritten (sql.md), which leaves the lock's checksums stale. This starts the
+# lock over from the dev database, ignoring the old lock's version and checksums. Retire it at the first deploy.
+[tasks."seeds:relock"]
+description = "Start migrations/schema.lock.yaml over from the dev database, for migrations rewritten before the first deploy"
+run = "dotnet run scripts/seed.cs -- relock"
+
+[tasks."seeds:relock".env]
+_.file = ".env"
+
+# Drops the dev database and rebuilds it from the migrations: what a rewritten migration needs, since Waypoint refuses
+# an applied migration whose file changed. Everything in the dev database is lost. Dev only (compose.dev.yaml).
+[tasks."db:reset"]
+description = "Drop the dev database and rebuild it from the migrations, then provision the API role"
+depends = ["tools:up"]
+run = [
+  "podman compose -f compose.yaml -f compose.dev.yaml exec -T postgres psql -U $POSTGRES_USER -d postgres -v ON_ERROR_STOP=1 -c 'DROP DATABASE IF EXISTS \"'$POSTGRES_DB'\" WITH (FORCE)' -c 'CREATE DATABASE \"'$POSTGRES_DB'\"'",
+  "mise run waypoint migrate",
+  "mise run db:provision",
+]
+
+[tasks."db:reset".env]
+_.file = ".env"
+
 # The test tasks read .env for the dev database (POSTGRES_*) and run as the josholson_api role, so start the database
 # and run db:provision first (see CLAUDE.md).
 # Tests live beside the code as *.Tests.cs and are compiled in for Debug (see JoshOlson.Api/JoshOlson.Api.csproj).

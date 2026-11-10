@@ -89,6 +89,14 @@ Write `migrations/schema.lock.yaml` from the dev database, which must have appli
 mise run seeds:migrate
 ```
 
+Before the first deploy a migration may be rewritten instead of adding a new one. Then drop the dev database and rebuild it from the migrations (everything in it is lost; dev only), and start the lock over (it ignores the old lock's checksums; retired at the first deploy). Regenerate the schema docs afterwards:
+
+```
+mise run db:reset
+mise run seeds:relock
+mise run schema:doc
+```
+
 Run every project's tests (the API's need the dev database running and provisioned; reads `.env`), against a Release build, and list source files with no sibling test:
 
 ```

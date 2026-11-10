@@ -288,7 +288,8 @@ WHERE fb.corge IS DISTINCT FROM EXCLUDED.corge;
 
 Each lives in a schema named for the kind of value. Sorted by name:
 
-- `color.hex`: `#rrggbb`, lowercase
+- `color.hex`: `#rrggbb`, lowercase (not used by a column now; `color.tailwind` replaced it for tags)
+- `color.tailwind`: a Tailwind default-palette name (v4.3): `black`, `white`, or a family and a weight (`indigo-200`). Any valid name is accepted; picking readable pairs is a convention, not a check
 - `hash.sha256`: exactly 32 bytes
 - `jsonb.object`: a JSON object, not an array or scalar
 - `temporal.year_optional_month`: partial dates, `YYYY` or `YYYY-MM`

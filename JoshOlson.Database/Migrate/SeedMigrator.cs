@@ -13,12 +13,17 @@ public static class SeedMigrator {
   // `seeds:migrate`, as far as it is built: makes `schema.lock.yaml` describe the database, which must have applied
   // exactly the migrations on disk. The lock is only written if everything checks out, and every problem is reported
   // together. Moving seed layers to a new migration is not built yet, so with any layer present this refuses instead
-  // of leaving the layers behind the lock; with none, restamping the lock is the whole migration.
+  // of leaving the layers behind the lock; with none, restamping the lock is the whole migration. `Relock` starts the
+  // lock over instead of carrying the old one forward (see `MigrateOptions.Relock`).
   public static async Task<MigrateResult> MigrateAsync(NpgsqlConnection connection, MigrateOptions options, CancellationToken cancellationToken) {
     var path = Path.Combine(options.MigrationsDirectory, LockFileName);
     var onDisk = await MigrationFiles.LoadAsync(options.MigrationsDirectory, cancellationToken);
     var existingText = File.Exists(path) ? await File.ReadAllTextAsync(path, cancellationToken) : null;
     var existing = existingText is null ? null : SchemaLockParser.Parse(existingText);
+    var previousVersion = existing?.Version;
+    if (options.Relock) {
+      existing = null;
+    }
 
     var problems = new List<string>();
     if (existing is not null) {
@@ -43,7 +48,7 @@ public static class SeedMigrator {
     }
     return new() {
       Path = path,
-      PreviousVersion = existing?.Version,
+      PreviousVersion = previousVersion,
       Version = onDisk.Max(migration => migration.Version),
       Changed = changed,
     };

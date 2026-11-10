@@ -31,10 +31,10 @@ public sealed class SeedMigratorTests : IDisposable {
   private static string RealMigrationsDirectory()
     => Path.Combine(RepositoryRoot.Find(), "JoshOlson.Database", "migrations");
 
-  private async Task<MigrateResult> MigrateAsync() {
+  private async Task<MigrateResult> MigrateAsync(bool relock = false) {
     await using var connection = new NpgsqlConnection(DatabaseEnvironment.OwnerConnectionString());
     await connection.OpenAsync(_cancellationToken);
-    return await SeedMigrator.MigrateAsync(connection, _options, _cancellationToken);
+    return await SeedMigrator.MigrateAsync(connection, _options with { Relock = relock }, _cancellationToken);
   }
 
   [Fact]
@@ -88,7 +88,7 @@ public sealed class SeedMigratorTests : IDisposable {
     var changed = Directory.EnumerateFiles(_options.MigrationsDirectory, "V001__*.sql").Single();
     await File.AppendAllTextAsync(changed, "\n-- edited\n", _cancellationToken);
 
-    var exception = await Assert.ThrowsAsync<SeedFormatException>(MigrateAsync);
+    var exception = await Assert.ThrowsAsync<SeedFormatException>(() => MigrateAsync());
 
     Assert.Contains("V001__", exception.Message, StringComparison.Ordinal);
     Assert.Contains("has changed", exception.Message, StringComparison.Ordinal);
@@ -96,10 +96,35 @@ public sealed class SeedMigratorTests : IDisposable {
   }
 
   [Fact]
+  public async Task MigrateAsync_Relock_AcceptsAMigrationRewrittenSinceTheLock() {
+    var first = await MigrateAsync();
+    var changed = Directory.EnumerateFiles(_options.MigrationsDirectory, "V001__*.sql").Single();
+    await File.AppendAllTextAsync(changed, "\n-- edited\n", _cancellationToken);
+
+    var result = await MigrateAsync(relock: true);
+
+    var schemaLock = SchemaLockParser.Parse(await File.ReadAllTextAsync(result.Path, _cancellationToken));
+    var onDisk = await MigrationFiles.LoadAsync(_options.MigrationsDirectory, _cancellationToken);
+    Assert.True(result.Changed);
+    Assert.Equal(first.Version, result.PreviousVersion);
+    Assert.True(schemaLock.Check(onDisk).IsConsistent);
+  }
+
+  [Fact]
+  public async Task MigrateAsync_Relock_StillRefusesWhenTheDatabaseLacksAMigration() {
+    _ = await MigrateAsync();
+    await File.WriteAllTextAsync(Path.Combine(_options.MigrationsDirectory, "V999__not_applied.sql"), "SELECT 1;\n", _cancellationToken);
+
+    var exception = await Assert.ThrowsAsync<SeedFormatException>(() => MigrateAsync(relock: true));
+
+    Assert.Contains("V999__not_applied.sql", exception.Message, StringComparison.Ordinal);
+  }
+
+  [Fact]
   public async Task MigrateAsync_MigrationTheDatabaseDoesNotHave_WritesNoLock() {
     await File.WriteAllTextAsync(Path.Combine(_options.MigrationsDirectory, "V999__not_applied.sql"), "SELECT 1;\n", _cancellationToken);
 
-    var exception = await Assert.ThrowsAsync<SeedFormatException>(MigrateAsync);
+    var exception = await Assert.ThrowsAsync<SeedFormatException>(() => MigrateAsync());
 
     Assert.Contains("V999__not_applied.sql", exception.Message, StringComparison.Ordinal);
     Assert.False(File.Exists(Path.Combine(_options.MigrationsDirectory, SeedMigrator.LockFileName)));
@@ -117,7 +142,7 @@ public sealed class SeedMigratorTests : IDisposable {
       """;
     await File.WriteAllTextAsync(Path.Combine(_options.SeedsDirectory, "foo.yaml"), Layer, _cancellationToken);
 
-    var exception = await Assert.ThrowsAsync<SeedFormatException>(MigrateAsync);
+    var exception = await Assert.ThrowsAsync<SeedFormatException>(() => MigrateAsync());
 
     Assert.Contains("1 layer(s)", exception.Message, StringComparison.Ordinal);
     Assert.False(File.Exists(Path.Combine(_options.MigrationsDirectory, SeedMigrator.LockFileName)));

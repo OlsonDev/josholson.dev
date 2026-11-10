@@ -4,6 +4,7 @@
 // The seed tool's command line, a thin layer over JoshOlson.Database (ADR 0033). Run through mise from the repo root:
 //   mise run seeds:list      print the layer tree with row counts per table
 //   mise run seeds:migrate   make migrations/schema.lock.yaml describe the dev database (see below)
+//   mise run seeds:relock    the same, starting the lock over: for migrations rewritten before the first deploy
 // 🚧 seeds:accept, seed, seed:test, and seed:clean arrive with the database side of the tool.
 using JoshOlson.Database;
 using JoshOlson.Database.Catalog;
@@ -17,11 +18,11 @@ const string SeedsDirectory = "JoshOlson.Database/seeds";
 const string MigrationsDirectory = "JoshOlson.Database/migrations";
 
 var command = args.FirstOrDefault();
-if (command is "migrate") {
-  return await MigrateAsync();
+if (command is "migrate" or "relock") {
+  return await MigrateAsync(relock: command is "relock");
 }
 if (command is not "list") {
-  Console.Error.WriteLine("Usage: dotnet run scripts/seed.cs -- list|migrate");
+  Console.Error.WriteLine("Usage: dotnet run scripts/seed.cs -- list|migrate|relock");
   return 2;
 }
 
@@ -52,13 +53,15 @@ void Print(SeedLayer layer, int depth) {
 
 // The dev database (POSTGRES_* from .env, which the mise task loads) must have applied exactly the migrations on disk:
 // `mise run waypoint migrate` first. Writes migrations/schema.lock.yaml, or says everything wrong and writes nothing.
-static async Task<int> MigrateAsync() {
+// `relock` starts the lock over (migrations rewritten before the first deploy); `migrate` carries it forward.
+static async Task<int> MigrateAsync(bool relock) {
   try {
     await using var connection = new NpgsqlConnection(DatabaseEnvironment.OwnerConnectionString());
     await connection.OpenAsync(CancellationToken.None);
     var options = new MigrateOptions {
       MigrationsDirectory = MigrationsDirectory,
       SeedsDirectory = SeedsDirectory,
+      Relock = relock,
     };
     var result = await SeedMigrator.MigrateAsync(connection, options, CancellationToken.None);
     var before = result.PreviousVersion is { } previous ? $"version {previous.ToInvariantString()}" : "no lock";

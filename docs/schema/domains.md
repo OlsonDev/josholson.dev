@@ -12,6 +12,16 @@ Domains hold validation that repeats across tables ([ADR 0017](../adr/0017-domai
 | --------------- | -------------------------------- |
 | `ck_hex_format` | `VALUE ~ '^#[0-9a-f]{6}$'::text` |
 
+## color.tailwind
+
+- Base type: [`TEXT`][pg:text]
+
+### Check constraints
+
+| Name                 | Definition                                                                                                                                                                                                                                                                      |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ck_tailwind_format` | `VALUE ~ '^(black\|white\|(red\|orange\|amber\|yellow\|lime\|green\|emerald\|teal\|cyan\|sky\|blue\|indigo\|violet\|purple\|fuchsia\|pink\|rose\|slate\|gray\|zinc\|neutral\|stone\|taupe\|mauve\|mist\|olive)-(50\|100\|200\|300\|400\|500\|600\|700\|800\|900\|950))$'::text` |
+
 ## hash.sha256
 
 - Base type: [`BYTEA`][pg:bytea]

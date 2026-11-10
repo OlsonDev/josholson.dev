@@ -67,7 +67,7 @@ erDiagram
   text.trimmed name
   text.kebab_case slug UK
   text.trimmed description
-  color.hex color
+  color.tailwind color
 }
 ```
 

@@ -5,7 +5,7 @@ CREATE TABLE tag.tag (
   , name         text.trimmed     NOT NULL
   , slug         text.kebab_case  NOT NULL
   , description  text.trimmed         NULL
-  , color        color.hex            NULL
+  , color        color.tailwind       NULL
 
   , CONSTRAINT pk_tag PRIMARY KEY (tag_id)
   , CONSTRAINT uq_tag_slug UNIQUE (slug)

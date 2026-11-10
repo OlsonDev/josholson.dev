@@ -6,4 +6,9 @@ namespace JoshOlson.Database.Migrate;
 public sealed record MigrateOptions {
   public required string MigrationsDirectory { get; init; }
   public required string SeedsDirectory { get; init; }
+
+  // Builds the lock afresh from the database instead of carrying the old one forward: its version, checksums, and
+  // accepted checksums are ignored, so a migration rewritten since the last lock no longer counts as a problem. Only
+  // for the time before the first deploy, while migrations may still be rewritten (`seeds:relock`).
+  public bool Relock { get; init; }
 }

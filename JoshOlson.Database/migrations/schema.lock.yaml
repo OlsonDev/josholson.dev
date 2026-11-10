@@ -9,7 +9,7 @@ migrations:
     checksum: 23aa06e69b1dd66f45b16fd25daada03270353dad2736008d415234f304d0e16
   - version: 3
     file: V003__color.sql
-    checksum: 805dd1d6f0e9a994871920b631a3582cb52490ddae61a4abcd2c0aaa3bff7c40
+    checksum: a363ab34461808ca9b8671f8ac7e36cdde9e8b825b8c524c7693d41fa3a28b00
   - version: 4
     file: V004__jsonb.sql
     checksum: 1710cb6991994f1045dfd0d71e95af3c9918047c08a7a65d882827ff1b68c70c
@@ -21,7 +21,7 @@ migrations:
     checksum: dd36f70a71281874909cb44647108fa08a023807d1b991066ee2b9c8b5432a8e
   - version: 7
     file: V007__tag.sql
-    checksum: be6d67b786e7ae04a58278d857c7363b2192f0e369adaf313cd9b89aa69ce625
+    checksum: 4a31177fff5d7c1b92f172f455fbf1e3242e5aec095da2d70e5245c0a84680f0
   - version: 8
     file: V008__http.sql
     checksum: ef3f69f24e74137eadb7ba8176001df70c73c27fa9acc9c07a172bedab47aa3e
@@ -42,6 +42,10 @@ domains:
     type: text
     checks:
       - { name: ck_hex_format, expression: "CHECK ((VALUE ~ '^#[0-9a-f]{6}$'::text))" }
+  color.tailwind:
+    type: text
+    checks:
+      - { name: ck_tailwind_format, expression: "CHECK ((VALUE ~ '^(black|white|(red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose|slate|gray|zinc|neutral|stone|taupe|mauve|mist|olive)-(50|100|200|300|400|500|600|700|800|900|950))$'::text))" }
   hash.sha256:
     type: bytea
     checks:
@@ -696,7 +700,7 @@ tables:
       - { name: name, type: text.trimmed }
       - { name: slug, type: text.kebab_case }
       - { name: description, type: text.trimmed, nullable: true }
-      - { name: color, type: color.hex, nullable: true }
+      - { name: color, type: color.tailwind, nullable: true }
     primary_key: [tag_id]
     primary_key_name: pk_tag
     unique:
