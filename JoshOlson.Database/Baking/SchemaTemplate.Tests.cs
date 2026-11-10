@@ -8,6 +8,7 @@ namespace JoshOlson.Database.Baking;
 // `NameAsync` tests need no database. The `EnsureAsync` test builds a real template, so the dev database and its
 // containers must be running (`podman compose ... up -d`) with `.env` loaded (mise does that); it drops the template
 // when it ends.
+[Collection(TemplateCollection.Name)]
 public sealed class SchemaTemplateTests : IDisposable {
   private readonly CancellationToken _cancellationToken = TestContext.Current.CancellationToken;
   private readonly string _directory = Path.Combine(Path.GetTempPath(), $"schema-template-{Guid.NewGuid():N}");
@@ -80,20 +81,23 @@ public sealed class SchemaTemplateTests : IDisposable {
 
   [Fact]
   public async Task EnsureAsync_RealMigrations_BuildsAClosedTemplateOnce() {
+    // Waypoint applies the real migrations from the `tools` container, whatever directory the options name, so a copy of
+    // them with one extra file gives a template name of this test's own: the real template is neither dropped nor built
+    // under it.
     var root = RepositoryRoot.Find();
-    var template = new SchemaTemplate(
-      new() {
-        MigrationsDirectory = Path.Combine(root, "JoshOlson.Database", "migrations"),
-        ProvisioningScript = Path.Combine(root, "JoshOlson.Database", "provisioning", "api_role.sql"),
-        SeedSchemaScript = Path.Combine(root, "JoshOlson.Database", "Baking", "seed_schema.sql"),
-      },
-      new(root));
+    var options = SchemaTemplateOptions.ForRepository(root);
+    var migrations = Path.Combine(_directory, "real-migrations");
+    _ = Directory.CreateDirectory(migrations);
+    foreach (var file in Directory.EnumerateFiles(options.MigrationsDirectory, "*.sql")) {
+      File.Copy(file, Path.Combine(migrations, Path.GetFileName(file)));
+    }
+    await File.WriteAllTextAsync(Path.Combine(migrations, "R__unique.sql"), $"-- {Guid.NewGuid():N}\n", _cancellationToken);
+    var template = new SchemaTemplate(options with { MigrationsDirectory = migrations }, new(root));
     await using var owner = new NpgsqlConnection(DatabaseEnvironment.OwnerConnectionString());
     await owner.OpenAsync(_cancellationToken);
     var name = await template.NameAsync(_cancellationToken);
+    var clone = $"seed_templatetest_{Guid.NewGuid():N}";
     try {
-      await SchemaTemplate.DropAsync(owner, name, _cancellationToken);
-
       var first = await template.EnsureAsync(owner, _cancellationToken);
       var second = await template.EnsureAsync(owner, _cancellationToken);
 
@@ -105,7 +109,27 @@ public sealed class SchemaTemplateTests : IDisposable {
       Assert.Equal((name, false), second);
       Assert.False(allowConnections);
       Assert.False(await SchemaTemplate.ExistsAsync(owner, SeedDatabaseNames.Building(name), _cancellationToken));
+
+      await new DatabaseCloner().CloneAsync(owner, name, clone, _cancellationToken);
+      await using var connection = new NpgsqlConnection(DatabaseEnvironment.OwnerConnectionString(clone));
+      await connection.OpenAsync(_cancellationToken);
+      var hydrationColumns = await connection.QuerySingleAsync<long>(
+        "SELECT count(*) FROM information_schema.columns WHERE table_schema = 'seed' AND table_name = 'hydration';",
+        null,
+        _cancellationToken);
+      var apiSeesSeedSchema = await connection.QuerySingleAsync<bool>(
+        "SELECT has_schema_privilege('josholson_api', 'seed', 'USAGE');",
+        null,
+        _cancellationToken);
+      var apiSeesTags = await connection.QuerySingleAsync<bool>(
+        "SELECT has_table_privilege('josholson_api', 'tag.tag', 'SELECT');",
+        null,
+        _cancellationToken);
+      Assert.Equal(2, hydrationColumns);
+      Assert.False(apiSeesSeedSchema);
+      Assert.True(apiSeesTags);
     } finally {
+      await SchemaTemplate.DropAsync(owner, clone, CancellationToken.None);
       await SchemaTemplate.DropAsync(owner, name, CancellationToken.None);
     }
   }
