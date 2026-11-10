@@ -1,3 +1,4 @@
+using JoshOlson.Database.Layers;
 using JoshOlson.Database.Locks;
 using JoshOlson.Shared.IO;
 using Npgsql;
@@ -31,10 +32,16 @@ public sealed class SeedMigratorTests : IDisposable {
   private static string RealMigrationsDirectory()
     => Path.Combine(RepositoryRoot.Find(), "JoshOlson.Database", "migrations");
 
-  private async Task<MigrateResult> MigrateAsync(bool relock = false) {
+  private async Task<MigrateResult> MigrateAsync(
+    bool relock = false,
+    Func<SeedSchema, CancellationToken, Task<List<string>>>? check = null
+  ) {
     await using var connection = new NpgsqlConnection(DatabaseEnvironment.OwnerConnectionString());
     await connection.OpenAsync(_cancellationToken);
-    return await SeedMigrator.MigrateAsync(connection, _options with { Relock = relock }, _cancellationToken);
+    return await SeedMigrator.MigrateAsync(
+      connection,
+      _options with { Relock = relock, LayerCheck = check },
+      _cancellationToken);
   }
 
   [Fact]
@@ -130,8 +137,7 @@ public sealed class SeedMigratorTests : IDisposable {
     Assert.False(File.Exists(Path.Combine(_options.MigrationsDirectory, SeedMigrator.LockFileName)));
   }
 
-  [Fact]
-  public async Task MigrateAsync_SeedLayerPresent_RefusesBecauseLayersCannotMoveYet() {
+  private async Task WriteLayerAsync() {
     _ = Directory.CreateDirectory(_options.SeedsDirectory);
     const string Layer = """
       description: A layer
@@ -141,10 +147,40 @@ public sealed class SeedMigratorTests : IDisposable {
             - { bar_id: 1 }
       """;
     await File.WriteAllTextAsync(Path.Combine(_options.SeedsDirectory, "foo.yaml"), Layer, _cancellationToken);
+  }
+
+  [Fact]
+  public async Task MigrateAsync_SeedLayerPresentAndNoWayToCheckIt_Refuses() {
+    await WriteLayerAsync();
 
     var exception = await Assert.ThrowsAsync<SeedFormatException>(() => MigrateAsync());
 
     Assert.Contains("1 layer(s)", exception.Message, StringComparison.Ordinal);
     Assert.False(File.Exists(Path.Combine(_options.MigrationsDirectory, SeedMigrator.LockFileName)));
+  }
+
+  [Fact]
+  public async Task MigrateAsync_LayerCheckReportsProblems_RefusesAndWritesNothing() {
+    await WriteLayerAsync();
+
+    var exception = await Assert.ThrowsAsync<SeedFormatException>(
+      () => MigrateAsync(check: (_, _) => Task.FromResult<List<string>>(["foo: tag.tag has no column bar"])));
+
+    Assert.Contains("foo: tag.tag has no column bar", exception.Message, StringComparison.Ordinal);
+    Assert.False(File.Exists(Path.Combine(_options.MigrationsDirectory, SeedMigrator.LockFileName)));
+  }
+
+  [Fact]
+  public async Task MigrateAsync_LayerCheckFindsNothingWrong_WritesTheLockAndChecksAgainstTheNewSchema() {
+    await WriteLayerAsync();
+    SeedSchema? seen = null;
+
+    var result = await MigrateAsync(check: (schema, _) => {
+      seen = schema;
+      return Task.FromResult<List<string>>([]);
+    });
+
+    Assert.True(result.Changed);
+    Assert.NotNull(seen?.Find("tag.tag"));
   }
 }

@@ -1,3 +1,5 @@
+using JoshOlson.Database.Layers;
+
 namespace JoshOlson.Database.Migrate;
 
 // Where `seeds:migrate` finds the migrations (and writes `schema.lock.yaml`, beside them) and the seed layers. The
@@ -11,4 +13,10 @@ public sealed record MigrateOptions {
   // accepted checksums are ignored, so a migration rewritten since the last lock no longer counts as a problem. Only
   // for the time before the first deploy, while migrations may still be rewritten (`seeds:relock`).
   public bool Relock { get; init; }
+
+  // Checks the seed layers against the schema the lock is about to describe and returns every problem it finds (empty
+  // when they all apply). Called only when there are layers. The real one builds a schema template from the migrations
+  // and applies each layer to a clone (`SeedTool.CheckAsync`); without one, a seeds directory with layers is
+  // refused.
+  public Func<SeedSchema, CancellationToken, Task<List<string>>>? LayerCheck { get; init; }
 }

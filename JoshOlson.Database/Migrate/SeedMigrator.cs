@@ -12,9 +12,9 @@ public static class SeedMigrator {
 
   // `seeds:migrate`, as far as it is built: makes `schema.lock.yaml` describe the database, which must have applied
   // exactly the migrations on disk. The lock is only written if everything checks out, and every problem is reported
-  // together. Moving seed layers to a new migration is not built yet, so with any layer present this refuses instead
-  // of leaving the layers behind the lock; with none, restamping the lock is the whole migration. `Relock` starts the
-  // lock over instead of carrying the old one forward (see `MigrateOptions.Relock`).
+  // together. Moving seed layers to a new migration is not built yet: with layers present, they are checked against
+  // the new schema instead of rewritten (`CheckLayersAsync`), so the lock never moves ahead of a layer it would break.
+  // `Relock` starts the lock over instead of carrying the old one forward (see `MigrateOptions.Relock`).
   public static async Task<MigrateResult> MigrateAsync(NpgsqlConnection connection, MigrateOptions options, CancellationToken cancellationToken) {
     var path = Path.Combine(options.MigrationsDirectory, LockFileName);
     var onDisk = await MigrationFiles.LoadAsync(options.MigrationsDirectory, cancellationToken);
@@ -29,19 +29,19 @@ public static class SeedMigrator {
     if (existing is not null) {
       problems.AddRange(existing.Check(onDisk).Problems.Select(problem => problem.Message));
     }
-    if (Directory.Exists(options.SeedsDirectory)) {
-      var layers = LayerLoader.Files(options.SeedsDirectory).Count;
-      if (layers > 0) {
-        problems.Add($"The seeds have {layers.ToInvariantString()} layer(s), and moving layers to a new migration is not built yet. Until it is, seeds:migrate only makes the lock while there are none.");
-      }
-    }
     problems.AddRange(MigrationHistory.Check(onDisk, await MigrationHistory.ReadAsync(connection, cancellationToken)));
     if (problems.Count > 0) {
       throw new SeedFormatException($"seeds:migrate did not write {LockFileName}:\n- {string.Join("\n- ", problems)}");
     }
 
     var catalog = await SchemaCatalog.ReadAsync(connection, new(), cancellationToken);
-    var text = SchemaLockWriter.Write(SchemaLockBuilder.Build(existing, onDisk, catalog));
+    var schemaLock = SchemaLockBuilder.Build(existing, onDisk, catalog);
+    problems.AddRange(await CheckLayersAsync(options, schemaLock, cancellationToken));
+    if (problems.Count > 0) {
+      throw new SeedFormatException($"seeds:migrate did not write {LockFileName}:\n- {string.Join("\n- ", problems)}");
+    }
+
+    var text = SchemaLockWriter.Write(schemaLock);
     var changed = !string.Equals(text, existingText, StringComparison.Ordinal);
     if (changed) {
       await WriteAsync(path, text, cancellationToken);
@@ -52,6 +52,19 @@ public static class SeedMigrator {
       Version = onDisk.Max(migration => migration.Version),
       Changed = changed,
     };
+  }
+
+  // The layers are not rewritten, only checked: each still has to read as its columns' types in the new schema and
+  // apply to a database built from the new migrations (`LayerCheck`). A layer a migration broke is reported, and fixing
+  // it is by hand until moving layers is built. With no layers there is nothing to check.
+  private static async Task<List<string>> CheckLayersAsync(MigrateOptions options, SchemaLock schemaLock, CancellationToken cancellationToken) {
+    var layers = Directory.Exists(options.SeedsDirectory) ? LayerLoader.Files(options.SeedsDirectory).Count : 0;
+    if (layers is 0) {
+      return [];
+    }
+    return options.LayerCheck is { } check
+      ? await check(new SeedSchema(schemaLock), cancellationToken)
+      : [$"The seeds have {layers.ToInvariantString()} layer(s), and there is no way to check them against the new schema here."];
   }
 
   // Written beside the lock and moved over it, so an interrupted run leaves the old lock and not half of the new one.
