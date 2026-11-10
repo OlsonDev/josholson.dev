@@ -7,8 +7,8 @@ public static class RepositoryRoot {
   // repository root; a test runs from its output directory, somewhere below it).
   public static string Find()
     => TryFind(Directory.GetCurrentDirectory())
-      ?? TryFind(AppContext.BaseDirectory)
-      ?? throw new DirectoryNotFoundException($"{_Marker} was not found above the working directory or the output directory.");
+    ?? TryFind(AppContext.BaseDirectory)
+    ?? throw new DirectoryNotFoundException($"{_Marker} was not found above the working directory or the output directory.");
 
   // The same walk from a given directory, or null when no directory above it holds the solution.
   public static string? TryFind(string start) {
