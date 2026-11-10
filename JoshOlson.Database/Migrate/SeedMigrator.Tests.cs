@@ -1,4 +1,5 @@
 using JoshOlson.Database.Locks;
+using JoshOlson.Shared.IO;
 using Npgsql;
 using Xunit;
 
@@ -27,13 +28,8 @@ public sealed class SeedMigratorTests : IDisposable {
   public void Dispose()
     => Directory.Delete(_directory, recursive: true);
 
-  private static string RealMigrationsDirectory() {
-    var directory = new DirectoryInfo(AppContext.BaseDirectory);
-    while (directory is not null && !File.Exists(Path.Combine(directory.FullName, "JoshOlson.slnx"))) {
-      directory = directory.Parent;
-    }
-    return Path.Combine(directory?.FullName ?? throw new InvalidOperationException("JoshOlson.slnx was not found above the test output."), "JoshOlson.Database", "migrations");
-  }
+  private static string RealMigrationsDirectory()
+    => Path.Combine(RepositoryRoot.Find(), "JoshOlson.Database", "migrations");
 
   private async Task<MigrateResult> MigrateAsync() {
     await using var connection = new NpgsqlConnection(DatabaseEnvironment.OwnerConnectionString());
