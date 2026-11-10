@@ -16,6 +16,7 @@ public sealed class SchemaTemplateTests : IDisposable {
     _ = Directory.CreateDirectory(_directory);
     File.WriteAllText(Path.Combine(_directory, "V001__foo.sql"), "CREATE TABLE foo (bar INT);\n");
     File.WriteAllText(Path.Combine(_directory, "provisioning.sql"), "SELECT 1;\n");
+    File.WriteAllText(Path.Combine(_directory, "seed_schema.sql"), "SELECT 4;\n");
   }
 
   public void Dispose()
@@ -26,6 +27,7 @@ public sealed class SchemaTemplateTests : IDisposable {
       new() {
         MigrationsDirectory = migrations ?? _directory,
         ProvisioningScript = Path.Combine(_directory, "provisioning.sql"),
+        SeedSchemaScript = Path.Combine(_directory, "seed_schema.sql"),
       },
       new(RepositoryRoot.Find()));
 
@@ -60,6 +62,15 @@ public sealed class SchemaTemplateTests : IDisposable {
     Assert.NotEqual(withRepeatable, await Template().NameAsync(_cancellationToken));
   }
 
+  [Fact]
+  public async Task NameAsync_SeedSchemaScriptChanged_ChangesTheName() {
+    var before = await Template().NameAsync(_cancellationToken);
+
+    await File.WriteAllTextAsync(Path.Combine(_directory, "seed_schema.sql"), "SELECT 5;\n", _cancellationToken);
+
+    Assert.NotEqual(before, await Template().NameAsync(_cancellationToken));
+  }
+
   [Theory]
   [InlineData("josholson")]
   [InlineData("seed_Foo")]
@@ -74,6 +85,7 @@ public sealed class SchemaTemplateTests : IDisposable {
       new() {
         MigrationsDirectory = Path.Combine(root, "JoshOlson.Database", "migrations"),
         ProvisioningScript = Path.Combine(root, "JoshOlson.Database", "provisioning", "api_role.sql"),
+        SeedSchemaScript = Path.Combine(root, "JoshOlson.Database", "Baking", "seed_schema.sql"),
       },
       new(root));
     await using var owner = new NpgsqlConnection(DatabaseEnvironment.OwnerConnectionString());

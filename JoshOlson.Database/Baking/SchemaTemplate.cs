@@ -6,8 +6,9 @@ namespace JoshOlson.Database.Baking;
 
 // The schema template: a database with every migration applied and the API role's grants in place, which each layer's
 // template and each test's database descend from (ADR 0033, a scoped database per test). Its name carries a hash of
-// everything that shapes it (the migrations, repeatable ones included, and the provisioning script), so a template that
-// exists for the current files is simply reused, and one for older files is left for `seed:clean`.
+// everything that shapes it (the migrations, repeatable ones included, the provisioning script, and the script that
+// creates the `seed` schema), so a template that exists for the current files is simply reused, and one for older files
+// is left for `seed:clean`.
 //
 // It is built under a temporary name and renamed when finished, so a bake that died halfway never leaves a template
 // that looks complete. A finished template refuses connections: it is only ever a source for `CREATE DATABASE`.
@@ -28,6 +29,8 @@ public sealed class SchemaTemplate {
     }
     hash.AppendData(System.Text.Encoding.UTF8.GetBytes("provisioning\n"));
     hash.AppendData(await File.ReadAllBytesAsync(_options.ProvisioningScript, cancellationToken));
+    hash.AppendData(System.Text.Encoding.UTF8.GetBytes("seed schema\n"));
+    hash.AppendData(await File.ReadAllBytesAsync(_options.SeedSchemaScript, cancellationToken));
     return SeedDatabaseNames.Schema(Convert.ToHexStringLower(hash.GetHashAndReset())[..16]);
   }
 
@@ -44,6 +47,7 @@ public sealed class SchemaTemplate {
     try {
       await _tools.MigrateAsync(building, cancellationToken);
       await _tools.RunScriptAsync(building, _options.ProvisioningScript, ApiPasswordVariable(), cancellationToken);
+      await _tools.RunScriptAsync(building, _options.SeedSchemaScript, [], cancellationToken);
       await owner.ExecuteAsync(
         $"ALTER DATABASE {SeedDatabaseNames.Quote(building)} WITH ALLOW_CONNECTIONS false;",
         null,
