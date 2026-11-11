@@ -18,7 +18,7 @@ public sealed class ListCommandTests : IDisposable {
     Assert.Equal(0, exitCode);
     Assert.Contains(SeedLayers.Minimal, output, StringComparison.Ordinal);
     Assert.Contains(SeedLayers.MoreTags, output, StringComparison.Ordinal);
-    Assert.Contains("tag.tag: +3 -0", output, StringComparison.Ordinal);
+    Assert.Contains("tag.tag: +3 ~0 -0", output, StringComparison.Ordinal);
     Assert.Contains("2 layer(s).", output, StringComparison.Ordinal);
   }
 

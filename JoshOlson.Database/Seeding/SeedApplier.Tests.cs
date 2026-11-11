@@ -23,11 +23,11 @@ public sealed class SeedApplierTests {
         description: Base
         tables:
           tag.alias:
-            upsert:
+            insert:
               - { alias_id: 900001, tag_id: 900001, name: Quux }
           tag.tag:
-            upsert:
-              - { tag_id: 900001, name: Corge, slug: seed-applier-corge }
+            insert:
+              - { tag_id: 900001, name: Corge, slug: seed-applier-corge, description: ~, color: ~ }
         """,
         schema),
       LayerParser.Parse(
@@ -37,7 +37,7 @@ public sealed class SeedApplierTests {
         extends: foo
         tables:
           tag.tag:
-            upsert:
+            update:
               - { tag_id: 900001, description: Grault }
         """,
         schema),
@@ -70,7 +70,7 @@ public sealed class SeedApplierTests {
         description: Base
         tables:
           tag.alias:
-            upsert:
+            insert:
               - { alias_id: 900002, tag_id: 900002, name: Quux }
         """,
         schema),

@@ -28,8 +28,8 @@ public sealed class SeedHydratorTests {
         description: Root
         tables:
           tag.tag:
-            upsert:
-              - { tag_id: 7, name: Corge, slug: corge }
+            insert:
+              - { tag_id: 7, name: Corge, slug: corge, description: ~, color: ~ }
         """,
         schema),
     ]);

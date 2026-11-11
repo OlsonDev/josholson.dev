@@ -1,3 +1,7 @@
+using JoshOlson.Database.Schema;
+using JoshOlson.Database.Seeding;
+using JoshOlson.Shared.Extensions;
+
 namespace JoshOlson.Database.Layers;
 
 // The layers as a tree: each names its parent with `extends`, and a layer with none is a root. Building the tree is
@@ -31,6 +35,26 @@ public sealed class LayerTree {
   }
 
   public List<SeedLayer> Roots { get; } = [];
+
+  // The rows a layer inserts take their identity keys from the block of the layer's depth (`IdBlocks`, ADR 0015, seed ID
+  // blocks): two layers at different depths cannot both claim an ID, and a migration that generates IDs cannot reach
+  // into a layer's. This names each insert that is outside its block, for a table whose primary key is one identity column.
+  public List<string> IdBlockProblems(SeedSchema schema) {
+    var problems = new List<string>();
+    foreach (var layer in _layers.Values.OrderBy(layer => layer.Name, StringComparer.Ordinal)) {
+      var depth = ChainTo(layer.Name).Count - 1;
+      foreach (var change in layer.Tables) {
+        if (schema.Find(change.Table) is not { Table.PrimaryKey: [var key] } table
+            || table.Columns[key].Column.GeneratedAs is not (GeneratedAs.IdentityAlways or GeneratedAs.IdentityByDefault)) {
+          continue;
+        }
+        foreach (var id in change.Inserts.Select(row => row[key]).OfType<SeedValue.Integer>().Where(id => !IdBlocks.Contains(depth, id.Value))) {
+          problems.Add($"{layer.Name}: {change.Table} inserts {key} {id.Value.ToInvariantString()}, outside the {IdBlocks.Start(depth).ToInvariantString()}..{IdBlocks.End(depth).ToInvariantString()} block of a layer at depth {depth.ToInvariantString()}.");
+        }
+      }
+    }
+    return problems;
+  }
 
   public int Count
     => _layers.Count;

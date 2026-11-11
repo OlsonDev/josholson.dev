@@ -12,10 +12,11 @@ using NpgsqlTypes;
 namespace JoshOlson.Database.Seeding;
 
 // Turns the rows a chain of layers comes to into `INSERT` statements, one table at a time in an order the foreign keys
-// allow (`SchemaLock.InsertOrder`). A table's rows share one statement, so its column list is every column any of them
-// names, in the table's column order, and a row that leaves one out says `DEFAULT`. A column the database fills itself
-// (an identity column) is inserted into with `OVERRIDING SYSTEM VALUE`, so a seed's explicit IDs stand and the identity
-// sequence is left where it was (ADR 0015, seed ID blocks).
+// allow (`SchemaLock.InsertOrder`). A table's rows share one statement, so its column list is every column that can be
+// set (all but those generated from an expression), in the table's order, and every row gives every one of them: a seed
+// names every column (ADR 0014, hierarchical seed layers), so a default can never fill one in, and a row that leaves one
+// out is refused. A column the database fills itself (an identity column) is inserted into with `OVERRIDING SYSTEM
+// VALUE`, so a seed's explicit IDs stand and the identity sequence is left where it was (ADR 0015, seed ID blocks).
 //
 // Values are typed parameters. A relative time is the anchor plus its offset, worked out here, exact to the microsecond.
 // A table with more rows than fit in the parameter limit is split into several statements, which keep the key order.
@@ -46,12 +47,10 @@ public static class SeedSql {
     List<SeedStatement> statements,
     List<string> problems
   ) {
-    var columns = new List<SeedColumn>();
-    foreach (var column in table.Table.Columns) {
-      if (rows.Values.Any(row => row.ContainsKey(column.Name))) {
-        columns.Add(table.Columns[column.Name]);
-      }
-    }
+    var columns = table.Table.Columns
+      .Where(column => column.GeneratedAs is not (GeneratedAs.ExpressionStored or GeneratedAs.ExpressionVirtual))
+      .Select(column => table.Columns[column.Name])
+      .ToList();
     var perStatement = Math.Max(1, _MaxParameters / columns.Count);
     foreach (var chunk in rows.Values.Chunk(perStatement)) {
       statements.Add(Statement(table, columns, chunk, anchor, problems));
@@ -96,7 +95,7 @@ public static class SeedSql {
     };
   }
 
-  // `DEFAULT` when the row leaves the column out, `NULL` when it says NULL, and otherwise the next parameter.
+  // `NULL` when the row says NULL, and otherwise the next parameter. A row that leaves the column out is refused.
   private static string Placeholder(
     SeedTable table,
     SeedColumn column,
@@ -106,7 +105,7 @@ public static class SeedSql {
     List<string> problems
   ) {
     if (!row.TryGetValue(column.Column.Name, out var value)) {
-      return "DEFAULT";
+      throw new SeedFormatException($"{table.Table.Name}: a row leaves out {column.Column.Name}, and a seed names every column.");
     }
     if (value is null) {
       return "NULL";

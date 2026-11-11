@@ -12,15 +12,18 @@ namespace JoshOlson.Database.Layers;
 //   extends: parent-layer        # omit for a root layer
 //   tables:
 //     foo.bar:                   # schema.table
-//       upsert:
+//       insert:                  # new rows: every column that is not generated from an expression
 //         - { bar_id: 1001, name: baz, qux: ~ }
+//       update:                  # rows an earlier layer gives: the key and the columns that change
+//         - { bar_id: 1, name: quux }
 //       delete:
-//         - { bar_id: 1001 }     # primary key columns only
+//         - { bar_id: 2 }        # primary key columns only
 //
 // Each value is read as its column's type from the lock (`SeedValueReader`), and a plain `~`, `null`, or empty value is
 // NULL. A file that is not the shape above throws at the first fault. Once it is, every problem with its tables and
-// values (an unknown table or column, a value that is not its column's type, a missing key column) is collected, and
-// they are thrown together.
+// values (an unknown table or column, a value that is not its column's type, a missing key column, an insert that leaves
+// a column out, an update that changes nothing) is collected, and they are thrown together. Whether an insert's key is new
+// and an update's is not is for `LayerMerger`, which sees the layers before it.
 public static class LayerParser {
   private static readonly string[] _LayerKeys = [
     "description",
@@ -28,7 +31,8 @@ public static class LayerParser {
     "tables",
   ];
   private static readonly string[] _TableKeys = [
-    "upsert",
+    "insert",
+    "update",
     "delete",
   ];
 
@@ -78,7 +82,7 @@ public static class LayerParser {
       throw new SeedFormatException($"{layer}: '{table}' is not a schema.table name.");
     }
     var map = node as YamlMappingNode
-      ?? throw new SeedFormatException($"{layer}: {table} must be a mapping with upsert and delete lists.");
+      ?? throw new SeedFormatException($"{layer}: {table} must be a mapping with insert, update, and delete lists.");
     YamlNodes.CheckKeys(layer, table, map, _TableKeys);
 
     var known = schema.Find(table);
@@ -89,7 +93,8 @@ public static class LayerParser {
     }
     return new() {
       Table = table,
-      Upserts = Rows(layer, table, "upsert", map, known, problems),
+      Inserts = Rows(layer, table, "insert", map, known, problems),
+      Updates = Rows(layer, table, "update", map, known, problems),
       Deletes = Rows(layer, table, "delete", map, known, problems),
     };
   }
@@ -121,12 +126,20 @@ public static class LayerParser {
         if (values.ContainsKey(columnName)) {
           throw new SeedFormatException($"{layer}: a {table}.{key} row repeats column '{columnName}'.");
         }
-        values[columnName] = ReadValue(where, columnName, value, known, key is "upsert", problems);
+        values[columnName] = ReadValue(where, columnName, value, known, key is not "delete", problems);
       }
       if (known is not null) {
         CheckKey(where, values, known, problems);
-        if (key is "delete") {
-          CheckOnlyKey(where, values, known, problems);
+        switch (key) {
+          case "insert":
+            CheckComplete(where, values, known, problems);
+            break;
+          case "update":
+            CheckChanges(where, values, known, problems);
+            break;
+          default:
+            CheckOnlyKey(where, values, known, problems);
+            break;
         }
       }
       rows.Add(values);
@@ -141,7 +154,7 @@ public static class LayerParser {
     string column,
     YamlNode node,
     SeedTable? known,
-    bool isUpsert,
+    bool isSet,
     List<string> problems
   ) {
     if (known is null) {
@@ -151,7 +164,7 @@ public static class LayerParser {
       problems.Add($"{where}: {column} is not a column of {known.Table.Name}.");
       return null;
     }
-    if (isUpsert && seedColumn.Column.GeneratedAs is GeneratedAs.ExpressionStored or GeneratedAs.ExpressionVirtual) {
+    if (isSet && seedColumn.Column.GeneratedAs is GeneratedAs.ExpressionStored or GeneratedAs.ExpressionVirtual) {
       problems.Add($"{where}: {column} is generated from an expression, so a seed cannot set it.");
       return null;
     }
@@ -167,6 +180,25 @@ public static class LayerParser {
       if (!values.ContainsKey(column)) {
         problems.Add($"{where}: the primary key column {column} is missing.");
       }
+    }
+  }
+
+  // An insert leaves nothing to a default, which a later migration could change under the seed (ADR 0014, hierarchical seed
+  // layers): it names every column that can be set, a NULL one as `~`.
+  private static void CheckComplete(string where, Dictionary<string, SeedValue?> values, SeedTable known, List<string> problems) {
+    var missing = known.Table.Columns
+      .Where(column => column.GeneratedAs is not (GeneratedAs.ExpressionStored or GeneratedAs.ExpressionVirtual))
+      .Select(column => column.Name)
+      .Where(column => !values.ContainsKey(column))
+      .ToList();
+    if (missing.Count > 0) {
+      problems.Add($"{where}: an insert names every column, and it leaves out {string.Join(", ", missing)}.");
+    }
+  }
+
+  private static void CheckChanges(string where, Dictionary<string, SeedValue?> values, SeedTable known, List<string> problems) {
+    if (values.Keys.All(column => known.Table.PrimaryKey.Contains(column) || !known.Columns.ContainsKey(column))) {
+      problems.Add($"{where}: an update names the key and the columns it changes, and it changes none.");
     }
   }
 

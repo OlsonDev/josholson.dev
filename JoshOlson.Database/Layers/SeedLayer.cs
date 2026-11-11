@@ -8,5 +8,5 @@ public sealed record SeedLayer {
   public required List<TableChange> Tables { get; init; }
 
   public int RowCount
-    => Tables.Sum(table => table.Upserts.Count + table.Deletes.Count);
+    => Tables.Sum(table => table.Inserts.Count + table.Updates.Count + table.Deletes.Count);
 }

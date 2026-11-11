@@ -4,12 +4,12 @@ using JoshOlson.Shared.Extensions;
 namespace JoshOlson.Database.Seeding;
 
 // Folds a chain of layers, root first, into the rows they come to (ADR 0014, hierarchical seed layers). In each layer a
-// table's deletes apply before its upserts, so a layer can replace a row by deleting and giving it again. An upsert
-// to a row that exists changes only the columns it names; one to a row that does not makes it.
+// table's deletes apply first, then its inserts, then its updates, so a layer can replace a row by deleting it and
+// inserting it again. An insert makes a row that is not there, with every column the parser made it name; an update
+// changes only the columns it names, in a row that is there.
 //
-// Every problem is collected and thrown together: a delete of a row that is not there, and, in the finished rows, a
-// column that is NOT NULL, has no default, and that no layer gave a value, which would fail the insert. That second check
-// is why it runs on the whole chain: a layer may name only the columns it changes.
+// Every problem is collected and thrown together: a delete or an update of a row that is not there, and an insert of one
+// that is (a key two layers both claim, which an overwrite would hide).
 public static class LayerMerger {
   public static SeedState Merge(List<SeedLayer> chain, SeedSchema schema) {
     var state = new SeedState();
@@ -24,10 +24,10 @@ public static class LayerMerger {
           state.Tables[change.Table] = rows = [with(RowKeyComparer.Instance)];
         }
         Delete(layer, change, table, rows, problems);
-        Upsert(change, table, rows);
+        Insert(layer, change, table, rows, problems);
+        Update(layer, change, table, rows, problems);
       }
     }
-    CheckRequired(state, schema, problems);
     if (problems.Count > 0) {
       throw new SeedFormatException(problems.Count is 1
         ? problems[0]
@@ -51,15 +51,35 @@ public static class LayerMerger {
     }
   }
 
-  private static void Upsert(
+  private static void Insert(
+    SeedLayer layer,
     TableChange change,
     SeedTable table,
-    SortedDictionary<SeedValue[], Dictionary<string, SeedValue?>> rows
+    SortedDictionary<SeedValue[], Dictionary<string, SeedValue?>> rows,
+    List<string> problems
   ) {
-    foreach (var row in change.Upserts) {
+    foreach (var row in change.Inserts) {
+      var key = KeyOf(row, table);
+      if (rows.ContainsKey(key)) {
+        problems.Add($"{layer.Name}: {change.Table} inserts the row with key {Describe(key)}, which a layer before it (or this one) already gives.");
+        continue;
+      }
+      rows[key] = new Dictionary<string, SeedValue?>(row, StringComparer.Ordinal);
+    }
+  }
+
+  private static void Update(
+    SeedLayer layer,
+    TableChange change,
+    SeedTable table,
+    SortedDictionary<SeedValue[], Dictionary<string, SeedValue?>> rows,
+    List<string> problems
+  ) {
+    foreach (var row in change.Updates) {
       var key = KeyOf(row, table);
       if (!rows.TryGetValue(key, out var merged)) {
-        rows[key] = merged = [with(StringComparer.Ordinal)];
+        problems.Add($"{layer.Name}: {change.Table} updates the row with key {Describe(key)}, which no layer before it gives.");
+        continue;
       }
       foreach (var (column, value) in row) {
         merged[column] = value;
@@ -75,20 +95,6 @@ public static class LayerMerger {
         ?? throw new SeedFormatException($"{table.Table.Name} has a row whose key column {table.Table.PrimaryKey[i]} is NULL.");
     }
     return key;
-  }
-
-  private static void CheckRequired(SeedState state, SeedSchema schema, List<string> problems) {
-    foreach (var (name, rows) in state.Tables.OrderBy(pair => pair.Key, StringComparer.Ordinal)) {
-      var required = schema.Find(name)!.Table.Columns
-        .Where(column => !column.Nullable && column.DefaultExpression is null && column.GeneratedAs is null)
-        .Select(column => column.Name)
-        .ToList();
-      foreach (var (key, row) in rows) {
-        foreach (var column in required.Where(column => !row.ContainsKey(column))) {
-          problems.Add($"{name} row {Describe(key)}: {column} is NOT NULL and has no default, and no layer gives it a value.");
-        }
-      }
-    }
   }
 
   private static string Describe(SeedValue[] key)

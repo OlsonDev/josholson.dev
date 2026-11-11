@@ -29,9 +29,9 @@ public sealed class SequencePositionerTests : IAsyncLifetime {
         description: Root
         tables:
           tag.tag:
-            upsert:
-              - { tag_id: 1, name: Corge, slug: corge }
-              - { tag_id: 2, name: Grault, slug: grault }
+            insert:
+              - { tag_id: 1, name: Corge, slug: corge, description: ~, color: ~ }
+              - { tag_id: 2, name: Grault, slug: grault, description: ~, color: ~ }
         """,
         _schema),
       LayerParser.Parse(
@@ -41,9 +41,9 @@ public sealed class SequencePositionerTests : IAsyncLifetime {
         extends: foo
         tables:
           tag.tag:
-            upsert:
-              - { tag_id: 1001, name: Garply, slug: garply }
-              - { tag_id: 1002, name: Waldo, slug: waldo }
+            insert:
+              - { tag_id: 1001, name: Garply, slug: garply, description: ~, color: ~ }
+              - { tag_id: 1002, name: Waldo, slug: waldo, description: ~, color: ~ }
         """,
         _schema),
     ]);
@@ -90,8 +90,8 @@ public sealed class SequencePositionerTests : IAsyncLifetime {
         extends: foo
         tables:
           tag.tag:
-            upsert:
-              - { tag_id: 2500, name: Thud, slug: thud }
+            insert:
+              - { tag_id: 2500, name: Thud, slug: thud, description: ~, color: ~ }
         """,
         _schema),
     ]);

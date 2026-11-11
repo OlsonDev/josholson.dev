@@ -8,18 +8,18 @@
 
 A migration that generates identity values (for example splitting one row into several) produces different IDs depending on the rows already present. Diffing a migrated child against a migrated parent by primary key then compares unrelated rows.
 
-A layer is keyed by primary key, and a child's upsert replaces a parent's row of the same ID. So two layers that each add a row with the same ID are not two rows: the later one silently overwrites the earlier.
+A layer is keyed by primary key, so two layers that each add a row with the same ID are not two rows. Under the original `upsert` the later one silently overwrote the earlier; with separate `insert` and `update` ([ADR 0014, hierarchical seed layers](0014-hierarchical-seed-layers-in-yaml.md)) it is an error, and the block rule below is what keeps it from happening by accident.
 
 ## Decision
 
-Layers carry explicit IDs, inserted with `OVERRIDING SYSTEM VALUE` ([ADR 0006](0006-int-identity-always.md)), in per-depth blocks of 1000. A layer's depth is how many parents it has (the root is 0), and depth `d` owns IDs `d × 1000 + 1` through `(d + 1) × 1000`: the root `1..1000`, depth 1 `1001..2000`, depth 2 `2001..3000`, and so on, the same for every depth. Siblings share a block, since they never coexist. A block is for the rows a layer adds; an upsert of a row an ancestor added keeps that row's ID.
+Layers carry explicit IDs, inserted with `OVERRIDING SYSTEM VALUE` ([ADR 0006](0006-int-identity-always.md)), in per-depth blocks of 1000. A layer's depth is how many parents it has (the root is 0), and depth `d` owns IDs `d × 1000 + 1` through `(d + 1) × 1000`: the root `1..1000`, depth 1 `1001..2000`, depth 2 `2001..3000`, and so on, the same for every depth. Siblings share a block, since they never coexist. A block is for the rows a layer inserts; an update of a row an ancestor added keeps that row's ID.
 
 Explicit inserts do not advance an identity sequence, so something positions them, at two moments:
 
 - **While layers apply for a migration**, each sequence stays positioned by the root's rows alone, so a migration generates the same IDs in a parent run and in a child run.
 - **When a database is built from a layer for use** (the dev database, a test's, a template), every identity sequence in every table is set to hand out the first ID of the *next* depth's block, or the ID after the chain's largest if that is higher. A row created in that database, in the app or by a test, then lands where an export of a child layer keeps its new rows (`seed minimal` gives a new tag `1001`, `seed more-tags` gives `2001`), and a table no layer has rows in starts there too.
 
-An export refuses a new row whose ID is outside its layer's block.
+The block is enforced for a table whose primary key is one identity column: loading a layer refuses an `insert` whose ID is outside its layer's block (`LayerTree.IdBlockProblems`), and an export refuses a new row the same way.
 
 ## Alternatives considered
 

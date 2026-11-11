@@ -1,7 +1,7 @@
 description: The tags every other layer starts from
 tables:
   tag.tag:
-    upsert:
-      - { tag_id: 1, name: Database, slug: database, color: indigo-200 }
-      - { tag_id: 2, name: Language, slug: language, color: emerald-200 }
-      - { tag_id: 3, name: Tool, slug: tool, color: amber-200 }
+    insert:
+      - { tag_id: 1, name: Database, slug: database, description: ~, color: indigo-200 }
+      - { tag_id: 2, name: Language, slug: language, description: ~, color: emerald-200 }
+      - { tag_id: 3, name: Tool, slug: tool, description: ~, color: amber-200 }

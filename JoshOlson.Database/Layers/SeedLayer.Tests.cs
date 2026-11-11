@@ -4,7 +4,7 @@ namespace JoshOlson.Database.Layers;
 
 public class SeedLayerTests {
   [Fact]
-  public void RowCount_CountsUpsertsAndDeletesAcrossTables() {
+  public void RowCount_CountsInsertsUpdatesAndDeletesAcrossTables() {
     var layer = new SeedLayer {
       Name = "foo",
       Extends = null,
@@ -12,17 +12,19 @@ public class SeedLayerTests {
       Tables = [
         new() {
           Table = "foo.bar",
-          Upserts = [new() { ["bar_id"] = new SeedValue.Integer(1) }, new() { ["bar_id"] = new SeedValue.Integer(2) }],
+          Inserts = [new() { ["bar_id"] = new SeedValue.Integer(1) }, new() { ["bar_id"] = new SeedValue.Integer(2) }],
+          Updates = [new() { ["bar_id"] = new SeedValue.Integer(4) }],
           Deletes = [new() { ["bar_id"] = new SeedValue.Integer(3) }],
         },
         new() {
           Table = "foo.baz",
-          Upserts = [new() { ["baz_id"] = new SeedValue.Integer(1) }],
+          Inserts = [new() { ["baz_id"] = new SeedValue.Integer(1) }],
+          Updates = [],
           Deletes = [],
         },
       ],
     };
 
-    Assert.Equal(4, layer.RowCount);
+    Assert.Equal(5, layer.RowCount);
   }
 }

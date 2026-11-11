@@ -19,14 +19,14 @@ public class SeedSqlTests {
       description: Base
       tables:
         foo.link:
-          upsert:
-            - { bar_id: 1, tag_id: 1 }
+          insert:
+            - { bar_id: 1, tag_id: 1, flags: ~, tags: ~ }
         foo.tag:
-          upsert:
-            - { tag_id: 1 }
+          insert:
+            - { tag_id: 1, price: 0 }
         foo.bar:
-          upsert:
-            - { bar_id: 1, slug: one, name: First, lat: 1 }
+          insert:
+            - { bar_id: 1, slug: one, name: First, note: ~, created_utc: 0s, published_utc: ~, lat: 1 }
       """;
 
     var statements = Build(Yaml);
@@ -35,14 +35,14 @@ public class SeedSqlTests {
   }
 
   [Fact]
-  public void Build_IdentityColumn_OverridesSystemValue_AndMissingColumnsAreDefault() {
+  public void Build_IdentityColumn_OverridesSystemValue() {
     const string Yaml = """
       description: Base
       tables:
         foo.tag:
-          upsert:
+          insert:
             - { tag_id: 1, price: 2.5 }
-            - { tag_id: 2 }
+            - { tag_id: 2, price: 0 }
       """;
 
     var statement = Build(Yaml).Single();
@@ -54,16 +54,42 @@ public class SeedSqlTests {
         , price
       ) OVERRIDING SYSTEM VALUE VALUES
           (@p0, @p1)
-        , (@p2, DEFAULT)
+        , (@p2, @p3)
       ;
       """,
       statement.Sql.Replace("\r", "", StringComparison.Ordinal));
     Assert.Equal(2, statement.RowCount);
-    Assert.Equal(3, statement.Parameters.Count);
+    Assert.Equal(4, statement.Parameters.Count);
     Assert.Equal((short)1, statement.Parameters[0].Value);
     Assert.Equal(NpgsqlDbType.Smallint, statement.Parameters[0].NpgsqlDbType);
     Assert.Equal(2.5m, statement.Parameters[1].Value);
     Assert.Equal(NpgsqlDbType.Numeric, statement.Parameters[1].NpgsqlDbType);
+  }
+
+  [Fact]
+  public void Build_ColumnGeneratedFromAnExpression_IsNotInTheStatement() {
+    const string Yaml = """
+      description: Base
+      tables:
+        foo.bar:
+          insert:
+            - { bar_id: 1, slug: one, name: First, note: ~, created_utc: 0s, published_utc: ~, lat: 1 }
+      """;
+
+    var statement = Build(Yaml).Single();
+
+    Assert.DoesNotContain("slug_length", statement.Sql, StringComparison.Ordinal);
+  }
+
+  [Fact]
+  public void Build_RowThatLeavesAColumnOut_IsRefusedNotFilledByADefault() {
+    var state = new SeedState();
+    state.Tables["foo.tag"] = [with(RowKeyComparer.Instance)];
+    state.Tables["foo.tag"][[new SeedValue.Integer(1)]] = new() { ["tag_id"] = new SeedValue.Integer(1) };
+
+    var exception = Assert.Throws<SeedFormatException>(() => SeedSql.Build(state, _Schema, _Anchor));
+
+    Assert.Equal("foo.tag: a row leaves out price, and a seed names every column.", exception.Message);
   }
 
   [Fact]
@@ -72,14 +98,14 @@ public class SeedSqlTests {
       description: Base
       tables:
         foo.bar:
-          upsert:
-            - { bar_id: 1, slug: one, name: First, lat: 1, note: ~ }
+          insert:
+            - { bar_id: 1, slug: one, name: First, note: ~, created_utc: 0s, published_utc: ~, lat: 1 }
       """;
 
     var statement = Build(Yaml).Single();
 
     Assert.Contains("NULL", statement.Sql, StringComparison.Ordinal);
-    Assert.DoesNotContain(statement.Parameters, parameter => parameter.ParameterName is "p4" or "p5");
+    Assert.Equal(5, statement.Parameters.Count);
   }
 
   [Fact]
@@ -88,8 +114,8 @@ public class SeedSqlTests {
       description: Base
       tables:
         foo.bar:
-          upsert:
-            - { bar_id: 1, slug: one, name: First, lat: 1, created_utc: -1h 0.000001s, published_utc: 2020-02-03T04:05:06.000007Z }
+          insert:
+            - { bar_id: 1, slug: one, name: First, note: ~, created_utc: -1h 0.000001s, published_utc: 2020-02-03T04:05:06.000007Z, lat: 1 }
       """;
 
     var parameters = Build(Yaml).Single().Parameters;
@@ -106,8 +132,8 @@ public class SeedSqlTests {
       description: Base
       tables:
         foo.link:
-          upsert:
-            - { bar_id: 1, tag_id: 1, flags: [1, ~, 3] }
+          insert:
+            - { bar_id: 1, tag_id: 1, flags: [1, ~, 3], tags: ~ }
       """;
 
     var flags = Build(Yaml).Single().Parameters.Single(parameter => parameter.Value is short?[]);
@@ -122,8 +148,8 @@ public class SeedSqlTests {
       description: Base
       tables:
         foo.link:
-          upsert:
-            - { bar_id: 1, tag_id: 1, tags: [7] }
+          insert:
+            - { bar_id: 1, tag_id: 1, flags: ~, tags: [7] }
       """;
 
     var tags = Build(Yaml).Single().Parameters.Single(parameter => parameter.Value is short?[]);
@@ -137,8 +163,8 @@ public class SeedSqlTests {
       description: Base
       tables:
         foo.bar:
-          upsert:
-            - { bar_id: 1, slug: one, name: First, lat: 1, created_utc: -100000000d }
+          insert:
+            - { bar_id: 1, slug: one, name: First, note: ~, created_utc: -100000000d, published_utc: ~, lat: 1 }
       """;
 
     var exception = Assert.Throws<SeedFormatException>(() => Build(Yaml));

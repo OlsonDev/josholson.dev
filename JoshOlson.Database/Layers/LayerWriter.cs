@@ -11,8 +11,8 @@ namespace JoshOlson.Database.Layers;
 // (ADR 0034, lock file and branch-safe migration: `seeds:check` needs a layer to export to its own file, byte for byte).
 // So there is no choice anywhere in it:
 // - the keys are `description`, `extends` (left out for a root), and `tables`, in that order;
-// - the tables are sorted by name, a table with nothing to change is left out, `upsert` comes before `delete`, and the
-//   rows are sorted by primary key (`RowKeyComparer`);
+// - the tables are sorted by name, a table with nothing to change is left out, `insert`, `update`, and `delete` come in
+//   that order, and the rows are sorted by primary key (`RowKeyComparer`);
 // - a row is a one-line flow mapping with its columns in the table's order, and `~` for NULL;
 // - a value is written the way `SeedValueReader` reads it: an offset like `-3d 4h` for a relative time, a UTC instant for
 //   an absolute one, `\x` and hex for bytes, native YAML for `jsonb` (every string in it quoted), and a YAML list for an
@@ -28,7 +28,7 @@ public static class LayerWriter {
       _ = text.Append("extends: ").Append(layer.Extends).Append('\n');
     }
     var changed = layer.Tables
-      .Where(table => table.Upserts.Count + table.Deletes.Count > 0)
+      .Where(table => table.Inserts.Count + table.Updates.Count + table.Deletes.Count > 0)
       .OrderBy(table => table.Table, StringComparer.Ordinal)
       .ToList();
     if (changed.Count > 0) {
@@ -38,7 +38,8 @@ public static class LayerWriter {
       var known = schema.Find(table.Table)
         ?? throw new SeedFormatException($"{layer.Name}: {table.Table} is not a table in the schema lock.");
       _ = text.Append("  ").Append(table.Table).Append(":\n");
-      Section(text, "upsert", table.Upserts, known);
+      Section(text, "insert", table.Inserts, known);
+      Section(text, "update", table.Updates, known);
       Section(text, "delete", table.Deletes, known);
     }
     return text.ToString();
