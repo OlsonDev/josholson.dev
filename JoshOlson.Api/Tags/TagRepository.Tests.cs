@@ -66,7 +66,7 @@ public class TagRepositoryTests {
       Assert.Equal((false, false), await Taken(request.Slug, request.Name, tagId));
       Assert.Equal((false, false), await Taken(request.Slug, name: null, tagId));
       Assert.Equal((false, false), await Taken(slug: null, request.Name, tagId));
-      // 0 is an id like any other, not "none".
+      // 0 is an ID like any other, not "none".
       Assert.Equal((true, true), await Taken(request.Slug, request.Name, 0));
     } finally {
       await _tagRepository.DeleteAsync(tagId, CancellationToken.None);

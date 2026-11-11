@@ -20,7 +20,7 @@ public static partial class SeedDatabaseNames {
   public static string Layer(string hash)
     => _LayerPrefix + hash;
 
-  // A scoped database for one test (`seed:test <id> <layer>`). The id is lowercase letters and digits.
+  // A scoped database for one test (`seed:test <id> <layer>`). The ID is lowercase letters and digits.
   public static string Test(string id)
     => TestId().IsMatch(id)
       ? _TestPrefix + id

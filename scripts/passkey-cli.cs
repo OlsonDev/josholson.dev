@@ -8,7 +8,7 @@
 //
 //   dotnet run scripts/passkey-cli.cs -- enroll <token>
 //       Registers the key with an enrollment token (`dotnet run --project JoshOlson.Api -- enroll "Name"`), then
-//       signs in with it and prints the session's user and passkeys. Prints the ids that `sign-in` needs.
+//       signs in with it and prints the session's user and passkeys. Prints the IDs that `sign-in` needs.
 //   dotnet run scripts/passkey-cli.cs -- sign-in --credential-id <base64url> --user-handle <base64url>
 //       Signs in with an already registered key.
 //

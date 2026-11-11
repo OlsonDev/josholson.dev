@@ -18,7 +18,7 @@ public static class NpgsqlConnectionExtensions {
 
     // For rows that are looked up by a key in code, such as a parent's rows or its children's. The first column is the
     // key, and everything from the column named `splitOn` on fills a `T`. The key stays out of `T`, so a model type
-    // carries no database ids. One row per key: a key that comes back twice throws.
+    // carries no database IDs. One row per key: a key that comes back twice throws.
     public async Task<Dictionary<TKey, T>> QueryDictionaryAsync<TKey, T>(
       string sql,
       object? parameters,

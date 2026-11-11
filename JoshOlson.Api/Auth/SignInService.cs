@@ -28,7 +28,7 @@ public sealed class SignInService {
     _clock = clock;
   }
 
-  // No username and no credential ids: the browser offers whichever passkey it holds, and an anonymous visitor
+  // No username and no credential IDs: the browser offers whichever passkey it holds, and an anonymous visitor
   // learns nothing about the account (ADR 0031, Red, Purple, or a phone).
   public CeremonyResponse<AssertionOptions> Start() {
     var options = _webAuthnService.CreateAssertionOptions([]);

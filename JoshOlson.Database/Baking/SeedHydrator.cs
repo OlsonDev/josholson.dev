@@ -10,7 +10,7 @@ namespace JoshOlson.Database.Baking;
 // database is made: a layer template, the dev database `seed <layer>` rebuilds, and the checks `seeds:migrate` runs.
 // The chain's rows go in one transaction, the anchor its relative times were worked out from is recorded in
 // `seed.hydration` (the clock a test starts at, and what an export measures from), and then each identity sequence
-// moves past the ids the chain took.
+// moves past the IDs the chain took.
 public static class SeedHydrator {
   // Postgres keeps microseconds, so the anchor is cut to one: it is read back equal to what was written.
   public static Instant Anchor(IClock clock)

@@ -3,7 +3,7 @@ using Npgsql;
 
 namespace JoshOlson.Api.Http;
 
-// A user agent is stored once and referenced by id (`http.user_agent`), since browsers repeat the same string on
+// A user agent is stored once and referenced by ID (`http.user_agent`), since browsers repeat the same string on
 // every request.
 public sealed class UserAgentRepository {
   // The longest value `http.user_agent` accepts (`ck_user_agent_value_length`).
@@ -14,7 +14,7 @@ public sealed class UserAgentRepository {
   public UserAgentRepository(NpgsqlConnection connection)
     => _connection = connection;
 
-  // The id of the user agent, adding it first if it is new. `userAgent` must already be trimmed and at most
+  // The ID of the user agent, adding it first if it is new. `userAgent` must already be trimmed and at most
   // `MaxLength`.
   public async Task<int> GetOrCreateIdAsync(string userAgent, CancellationToken cancellationToken) {
     var selectSql = """
@@ -28,7 +28,7 @@ public sealed class UserAgentRepository {
     if (existingId is { } id) return id;
 
     // Two requests can both miss the select. The conflict update changes nothing; it only lets `RETURNING` hand the
-    // winner's id to the loser.
+    // winner's ID to the loser.
     var insertSql = """
       INSERT INTO http.user_agent AS ua (
           value

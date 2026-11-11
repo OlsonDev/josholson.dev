@@ -26,7 +26,7 @@ A WebAuthn credential is a key pair held by one authenticator, and the biometric
 
 ### Signing in
 
-- The sign-in page calls `navigator.credentials.get` with an empty `allowCredentials` and `userVerification: "required"`. The browser offers whichever passkeys it can use: a plugged-in key (PIN and touch) or the phone. No username step is needed, because there is one account, and the API never reveals credential ids to an anonymous visitor.
+- The sign-in page calls `navigator.credentials.get` with an empty `allowCredentials` and `userVerification: "required"`. The browser offers whichever passkeys it can use: a plugged-in key (PIN and touch) or the phone. No username step is needed, because there is one account, and the API never reveals credential IDs to an anonymous visitor.
 - This needs discoverable credentials, so registration asks for `residentKey: "required"`. A security key keeps a limited number of these slots; one slot per key for this site is fine. Checked with `fido2-token -I` on 2026-10-30: the key has a FIDO2 PIN set (`clientPin`) and 298 free slots (`remaining rk(s)`).
 - A phone user on a computer picks "use a phone" in the browser's sign-in dialog and approves on the phone (the same QR flow described below).
 
@@ -42,7 +42,7 @@ A page behind the session, `/admin/passkeys`, lists the account's passkeys (nick
 Registration endpoints:
 
 - All of them require a session. Because a hijacked session could otherwise plant an attacker's passkey, a change to the passkey set only takes effect once the owner **confirms it with a passkey that is already registered**. The confirmation is part of the flow, not a freshness window on the session:
-  1. **Start.** `POST /auth/passkeys/registration/options` returns the creation options, with `excludeCredentials` set to the existing credential ids so an authenticator cannot be registered twice. The owner creates the new credential (scans the QR and approves on the phone, or touches the key).
+  1. **Start.** `POST /auth/passkeys/registration/options` returns the creation options, with `excludeCredentials` set to the existing credential IDs so an authenticator cannot be registered twice. The owner creates the new credential (scans the QR and approves on the phone, or touches the key).
   2. **Hold.** `POST /auth/passkeys/registration/verify` checks the attestation but does **not** insert anything. It keeps the result as a *pending change* bound to the session.
   3. **Confirm.** The page then asks the owner to sign in with a known passkey. `POST /auth/passkeys/confirm/options` returns assertion options for the active passkeys only, with a challenge bound to the pending change. `POST /auth/passkeys/confirm/verify` checks the assertion and, only then, inserts the row. The new, still-pending credential can never confirm itself.
 - **Removing** a passkey uses the same confirm step: the pending change is "remove this one", and any registered passkey confirms it.
@@ -66,7 +66,7 @@ The first passkey comes from the server-side enrollment token in ADR 0027 (decid
 
 - **A site-generated QR code.** The page would show a QR holding a one-time enrollment link that the phone opens and registers from directly, with no Bluetooth needed. It is a more reliable fallback where cross-device is unsupported, but it adds a bearer token in a URL, an endpoint to issue and redeem it, and a QR library. The browser's built-in flow gives the same outcome with none of that. Revisit only if the built-in flow proves unreliable on the owner's browsers.
 - **A synced passkey only, no hardware keys.** Simplest, but ties the account to one platform vendor's account and leaves a computer without a phone nearby unable to sign in.
-- **Non-discoverable credentials with a username and `allowCredentials`.** Saves key slots, but needs a username step or exposes credential ids to anonymous requests.
+- **Non-discoverable credentials with a username and `allowCredentials`.** Saves key slots, but needs a username step or exposes credential IDs to anonymous requests.
 
 ## Consequences
 

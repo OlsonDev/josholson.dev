@@ -19,8 +19,8 @@ Tests insert rows and then delete them in a `finally` ([ADR 0032, constructor in
   - `mise run`: `seeds:bake`, `seed <layer>` (destroy and recreate the dev database from that layer's template), `seed:test <id> <layer>` (stand up a scoped database by hand), `seed:clean`, `seeds:list`, and `seeds:migrate`, `seeds:accept`, and `seeds:check` ([ADR 0034, lock file and branch-safe migration](0034-seed-lock-file-and-branch-safe-migration.md));
   - Playwright's global setup, which runs `mise run seeds:bake`.
 - **`seed:clean` drops every database with the tool's test prefix**, never the dev database, for the case where a run was killed before its scopes were disposed. The tool keeps its other safety checks from `seeding.md`: its own prefix, a `CREATEDB` role without superuser, and an allowlisted host.
-- **A scope id selects the database for a request.** A test scope has an opaque id (the 42 in `seed:test 42 stress-test`). The test sends it in a header on every request. The API resolves it to a data source for that database. The id is not tied to Postgres: anything per-instance (a Redis key prefix, if we add Redis) resolves from the same id.
-- **Production cannot honor the header.** The code that reads it and the registry that maps ids to databases are registered only by a test composition, never by the production one, and the production host fails at startup if that composition is present. The header carries an id, never a connection string, and an unknown id is rejected.
+- **A scope ID selects the database for a request.** A test scope has an opaque ID (the 42 in `seed:test 42 stress-test`). The test sends it in a header on every request. The API resolves it to a data source for that database. The ID is not tied to Postgres: anything per-instance (a Redis key prefix, if we add Redis) resolves from the same ID.
+- **Production cannot honor the header.** The code that reads it and the registry that maps IDs to databases are registered only by a test composition, never by the production one, and the production host fails at startup if that composition is present. The header carries an ID, never a connection string, and an unknown ID is rejected.
 - **Same path for both kinds of test.** API tests use the in-memory host and send the header like any client. Playwright sets it on the browser context, and the web server forwards it on its own calls to the API. The header, not a cookie, because it is easy to keep out of production and a cookie would reach the web server and the API alike.
 - Background work in the API has no request and always uses the default database.
 
@@ -29,7 +29,7 @@ Tests insert rows and then delete them in a `finally` ([ADR 0032, constructor in
 - **Transactions rolled back at the end of each test.** Cheap, but the API opens its own connection per request ([ADR 0024](0024-scoped-open-connection-per-request.md)), commits inside services, and an end-to-end test spans several processes. A rollback cannot cover those.
 - **Truncate and reseed between tests.** Slower than a file copy for larger seeds, and a missed table leaks state.
 - **A container per test.** Heavier and gains no isolation we need ([ADR 0013](0013-single-postgres-server-with-template-databases.md)).
-- **A cookie for the scope id.** Reaches the web server and the API without a CORS preflight, but is harder to gate to test mode.
+- **A cookie for the scope ID.** Reaches the web server and the API without a CORS preflight, but is harder to gate to test mode.
 
 ## Consequences
 

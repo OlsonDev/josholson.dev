@@ -14,8 +14,8 @@ namespace JoshOlson.Database.Seeding;
 // Turns the rows a chain of layers comes to into `INSERT` statements, one table at a time in an order the foreign keys
 // allow (`SchemaLock.InsertOrder`). A table's rows share one statement, so its column list is every column any of them
 // names, in the table's column order, and a row that leaves one out says `DEFAULT`. A column the database fills itself
-// (an identity column) is inserted into with `OVERRIDING SYSTEM VALUE`, so a seed's explicit ids stand and the identity
-// sequence is left where it was (ADR 0015, seed id blocks).
+// (an identity column) is inserted into with `OVERRIDING SYSTEM VALUE`, so a seed's explicit IDs stand and the identity
+// sequence is left where it was (ADR 0015, seed ID blocks).
 //
 // Values are typed parameters. A relative time is the anchor plus its offset, worked out here, exact to the microsecond.
 // A table with more rows than fit in the parameter limit is split into several statements, which keep the key order.

@@ -64,7 +64,7 @@ public sealed class AuthTestData {
   public async Task<int> CreateUserAsync(CancellationToken cancellationToken)
     => await _authUserRepository.CreateAsync($"test-{Guid.NewGuid():N}", NewHandle(), cancellationToken);
 
-  // Signs `client` in as a new user: a session row, and the cookie the API would have set. Returns the user's id, for
+  // Signs `client` in as a new user: a session row, and the cookie the API would have set. Returns the user's ID, for
   // `DeleteUserAsync`.
   public async Task<int> SignInAsync(HttpClient client, CancellationToken cancellationToken) {
     var userId = await CreateUserAsync(cancellationToken);
@@ -82,7 +82,7 @@ public sealed class AuthTestData {
   }
 
   // A new user with one passkey, registered through the enrollment endpoints the way the CLI does, which also signs
-  // `client` in. Returns the user's id, for `DeleteUserAsync`.
+  // `client` in. Returns the user's ID, for `DeleteUserAsync`.
   public async Task<int> EnrollUserAsync(
     HttpClient client,
     SoftwareAuthenticator authenticator,
@@ -95,7 +95,7 @@ public sealed class AuthTestData {
       Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
       return userId;
     } catch {
-      // The caller never gets an id to clean up, so a failure here would leak the user.
+      // The caller never gets an ID to clean up, so a failure here would leak the user.
       await DeleteUserAsync(userId);
       throw;
     }

@@ -59,7 +59,7 @@ Mint a one-time enrollment token for the first passkey, or for recovery when eve
 dotnet run --project JoshOlson.Api -- enroll "Display Name"
 ```
 
-Try the passkey endpoints with a real security key and no front end. The API must be running (`ASPNETCORE_URLS=http://localhost:5000`, with `ConnectionStrings__Default`); the script plays the browser through libfido2's `fido2-cred` and `fido2-assert`, so it asks for the key's PIN and a touch at each step. `enroll` registers the key with a token from the command above, then signs in with it and prints the ids that `sign-in` needs. Pass `--device /dev/hidrawN` when two keys are plugged in. The credential is bound to `--rp-id` (`localhost` by default), so it is a development credential:
+Try the passkey endpoints with a real security key and no front end. The API must be running (`ASPNETCORE_URLS=http://localhost:5000`, with `ConnectionStrings__Default`); the script plays the browser through libfido2's `fido2-cred` and `fido2-assert`, so it asks for the key's PIN and a touch at each step. `enroll` registers the key with a token from the command above, then signs in with it and prints the IDs that `sign-in` needs. Pass `--device /dev/hidrawN` when two keys are plugged in. The credential is bound to `--rp-id` (`localhost` by default), so it is a development credential:
 
 ```
 mise run passkey enroll <token>
@@ -149,6 +149,7 @@ Test the hooks' validators: `dotnet run .githooks/commit-msg.tests.cs` and `dotn
 - Reference data (mime types, extensions) belongs in repeatable migrations, never in seeds.
 - Examples that illustrate a convention, in any rule, doc, or language (SQL, C#, TypeScript), use metasyntactic names (`foo`, `bar`, `baz`, `qux`, `quux`, `corge`, `grault`, `garply`, `waldo`, `fred`, `plugh`, `xyzzy`, `thud`) for tables, columns, types, and members. Real names go stale: a table may last for years while its definition changes, so an example must not snapshot it. Use a real name only when the example is unlikely to need maintenance, such as an ADR naming the thing it decides about. Real names otherwise belong in a clearly labeled reference, such as the domains list in `sql.md` or `docs/database.md`.
 - American English spelling everywhere: code, comments, docs, ADRs, commit messages, test data, and chat. `canceled`, not `cancelled` (and `canceling`, `cancelable`; `cancellation` is the same in both), `initialized`, `labeled`, `behavior`, `color`, `gray`, `-ize` not `-ise`, a single `l` in `traveled` and `modeling`. A name or message that belongs to someone else's API keeps its spelling.
+- Write `ID` and `IDs`, never `id` or `ids`, in prose: comments, docs, ADRs, commit messages, and chat ("the user's ID", "explicit IDs"). Code keeps its own casing: identifiers, column names, and placeholders stay as they are (`tag_id`, a column named `id`, `<id>` in a command, `--credential-id`).
 - Never load `compose.dev.yaml` on the server.
 - Never refer to an ADR by number alone, in chat or in files. Follow the number with a short parenthetical saying what it decides, or use the topic instead: "ADR 0030 (analyzer packages)", not "ADR 0030". Numbers are arbitrary and there will be many. Link text in `docs/adr/` indexes and cross-references counts if it names the topic.
 - Record significant decisions as a new ADR in `docs/adr/` instead of expanding this file.
