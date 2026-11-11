@@ -125,11 +125,12 @@ run = [
 [tasks."db:reset".env]
 _.file = ".env"
 
-# The test tasks read .env for the dev database (POSTGRES_*) and run as the josholson_api role, so start the database
-# and run db:provision first (see CLAUDE.md).
+# The test tasks start the dev containers (the database, and `tools` for the seed tool's templates), read .env for the
+# dev database (POSTGRES_*), and run as the josholson_api role, so run db:provision first (see CLAUDE.md).
 # Tests live beside the code as *.Tests.cs and are compiled in for Debug (see JoshOlson.Api/JoshOlson.Api.csproj).
 [tasks.test]
 description = "Run every project's tests (Debug build, tests compiled in)"
+depends = ["tools:up"]
 run = "dotnet test --solution JoshOlson.slnx"
 
 [tasks.test.env]
@@ -137,6 +138,7 @@ _.file = ".env"
 
 [tasks."test:release"]
 description = "Run every project's tests against a Release build"
+depends = ["tools:up"]
 run = "dotnet test --solution JoshOlson.slnx -c Release -p:IncludeTests=true"
 
 [tasks."test:release".env]

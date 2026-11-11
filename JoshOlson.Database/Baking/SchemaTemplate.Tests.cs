@@ -5,9 +5,8 @@ using Xunit;
 
 namespace JoshOlson.Database.Baking;
 
-// `NameAsync` tests need no database. The `EnsureAsync` test builds a real template, so the dev database and its
-// containers must be running (`podman compose ... up -d`) with `.env` loaded (mise does that); it drops the template
-// when it ends.
+// `NameAsync` tests need no database. The `EnsureAsync` test builds a real template under a name of its own and drops
+// it when it ends.
 [Collection(TemplateCollection.Name)]
 public sealed class SchemaTemplateTests : IDisposable {
   private readonly CancellationToken _cancellationToken = TestContext.Current.CancellationToken;
