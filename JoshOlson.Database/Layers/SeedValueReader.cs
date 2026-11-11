@@ -190,7 +190,8 @@ internal static class SeedValueReader {
     if (!int.TryParse(parts[1], NumberStyles.None, CultureInfo.InvariantCulture, out var bits) || bits > maximum) {
       return $"has a network size of '{parts[1]}', and an address of this kind takes 0 to {maximum.ToInvariantString()}.";
     }
-    value = new SeedValue.Inet(string.Create(CultureInfo.InvariantCulture, $"{address}/{bits}"));
+    // A prefix as long as the address is one host, which Postgres does not tell from the bare address, so neither do we.
+    value = new SeedValue.Inet(bits == maximum ? address.ToString() : string.Create(CultureInfo.InvariantCulture, $"{address}/{bits}"));
     return null;
   }
 
@@ -200,7 +201,7 @@ internal static class SeedValueReader {
     using (var writer = new Utf8JsonWriter(stream, new JsonWriterOptions { Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping })) {
       WriteJson(writer, node);
     }
-    return Encoding.UTF8.GetString(stream.ToArray());
+    return JsonCanonical.Normalize(Encoding.UTF8.GetString(stream.ToArray()));
   }
 
   private static void WriteJson(Utf8JsonWriter writer, YamlNode node) {

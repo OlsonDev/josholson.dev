@@ -132,6 +132,8 @@ public class SeedValueReaderTests {
   [InlineData("10.0.0.0/8", "10.0.0.0/8")]
   [InlineData("::1", "::1")]
   [InlineData("2001:DB8::/32", "2001:db8::/32")]
+  [InlineData("10.0.0.1/32", "10.0.0.1")]
+  [InlineData("::1/128", "::1")]
   public void Read_Inet_IsTheAddressAndOptionalPrefix(string text, string expected) {
     Assert.Null(Problem(SeedType.Inet, text, out var value));
     Assert.Equal(new SeedValue.Inet(expected), value);
@@ -148,11 +150,11 @@ public class SeedValueReaderTests {
     => Assert.NotNull(Problem(SeedType.Inet, text, out _));
 
   [Fact]
-  public void Read_Jsonb_IsNativeYamlWrittenAsJson() {
+  public void Read_Jsonb_IsNativeYamlWrittenAsJsonWithItsKeysInPostgresOrder() {
     var problem = Problem(SeedType.Jsonb, "{ foo: 1, bar: [true, ~, \"2\", 1.5, baz], qux: { quux: \"null\" } }", out var value);
 
     Assert.Null(problem);
-    Assert.Equal(new SeedValue.Json("""{"foo":1,"bar":[true,null,"2",1.5,"baz"],"qux":{"quux":"null"}}"""), value);
+    Assert.Equal(new SeedValue.Json("""{"bar":[true,null,"2",1.5,"baz"],"foo":1,"qux":{"quux":"null"}}"""), value);
   }
 
   [Fact]
