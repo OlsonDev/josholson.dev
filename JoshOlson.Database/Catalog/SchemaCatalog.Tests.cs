@@ -305,6 +305,47 @@ public class SchemaCatalogTests {
   }
 
   [Fact]
+  public async Task ReadAsync_TableCommentWithSeedIgnore_MarksJustThatTable() {
+    const string Ddl = """
+      CREATE SCHEMA {schema};
+      CREATE TABLE {schema}.runtime (runtime_id INT NOT NULL, CONSTRAINT pk_runtime PRIMARY KEY (runtime_id));
+      COMMENT ON TABLE {schema}.runtime IS 'Who is signed in. @seed ignore';
+      CREATE TABLE {schema}.plain (plain_id INT NOT NULL, CONSTRAINT pk_plain PRIMARY KEY (plain_id));
+      COMMENT ON TABLE {schema}.plain IS 'Ordinary data';
+      CREATE TABLE {schema}.bare (bare_id INT NOT NULL, CONSTRAINT pk_bare PRIMARY KEY (bare_id));
+      """;
+
+    var schema = await InScratchSchemaAsync(Ddl, async name => await ReadAsync(new() { OnlySchemas = [name] }));
+
+    Assert.Equal(["bare", "plain", "runtime"], schema.Tables.Select(table => table.Name.Split('.')[1]));
+    Assert.Equal([false, false, true], schema.Tables.Select(table => table.Ignored));
+  }
+
+  [Theory]
+  [InlineData("@seed")]
+  [InlineData("@seed sometimes")]
+  [InlineData("@seed absolute")]
+  public async Task ReadAsync_BadTableSeedDirective_ThrowsNamingTheTable(string comment) {
+    var ddl = $"CREATE SCHEMA {{schema}}; CREATE TABLE {{schema}}.bar (baz INT NOT NULL); COMMENT ON TABLE {{schema}}.bar IS '{comment}';";
+
+    var exception = await Assert.ThrowsAsync<SchemaCatalogException>(()
+      => InScratchSchemaAsync(ddl, async name => await ReadAsync(new() { OnlySchemas = [name] })));
+
+    Assert.Contains(".bar:", exception.Message, StringComparison.Ordinal);
+    Assert.Contains("@seed ignore", exception.Message, StringComparison.Ordinal);
+  }
+
+  [Fact]
+  public async Task ReadAsync_DevDatabase_MarksTheRuntimeTablesAndNoOthers() {
+    var schema = await ReadAsync();
+
+    // The user, their email, and their passkeys are seed data, so a test can start already signed up and log in.
+    Assert.Equal(
+      ["auth.enrollment_token", "auth.session", "http.user_agent"],
+      schema.Tables.Where(table => table.Ignored).Select(table => table.Name));
+  }
+
+  [Fact]
   public async Task ReadAsync_UnsupportedDomainBase_ThrowsNamingTheDomain() {
     const string Ddl = "CREATE SCHEMA {schema}; CREATE DOMAIN {schema}.span AS interval;";
 

@@ -110,9 +110,12 @@ public sealed class SeedStateReaderTests : IAsyncLifetime {
 
     var read = await SeedStateReader.ReadAsync(connection, schema, _cancellationToken);
 
-    // A fresh database is not empty: the repeatable migrations put reference data in it, which no layer has.
-    Assert.Equal(schema.InsertOrder().Select(table => table.Table.Name).Order(StringComparer.Ordinal), read.Rows.Tables.Keys.Order(StringComparer.Ordinal));
-    foreach (var table in schema.InsertOrder()) {
+    // A fresh database is not empty: the repeatable migrations put reference data in it, which no layer has. A table that is
+    // `@seed ignore` is not read at all.
+    var seedTables = schema.InsertOrder().Where(table => !table.Table.Ignored).ToList();
+    Assert.Equal(seedTables.Select(table => table.Table.Name).Order(StringComparer.Ordinal), read.Rows.Tables.Keys.Order(StringComparer.Ordinal));
+    Assert.DoesNotContain("auth.session", read.Rows.Tables.Keys);
+    foreach (var table in seedTables) {
       var count = await connection.QuerySingleAsync<long>($"SELECT count(*) FROM {table.Table.Name};", _cancellationToken);
       Assert.Equal(count, read.Rows.Tables[table.Table.Name].Count);
     }

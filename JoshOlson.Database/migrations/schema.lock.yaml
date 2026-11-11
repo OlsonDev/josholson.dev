@@ -24,10 +24,10 @@ migrations:
     checksum: 4a31177fff5d7c1b92f172f455fbf1e3242e5aec095da2d70e5245c0a84680f0
   - version: 8
     file: V008__http.sql
-    checksum: ef3f69f24e74137eadb7ba8176001df70c73c27fa9acc9c07a172bedab47aa3e
+    checksum: 9ffe1c6658a5831bead8eb18fbca8812395445b18eca9c10713de655dfbe2491
   - version: 9
     file: V009__auth.sql
-    checksum: 51df2cfbbe4e42852f1c524358c54e0a197efa234b738e07f3d06e7aa7b49955
+    checksum: 0ea49e8229392a744568d5007b927a3e05e694a50da637085a140d4f4ee03ade
   - version: 10
     file: V010__form.sql
     checksum: 9eb2a767f6f20ee0731f6a1ce31013c76aa836035312f8adb86285fadc9ea02b
@@ -76,6 +76,8 @@ domains:
       - { name: ck_url_format, expression: "CHECK (((VALUE ~* '^https?://[^\\s/?#]+([/?#]\\S*)?$'::text) AND (length(VALUE) <= 2048)))" }
 tables:
   auth.enrollment_token:
+    comment: "@seed ignore"
+    seed: ignore
     columns:
       - { name: enrollment_token_id, type: integer, generated_as: identity-always }
       - { name: user_id, type: integer }
@@ -122,6 +124,8 @@ tables:
     foreign_keys:
       - { name: fk_passkey__user, columns: [user_id], references: auth.user, referenced_columns: [user_id], on_delete: cascade }
   auth.session:
+    comment: "@seed ignore"
+    seed: ignore
     columns:
       - { name: session_id, type: integer, generated_as: identity-always }
       - { name: user_id, type: integer }
@@ -315,6 +319,8 @@ tables:
       - { name: ix_contact_pending_notification, definition: "CREATE INDEX ix_contact_pending_notification ON form.contact USING btree (created_utc) WHERE ((notified_utc IS NULL) AND (NOT is_spam))" }
       - { name: ix_contact_user_agent_id, definition: "CREATE INDEX ix_contact_user_agent_id ON form.contact USING btree (user_agent_id) WHERE (user_agent_id IS NOT NULL)" }
   http.user_agent:
+    comment: "@seed ignore"
+    seed: ignore
     columns:
       - { name: user_agent_id, type: integer, generated_as: identity-always }
       - { name: value, type: text.trimmed }

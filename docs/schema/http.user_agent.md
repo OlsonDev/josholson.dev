@@ -1,5 +1,7 @@
 # `http.user_agent`
 
+@seed ignore
+
 ## Columns
 
 | Name            | Type                                  |   Nullable | Default                        |

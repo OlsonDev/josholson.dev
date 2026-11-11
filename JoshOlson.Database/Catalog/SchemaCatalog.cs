@@ -64,7 +64,12 @@ public static class SchemaCatalog {
     List<string> problems
   ) {
     var primaryKey = rows.PrimaryKeys.GetValueOrDefault(key);
+    var (ignored, problem) = SeedDirectives.TableIgnoreOf(table.Comment, table.Name);
+    if (problem is not null) {
+      problems.Add(problem);
+    }
     return table with {
+      Ignored = ignored,
       Columns = [.. rows.Columns.GetValueOrDefault(key, []).Select(column => FinishColumn(table.Name, column, domains, problems))],
       PrimaryKey = primaryKey?.Columns ?? [],
       PrimaryKeyName = primaryKey?.Name,

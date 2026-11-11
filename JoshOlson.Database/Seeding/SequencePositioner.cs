@@ -45,7 +45,8 @@ public static class SequencePositioner {
     => await SetAsync(connection, LayerMerger.Merge([tree.ChainTo(layer)[0]], schema), schema, floor: null, cancellationToken);
 
   // Without a `floor`, only the tables the state has rows for move, each to its largest ID. With one, every identity
-  // column in the schema moves, to the larger of its table's largest ID and the ID just before the floor.
+  // column in the schema moves (but not a table that is `@seed ignore`: its rows are runtime data, outside the blocks),
+  // to the larger of its table's largest ID and the ID just before the floor.
   public static async Task<int> SetAsync(
     NpgsqlConnection connection,
     SeedState state,
@@ -54,7 +55,7 @@ public static class SequencePositioner {
     CancellationToken cancellationToken
   ) {
     var moved = 0;
-    foreach (var table in schema.InsertOrder()) {
+    foreach (var table in schema.InsertOrder().Where(table => !table.Table.Ignored)) {
       var hasRows = state.Tables.TryGetValue(table.Table.Name, out var rows) && rows.Count > 0;
       if (!hasRows && floor is null) {
         continue;

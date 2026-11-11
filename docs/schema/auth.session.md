@@ -1,5 +1,7 @@
 # `auth.session`
 
+@seed ignore
+
 ## Columns
 
 | Name            | Type                                |   Nullable | Default                        |

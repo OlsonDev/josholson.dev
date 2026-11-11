@@ -30,6 +30,7 @@ namespace JoshOlson.Database.Locks;
 //   tables:
 //     foo.bar:
 //       comment: Comment text
+//       seed: ignore                                 # only when the comment says `@seed ignore`: runtime data, not seed data
 //       columns:
 //         - { name: bar_id, type: bigint, generated_as: identity-always }
 //         - { name: baz, type: foo.grault, nullable: true, default_expression: "0.000000::numeric", comment: Comment text }
@@ -115,6 +116,9 @@ public static class SchemaLockWriter {
     lines.Add($"  {Scalar(table.Name)}:");
     if (table.Comment is not null) {
       lines.Add($"    comment: {Scalar(table.Comment)}");
+    }
+    if (table.Ignored) {
+      lines.Add("    seed: ignore");
     }
     lines.Add("    columns:");
     lines.AddRange(table.Columns.Select(ColumnLine));

@@ -9,6 +9,7 @@ namespace JoshOlson.Database.Locks;
 public static partial class SchemaLockParser {
   private static readonly string[] _TableKeys = [
     "comment",
+    "seed",
     "columns",
     "primary_key",
     "primary_key_name",
@@ -77,9 +78,14 @@ public static partial class SchemaLockParser {
     if (hasPrimaryKey != hasPrimaryKeyName) {
       throw new SeedFormatException($"{_Context}: table {name} must have primary_key and primary_key_name together or neither.");
     }
+    var seed = OptionalNonEmptyText($"table {name}", map, "seed");
+    if (seed is not null and not "ignore") {
+      throw new SeedFormatException($"{_Context}: table {name} has seed '{seed}', and the only value is 'ignore'.");
+    }
     return new() {
       Name = name,
       Comment = OptionalNonEmptyText($"table {name}", map, "comment"),
+      Ignored = seed is "ignore",
       Columns = columns,
       PrimaryKey = primaryKey,
       PrimaryKeyName = primaryKeyName,

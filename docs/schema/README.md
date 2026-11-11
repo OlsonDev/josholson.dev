@@ -2,13 +2,13 @@
 
 ## auth
 
-| Table                                                  | Columns |
-| ------------------------------------------------------ | ------: |
-| [`auth.enrollment_token`][table:auth.enrollment_token] |       6 |
-| [`auth.passkey`][table:auth.passkey]                   |      11 |
-| [`auth.session`][table:auth.session]                   |       8 |
-| [`auth.user`][table:auth.user]                         |       5 |
-| [`auth.user_email`][table:auth.user_email]             |       6 |
+| Table                                                  | Columns | Comment      |
+| ------------------------------------------------------ | ------: | ------------ |
+| [`auth.enrollment_token`][table:auth.enrollment_token] |       6 | @seed ignore |
+| [`auth.passkey`][table:auth.passkey]                   |      11 |              |
+| [`auth.session`][table:auth.session]                   |       8 | @seed ignore |
+| [`auth.user`][table:auth.user]                         |       5 |              |
+| [`auth.user_email`][table:auth.user_email]             |       6 |              |
 
 ## blob
 
@@ -35,9 +35,9 @@
 
 ## http
 
-| Table                                      | Columns |
-| ------------------------------------------ | ------: |
-| [`http.user_agent`][table:http.user_agent] |       2 |
+| Table                                      | Columns | Comment      |
+| ------------------------------------------ | ------: | ------------ |
+| [`http.user_agent`][table:http.user_agent] |       2 | @seed ignore |
 
 ## resume
 

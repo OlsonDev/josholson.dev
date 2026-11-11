@@ -88,6 +88,8 @@ public static class LayerParser {
     var known = schema.Find(table);
     if (known is null) {
       problems.Add($"{layer}: {table} is not a table in the schema lock.");
+    } else if (known.Table.Ignored) {
+      problems.Add($"{layer}: {table} holds runtime data (its comment says @seed ignore), not seed data, so a layer cannot name it.");
     } else if (known.Table.PrimaryKey.Count is 0) {
       problems.Add($"{layer}: {table} has no primary key, and a layer finds its rows by it.");
     }

@@ -67,7 +67,7 @@ CREATE INDEX ix_bar_corge_quux_id
 - `!=`, never `<>`.
 - State nullability on every column: `NOT NULL` or `NULL`. No implicit nullability.
 - No quoted identifiers. Reserved words such as `user` work unquoted when schema-qualified (`foo.user`); a bare `user` means `CURRENT_USER`.
-- No comments in migrations yet. This is a deliberate choice for now.
+- No explanatory comments in migrations yet (`-- this table is for ...`, or a `COMMENT ON` that is prose). This is a deliberate choice for now. A `COMMENT ON` that carries a `@seed` directive is metadata the seed tool reads, not an explanation: `COMMENT ON TABLE auth.foo IS '@seed ignore';` ([ADR 0035, typed values and relative times](../../docs/adr/0035-typed-seed-values-and-relative-times.md)).
 
 ## Queries
 

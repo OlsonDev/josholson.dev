@@ -8,3 +8,5 @@ CREATE TABLE http.user_agent (
   , CONSTRAINT uq_user_agent_value UNIQUE (value)
   , CONSTRAINT ck_user_agent_value_length CHECK (length(value) <= 512)
 );
+
+COMMENT ON TABLE http.user_agent IS '@seed ignore';

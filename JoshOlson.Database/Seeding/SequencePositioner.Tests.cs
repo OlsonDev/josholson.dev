@@ -62,9 +62,9 @@ public sealed class SequencePositionerTests : IAsyncLifetime {
       "INSERT INTO tag.tag (name, slug) VALUES ('Plugh', 'plugh') RETURNING tag_id;",
       _cancellationToken);
 
-  // Every identity column in the schema, which is how many sequences `ChainAsync` moves.
+  // Every identity column in a table that is seed data, which is how many sequences `ChainAsync` moves.
   private int IdentityColumns()
-    => _schema.InsertOrder().Sum(table => table.Table.Columns.Count(
+    => _schema.InsertOrder().Where(table => !table.Table.Ignored).Sum(table => table.Table.Columns.Count(
       column => column.GeneratedAs is GeneratedAs.IdentityAlways or GeneratedAs.IdentityByDefault));
 
   [Fact]
@@ -127,6 +127,17 @@ public sealed class SequencePositionerTests : IAsyncLifetime {
       "SELECT pg_sequence_last_value(pg_get_serial_sequence('tag.alias', 'alias_id')::regclass);",
       _cancellationToken);
     Assert.Equal(2000, last);
+  }
+
+  [Fact]
+  public async Task ChainAsync_IgnoredTable_KeepsItsSequenceWhereItWas() {
+    _ = await SequencePositioner.ChainAsync(_connection, _tree, _schema, "bar", _cancellationToken);
+
+    var untouched = await _connection.QuerySingleAsync<long?>(
+      "SELECT pg_sequence_last_value(pg_get_serial_sequence('auth.session', 'session_id')::regclass);",
+      _cancellationToken);
+    Assert.True(_schema.Find("auth.session")!.Table.Ignored);
+    Assert.Null(untouched);
   }
 
   [Fact]

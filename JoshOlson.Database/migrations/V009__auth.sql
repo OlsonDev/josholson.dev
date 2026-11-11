@@ -105,3 +105,6 @@ CREATE TABLE auth.enrollment_token (
 
 CREATE INDEX ix_enrollment_token_user_id
   ON auth.enrollment_token (user_id);
+
+COMMENT ON TABLE auth.session IS '@seed ignore';
+COMMENT ON TABLE auth.enrollment_token IS '@seed ignore';

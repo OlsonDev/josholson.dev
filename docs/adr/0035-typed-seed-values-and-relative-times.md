@@ -36,3 +36,4 @@
 - The earlier all-text layer parser is replaced; layers written before this ADR are rewritten by the first `seeds:migrate`.
 - Fixtures need Postgres at bake time. Bake already does.
 - Every new `timestamptz` column is relative unless commented otherwise, so a column that holds a fixed real date must say `@seed absolute`.
+- Amended 2026-11-11: `@seed` has a second directive, on a table: `COMMENT ON TABLE ... IS '@seed ignore'` marks its rows as runtime data (sessions, credentials), not seed data. The lock records it (`seed: ignore`), no layer may name the table, and an export leaves it out. The same strictness applies: an unknown word after `@seed` is a problem, and `@seed ignore` on a column is one too.

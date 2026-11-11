@@ -1,5 +1,7 @@
 # `auth.enrollment_token`
 
+@seed ignore
+
 ## Columns
 
 | Name                  | Type                                |   Nullable | Default                        |

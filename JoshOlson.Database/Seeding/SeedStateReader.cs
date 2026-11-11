@@ -10,8 +10,9 @@ using Npgsql;
 namespace JoshOlson.Database.Seeding;
 
 // Reads the rows of a database into the same `SeedState` a chain of layers merges to, typed through the lock, so the two can
-// be compared and a layer can be made from the difference (`export-seed`). Every table the lock has is read, every column
-// but those generated from an expression (a layer cannot give one a value, so it is never in a state a layer makes).
+// be compared and a layer can be made from the difference (`export-seed`). Every table the lock has is read except those
+// marked `@seed ignore` (runtime data, which no layer holds), and every column but those generated from an expression (a
+// layer cannot give one a value, so it is never in a state a layer makes).
 //
 // Each cell comes back as the text Postgres prints for it, with the session pinned to UTC and ISO dates inside one
 // repeatable-read transaction, so the rows are one consistent picture, and is then read as its column's type, one place for
@@ -27,7 +28,7 @@ public static class SeedStateReader {
     await ExecuteAsync(connection, transaction, "SET LOCAL TIME ZONE 'UTC'; SET LOCAL DateStyle = 'ISO, YMD'; SET LOCAL bytea_output = 'hex';", cancellationToken);
     var anchor = await ReadAnchorAsync(connection, transaction, cancellationToken);
     var state = new SeedState();
-    foreach (var table in schema.InsertOrder()) {
+    foreach (var table in schema.InsertOrder().Where(table => !table.Table.Ignored)) {
       state.Tables[table.Table.Name] = await ReadTableAsync(connection, transaction, table, anchor, cancellationToken);
     }
     await transaction.CommitAsync(cancellationToken);

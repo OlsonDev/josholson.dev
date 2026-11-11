@@ -160,6 +160,7 @@ internal static class SchemaLockSample {
     => new() {
       Name = name,
       Comment = null,
+      Ignored = false,
       Columns = [Column("id", "bigint")],
       PrimaryKey = ["id"],
       PrimaryKeyName = $"pk_{name.Split('.')[1]}",

@@ -173,6 +173,27 @@ public class LayerParserTests {
   }
 
   [Fact]
+  public void Parse_TableThatIsIgnored_CannotBeNamed() {
+    var sample = SchemaLockSample.Create();
+    var schema = new SeedSchema(sample with {
+      Tables = [.. sample.Tables, SchemaLockSample.NewTable("foo.session") with { Ignored = true }],
+    });
+    const string Yaml = """
+      description: Broken
+      tables:
+        foo.session:
+          insert:
+            - { id: 1 }
+      """;
+
+    var exception = Assert.Throws<SeedFormatException>(() => LayerParser.Parse("foo", Yaml, schema));
+
+    Assert.Equal(
+      "foo: foo.session holds runtime data (its comment says @seed ignore), not seed data, so a layer cannot name it.",
+      exception.Message);
+  }
+
+  [Fact]
   public void Parse_Upsert_IsNoLongerASection()
     => Assert.Throws<SeedFormatException>(
       () => LayerParser.Parse("foo", "description: Foo\ntables:\n  foo.link: { upsert: [ { bar_id: 1, tag_id: 2 } ] }", _Schema));

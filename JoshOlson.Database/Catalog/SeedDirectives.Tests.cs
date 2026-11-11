@@ -23,6 +23,36 @@ public class SeedDirectivesTests {
   }
 
   [Theory]
+  [InlineData(null, false)]
+  [InlineData("", false)]
+  [InlineData("Who is logged in.", false)]
+  [InlineData("@seed ignore", true)]
+  [InlineData("Who is logged in. @seed ignore", true)]
+  [InlineData("@seed ignore\nwho is logged in", true)]
+  [InlineData("  @seed   ignore  ", true)]
+  [InlineData("@seed ignore and again @seed ignore", true)]
+  [InlineData("email@seed.example ignore", false)]
+  public void TableIgnoreOf_FindsTheDirective(string? comment, bool expected) {
+    var (ignored, problem) = SeedDirectives.TableIgnoreOf(comment, "foo.bar");
+
+    Assert.Equal(expected, ignored);
+    Assert.Null(problem);
+  }
+
+  [Theory]
+  [InlineData("@seed")]
+  [InlineData("@seed sometimes")]
+  [InlineData("@seed Ignore")]
+  [InlineData("@seed absolute")]
+  [InlineData("@seed ignore @seed relative")]
+  public void TableIgnoreOf_BadDirective_ReportsAProblemNamingTheTable(string comment) {
+    var (ignored, problem) = SeedDirectives.TableIgnoreOf(comment, "foo.bar");
+
+    Assert.False(ignored);
+    Assert.StartsWith("foo.bar:", problem, StringComparison.Ordinal);
+  }
+
+  [Theory]
   [InlineData("@seed")]
   [InlineData("@seed sometimes")]
   [InlineData("@seed Absolute")]
@@ -32,5 +62,13 @@ public class SeedDirectivesTests {
 
     Assert.Null(policy);
     Assert.StartsWith("foo.bar.baz:", problem, StringComparison.Ordinal);
+  }
+
+  [Fact]
+  public void TimePolicyOf_IgnoreOnAColumn_IsAProblemSinceTheDirectiveIsForTables() {
+    var (policy, problem) = SeedDirectives.TimePolicyOf("@seed ignore", "foo.bar.baz");
+
+    Assert.Null(policy);
+    Assert.NotNull(problem);
   }
 }
