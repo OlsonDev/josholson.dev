@@ -53,9 +53,11 @@ description = "Print the seed layer tree with row counts per table"
 run = "dotnet run scripts/seed.cs -- list"
 
 # Writes migrations/schema.lock.yaml from the dev database (ADR 0034, lock file and branch-safe migration). Run
-# `mise run waypoint migrate` first: the database must have applied exactly the migrations on disk. Reads .env.
+# `mise run waypoint migrate` first: the database must have applied exactly the migrations on disk. With layers it also
+# checks that each still builds into a template (the `tools` container runs the migrations). Reads .env.
 [tasks."seeds:migrate"]
 description = "Make migrations/schema.lock.yaml describe the dev database at the newest migration"
+depends = ["tools:up"]
 run = "dotnet run scripts/seed.cs -- migrate"
 
 [tasks."seeds:migrate".env]
@@ -65,9 +67,48 @@ _.file = ".env"
 # lock over from the dev database, ignoring the old lock's version and checksums. Retire it at the first deploy.
 [tasks."seeds:relock"]
 description = "Start migrations/schema.lock.yaml over from the dev database, for migrations rewritten before the first deploy"
+depends = ["tools:up"]
 run = "dotnet run scripts/seed.cs -- relock"
 
 [tasks."seeds:relock".env]
+_.file = ".env"
+
+# Builds the schema template and each layer's template (ADR 0033, a scoped database per test); templates that are
+# current are left alone. Needs the dev database server and the `tools` container. Reads .env.
+[tasks."seeds:bake"]
+description = "Build the schema template and every seed layer's template"
+depends = ["tools:up"]
+run = "dotnet run scripts/seed.cs -- bake"
+
+[tasks."seeds:bake".env]
+_.file = ".env"
+
+# Drops the dev database and makes it again from a layer, its relative times measured from now: mise run seed <layer>.
+# Everything in the dev database is lost. Dev only.
+[tasks.seed]
+description = "Drop the dev database and rebuild it from a seed layer, e.g. mise run seed more-tags"
+depends = ["tools:up"]
+run = "dotnet run scripts/seed.cs -- seed"
+
+[tasks.seed.env]
+_.file = ".env"
+
+# A database of its own, seed_test_<id>, cloned from a layer's template: mise run seed:test 42 more-tags.
+[tasks."seed:test"]
+description = "Make a scoped database seed_test_<id> from a seed layer, e.g. mise run seed:test 42 more-tags"
+depends = ["tools:up"]
+run = "dotnet run scripts/seed.cs -- test"
+
+[tasks."seed:test".env]
+_.file = ".env"
+
+# Drops the seed tool's databases (never the dev database) that the current migrations and layers no longer name: old
+# templates, test databases, and builds that died halfway. `--all` drops the current templates too.
+[tasks."seed:clean"]
+description = "Drop the seed tool's stale databases (--all: the current templates too)"
+run = "dotnet run scripts/seed.cs -- clean"
+
+[tasks."seed:clean".env]
 _.file = ".env"
 
 # Drops the dev database and rebuilds it from the migrations: what a rewritten migration needs, since Waypoint refuses
