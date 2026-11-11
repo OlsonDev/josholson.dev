@@ -16,6 +16,7 @@ namespace JoshOlson.Database.Baking;
 // the clone is tried again a few times before giving up.
 public sealed class ServerDatabases {
   private const string _SourceInUse = "55006";
+  private const string _MaintenanceDatabase = "postgres";
 
   public int Attempts { get; init; } = 50;
   public TimeSpan Delay { get; init; } = TimeSpan.FromMilliseconds(100);
@@ -89,6 +90,13 @@ public sealed class ServerDatabases {
     if (await ExistsAsync(owner, name, cancellationToken)) {
       return false;
     }
+    // Two processes can want the same template at once (`mise run test` runs the test projects side by side), and the
+    // second would drop the first's half-built database. A lock on the name makes it wait, and find the template there
+    // when it gets its turn.
+    await using var guard = await LockAsync(owner, name, cancellationToken);
+    if (await ExistsAsync(owner, name, cancellationToken)) {
+      return false;
+    }
     var building = SeedDatabaseNames.Building(name);
     await DropAsync(owner, building, cancellationToken);
     try {
@@ -100,6 +108,26 @@ public sealed class ServerDatabases {
       throw;
     }
     return true;
+  }
+
+  // An advisory lock belongs to one database, so two callers connected to different ones (the commands use the maintenance
+  // database, the tests the dev one) would never meet. This takes it on a connection of its own to the maintenance
+  // database, made from the caller's (`CloneWith` keeps its password), and the lock lasts until that connection is
+  // disposed, or the process dies.
+  private static async Task<NpgsqlConnection> LockAsync(NpgsqlConnection owner, string name, CancellationToken cancellationToken) {
+    var builder = new NpgsqlConnectionStringBuilder(owner.ConnectionString) {
+      Database = _MaintenanceDatabase,
+      Pooling = false,
+    };
+    var guard = await owner.CloneWithAsync(builder.ToString(), cancellationToken);
+    try {
+      await guard.OpenAsync(cancellationToken);
+      _ = await guard.ExecuteAsync("SELECT pg_advisory_lock(hashtextextended(@name, 0));", new { name }, cancellationToken);
+    } catch {
+      await guard.DisposeAsync();
+      throw;
+    }
+    return guard;
   }
 
   private async Task CloneQuotedAsync(NpgsqlConnection owner, string source, string target, CancellationToken cancellationToken) {

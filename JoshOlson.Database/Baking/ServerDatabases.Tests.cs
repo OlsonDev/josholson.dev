@@ -181,6 +181,28 @@ public sealed class ServerDatabasesTests : IAsyncLifetime {
   }
 
   [Fact]
+  public async Task EnsureTemplateAsync_TwoConnectionsToDifferentDatabasesAtOnce_BuildItOnce() {
+    var builds = 0;
+    // Each caller builds through its own connection, as the commands and the tests do. The test's owner is connected to
+    // the dev database and the other to `postgres`: a lock that belonged to one database would let both build.
+    Func<string, Task> BuildThrough(NpgsqlConnection connection)
+      => async building => {
+        _ = Interlocked.Increment(ref builds);
+        await Task.Delay(300, _cancellationToken);
+        await _databases.CloneAsync(connection, _source, building, _cancellationToken);
+      };
+    await using var other = new NpgsqlConnection(DatabaseEnvironment.OwnerConnectionString("postgres"));
+    await other.OpenAsync(_cancellationToken);
+
+    var results = await Task.WhenAll(
+      _databases.EnsureTemplateAsync(_owner, _target, BuildThrough(_owner), _cancellationToken),
+      _databases.EnsureTemplateAsync(other, _target, BuildThrough(other), _cancellationToken));
+
+    Assert.Equal(1, builds);
+    Assert.Equal([false, true], results.Order());
+  }
+
+  [Fact]
   public async Task EnsureTemplateAsync_BuildFails_LeavesNothingBehind() {
     async Task BuildThenFail(string building) {
       await _databases.CloneAsync(_owner, _source, building, _cancellationToken);
