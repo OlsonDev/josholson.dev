@@ -13,7 +13,7 @@ namespace JoshOlson.Database.Layers;
 //   tables:
 //     foo.bar:                   # schema.table
 //       upsert:
-//         - { bar_id: 1000, name: baz, qux: ~ }
+//         - { bar_id: 1001, name: baz, qux: ~ }
 //       delete:
 //         - { bar_id: 1001 }     # primary key columns only
 //

@@ -4,22 +4,22 @@ tables:
   tag.tag:
     upsert:
       - { tag_id: 2, name: Programming Language, slug: programming-language }
-      - { tag_id: 1000, name: Framework, slug: framework, color: sky-200 }
-      - { tag_id: 1001, name: Library, slug: library, color: cyan-200 }
-      - { tag_id: 1002, name: Standard, slug: standard, color: slate-200 }
-      - { tag_id: 1003, name: Project Management, slug: project-management, color: orange-200 }
-      - { tag_id: 1004, name: Platform, slug: platform, color: teal-200 }
-      - { tag_id: 1005, name: Cloud, slug: cloud, color: blue-200 }
-      - { tag_id: 1006, name: Protocol, slug: protocol, color: violet-200 }
-      - { tag_id: 1007, name: Format, slug: format, color: lime-200 }
-      - { tag_id: 1008, name: Methodology, slug: methodology, color: purple-200 }
-      - { tag_id: 1009, name: Architecture, slug: architecture, color: fuchsia-200 }
-      - { tag_id: 1010, name: Testing, slug: testing, color: green-200 }
-      - { tag_id: 1011, name: Security, slug: security, color: red-200 }
-      - { tag_id: 1012, name: Observability, slug: observability, color: yellow-200 }
-      - { tag_id: 1013, name: DevOps, slug: devops, color: rose-200 }
-      - { tag_id: 1014, name: Operating System, slug: operating-system, color: stone-200 }
-      - { tag_id: 1015, name: Hardware, slug: hardware, color: zinc-200 }
-      - { tag_id: 1016, name: Accessibility, slug: accessibility, color: pink-200 }
-      - { tag_id: 1017, name: Leadership, slug: leadership, color: mauve-200 }
-      - { tag_id: 1018, name: Communication, slug: communication, color: olive-200 }
+      - { tag_id: 1001, name: Framework, slug: framework, color: sky-200 }
+      - { tag_id: 1002, name: Library, slug: library, color: cyan-200 }
+      - { tag_id: 1003, name: Standard, slug: standard, color: slate-200 }
+      - { tag_id: 1004, name: Project Management, slug: project-management, color: orange-200 }
+      - { tag_id: 1005, name: Platform, slug: platform, color: teal-200 }
+      - { tag_id: 1006, name: Cloud, slug: cloud, color: blue-200 }
+      - { tag_id: 1007, name: Protocol, slug: protocol, color: violet-200 }
+      - { tag_id: 1008, name: Format, slug: format, color: lime-200 }
+      - { tag_id: 1009, name: Methodology, slug: methodology, color: purple-200 }
+      - { tag_id: 1010, name: Architecture, slug: architecture, color: fuchsia-200 }
+      - { tag_id: 1011, name: Testing, slug: testing, color: green-200 }
+      - { tag_id: 1012, name: Security, slug: security, color: red-200 }
+      - { tag_id: 1013, name: Observability, slug: observability, color: yellow-200 }
+      - { tag_id: 1014, name: DevOps, slug: devops, color: rose-200 }
+      - { tag_id: 1015, name: Operating System, slug: operating-system, color: stone-200 }
+      - { tag_id: 1016, name: Hardware, slug: hardware, color: zinc-200 }
+      - { tag_id: 1017, name: Accessibility, slug: accessibility, color: pink-200 }
+      - { tag_id: 1018, name: Leadership, slug: leadership, color: mauve-200 }
+      - { tag_id: 1019, name: Communication, slug: communication, color: olive-200 }

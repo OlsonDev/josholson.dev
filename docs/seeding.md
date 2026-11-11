@@ -11,7 +11,7 @@ Status: partly built (the layer parser with typed values, the tree, the lock, `s
 
 ## Layers
 
-- The root layer is `minimal` (`seeds/minimal.yaml`): the three tags Database, Language, and Tool, colored `indigo-200`, `emerald-200`, and `amber-200`. `more-tags` extends it with the other 19 tag kinds, each a different family at weight 200, in the `1000..` block, and renames Language to Programming Language by upserting its row (`tag_id: 2`) with only the new `name` and `slug`, so it keeps its color: the layer chain's merge at work.
+- The root layer is `minimal` (`seeds/minimal.yaml`): the three tags Database, Language, and Tool, colored `indigo-200`, `emerald-200`, and `amber-200`. `more-tags` extends it with the other 19 tag kinds, each a different family at weight 200, in the `1001..` block, and renames Language to Programming Language by upserting its row (`tag_id: 2`) with only the new `name` and `slug`, so it keeps its color: the layer chain's merge at work.
 - Seeds form a **tree** of layers; each layer has a parent (`extends`) and stores only its delta: upserts and deletes per table, keyed by primary key. Format: YAML ([ADR 0014](adr/0014-hierarchical-seed-layers-in-yaml.md)).
 - Each layer has a `description`. `seed list` prints the tree with per-table row counts so nobody has to read a layer to know what is in it.
 - Tests needing something extra insert it themselves through a factory, so the relevant data is visible in the test.
@@ -26,7 +26,7 @@ extends: parent-layer        # omit for a root layer
 tables:
   foo.bar:                   # schema.table
     upsert:
-      - { bar_id: 1000, name: baz, qux: ~ }
+      - { bar_id: 1001, name: baz, qux: ~ }
     delete:
       - { bar_id: 1001 }     # primary key columns only
 ```
@@ -39,9 +39,9 @@ tables:
 
 ## IDs
 
-- Layers carry explicit IDs, inserted with `OVERRIDING SYSTEM VALUE`. Depth 0 uses `1..`, depth 1 uses `1000..`, and so on. Siblings share a block because they never coexist ([ADR 0015](adr/0015-seed-id-blocks-and-sequence-cursor.md)).
-- While layers apply, each identity sequence is positioned by the root's rows only, so a migration that generates IDs produces the same IDs in a parent and in its children.
-- When a database is finally built for use, each sequence is set to the max ID of the chain.
+- Layers carry explicit IDs, inserted with `OVERRIDING SYSTEM VALUE`, in blocks of 1000 per depth, where a layer's depth is how many parents it has: the root `minimal` uses `1..1000`, its children `1001..2000`, their children `2001..3000`, and so on (`IdBlocks`: depth × 1000 + 1 up to (depth + 1) × 1000, the same for every depth). Siblings share a block because they never coexist ([ADR 0015](adr/0015-seed-id-blocks-and-sequence-cursor.md)). A block is for the rows a layer adds; an upsert of an ancestor's row keeps its ID (`more-tags` upserts `tag_id: 2`).
+- While layers apply for a migration, each identity sequence is positioned by the root's rows only, so a migration that generates IDs produces the same IDs in a parent and in its children.
+- A database built from a layer for use (the dev database, a test's, a template) hands out IDs from the **next** depth's block: every identity sequence, in every table, is set so that the next generated ID is the first of that block, or past the chain's largest ID if that is higher. So `seed minimal` gives a new tag `1001`, `seed more-tags` gives `2001`, and a table no layer has rows in starts at the same place. What you create in the app is then already where an exported child layer keeps its new rows, and cannot collide with a row of any layer at the same depth or above.
 
 ## Build and run
 
@@ -52,7 +52,7 @@ Layer templates, test databases, and the commands (`Baking/`, run through `JoshO
 - A **layer template** (`LayerTemplate`) is `seed_layer_<hash>`, where the hash covers the schema template's name and the source of every layer in the chain, so a change to any file the layer depends on gives a new name and a change to a sibling does not. It is a clone of the *schema* template (`ServerDatabases.CloneAsync`, which retries error 55006, the source still in use) with the layer's whole chain applied (`SeedHydrator`), not of the parent's template plus the layer's delta: the rows are the same, and a delta would need an `UPDATE` and `DELETE` writer beside the `INSERT` one. It is built under a `_building` name, renamed at the end, and refuses connections, like the schema template (`ServerDatabases.EnsureTemplateAsync`).
 
 `ServerDatabases` (`Baking/`) is the one place that creates, clones, drops, closes, renames, lists, and looks for databases on the server; no other class writes `CREATE DATABASE`, `DROP DATABASE`, or `ALTER DATABASE`. A name reaches it only through `SeedDatabaseNames`, which checks it before it is quoted into SQL.
-- **Hydrating** (`SeedHydrator`) applies the chain in one transaction, records the anchor in `seed.hydration` (the bake time, cut to a microsecond, which is also the clock a test starts at), and then positions the sequences. `SequencePositioner` has both rules from ADR 0015 (seed id blocks): `ChainAsync` moves each identity sequence to the largest id its table has in the whole chain, which is what a database built for use gets, and `RootAsync` to the largest in the root layer alone, which `seeds:migrate` will use when it replays migrations over layers. A sequence never moves backwards.
+- **Hydrating** (`SeedHydrator`) applies the chain in one transaction, records the anchor in `seed.hydration` (the bake time, cut to a microsecond, which is also the clock a test starts at), and then positions the sequences. `SequencePositioner` has both rules from ADR 0015 (seed ID blocks): `ChainAsync` moves every identity sequence to the start of the next depth's block (`IdBlocks`), or past the largest ID its table has in the whole chain if that is higher, which is what a database built for use gets, and `RootAsync` moves the sequences of the tables the root layer has rows in to the largest ID there, which `seeds:migrate` will use when it replays migrations over layers. A sequence never moves backwards.
 - `mise run seeds:bake` builds the schema template and then every layer's template, parent first; templates that are current are left alone. `mise run seed:test <id> <layer>` clones the layer's template into `seed_test_<id>` (the id is lowercase letters and digits, at most 40) and prints its name. `mise run seed <layer>` drops the dev database (`POSTGRES_DB`, never a server database) and makes it again from the schema template with the chain applied and the anchor set to now, so its relative times are current; everything in it is lost. `mise run seed:clean` drops every `seed_` database the current migrations and layers do not name (old templates, test databases, builds that died halfway), and `seed:clean --all` the current templates as well.
 - The tests bake the real layers and share the real templates, so classes that build or clone one run one after another (`TemplateCollection`); the template test uses a copy of the migrations with one extra file to get a name of its own.
 
@@ -82,6 +82,9 @@ If you only edit an already-applied migration's comment or whitespace, its check
 ## Export
 
 `export-seed --parent <layer> --name <name>` diffs the live database against the parent's template and writes a layer; `--root` dumps everything. Primary keys are required on every table.
+
+- The diff is as small as it can be: a row that is new is an upsert of every column; a row that exists in the parent's state and changed is an upsert of its key and only the columns that changed (an upsert changes only the columns it names, so the merge rebuilds the full row); a row that is gone is a delete of its key. A row that did not change is left out.
+- The flow it is built for: `seed minimal`, use the app, `export-seed --parent minimal --name more-but-different-tags`. The new rows came from sequences that start at the next depth's block, so they already carry IDs `1001..` (see IDs above). The export refuses a new row whose ID is outside its layer's block (`IdBlocks.Contains`), naming the table and the ID, because a row at an ancestor's depth could collide with one the ancestor adds later, and an upsert would silently replace it.
 
 - Relative columns are exported as offsets from the anchor stored in the database being exported (`seed.hydration`), never from `now()`, in exact microseconds. Output is canonical (sorted by primary key, columns in catalog order), so unchanged rows give identical text and `seeds:check` can require a byte-for-byte round trip.
 - Tests on this assert at one-microsecond increments ([ADR 0035, typed values and relative times](adr/0035-typed-seed-values-and-relative-times.md)).

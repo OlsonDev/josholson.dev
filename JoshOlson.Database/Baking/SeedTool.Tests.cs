@@ -71,7 +71,7 @@ public sealed class SeedToolTests {
       Assert.Equal(22, tags);
       Assert.Equal("indigo-200", color);
       Assert.Equal(1, anchors);
-      Assert.Equal(1019, nextId);
+      Assert.Equal(2001, nextId);
       Assert.True(apiCanConnect);
       Assert.True(apiCanReadTags);
       Assert.False(apiSeesSeedSchema);
@@ -81,7 +81,7 @@ public sealed class SeedToolTests {
   }
 
   [Fact]
-  public async Task CreateTestDatabaseAsync_RootLayer_HasOnlyTheRootsRows() {
+  public async Task CreateTestDatabaseAsync_RootLayer_HasOnlyTheRootsRowsAndHandsOutIdsFromTheNextBlock() {
     var tool = await OpenToolAsync();
     await using var owner = await OpenOwnerAsync();
     var id = Guid.NewGuid().ToString("N");
@@ -91,6 +91,12 @@ public sealed class SeedToolTests {
 
       await using var clone = await OpenAsync(name, _cancellationToken);
       Assert.Equal(3, await clone.QuerySingleAsync<long>("SELECT count(*) FROM tag.tag;", _cancellationToken));
+      // A tag made in this database is where an export of a child of `minimal` expects its new rows.
+      Assert.Equal(
+        1001,
+        await clone.QuerySingleAsync<int>(
+          "INSERT INTO tag.tag (name, slug) VALUES ('Foo', 'foo') RETURNING tag_id;",
+          _cancellationToken));
     } finally {
       await _databases.DropAsync(owner, name, CancellationToken.None);
     }

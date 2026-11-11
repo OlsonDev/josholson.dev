@@ -45,7 +45,8 @@ public sealed class SeedHydratorTests {
       _cancellationToken);
     Assert.Equal(1, rows);
     Assert.Equal(anchor, Instant.FromDateTimeUtc(stored));
-    Assert.Equal(8, next);
+    // The root's rows end at 7, but a database built from it hands out IDs from the depth-1 block.
+    Assert.Equal(1001, next);
   }
 
   private sealed class FixedClock : IClock {

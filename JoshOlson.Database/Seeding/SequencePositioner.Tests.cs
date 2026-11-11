@@ -1,5 +1,6 @@
 using JoshOlson.Database.Baking;
 using JoshOlson.Database.Layers;
+using JoshOlson.Database.Schema;
 using JoshOlson.Shared.Data;
 using NodaTime;
 using Npgsql;
@@ -41,8 +42,8 @@ public sealed class SequencePositionerTests : IAsyncLifetime {
         tables:
           tag.tag:
             upsert:
-              - { tag_id: 1000, name: Garply, slug: garply }
-              - { tag_id: 1001, name: Waldo, slug: waldo }
+              - { tag_id: 1001, name: Garply, slug: garply }
+              - { tag_id: 1002, name: Waldo, slug: waldo }
         """,
         _schema),
     ]);
@@ -61,12 +62,43 @@ public sealed class SequencePositionerTests : IAsyncLifetime {
       "INSERT INTO tag.tag (name, slug) VALUES ('Plugh', 'plugh') RETURNING tag_id;",
       _cancellationToken);
 
+  // Every identity column in the schema, which is how many sequences `ChainAsync` moves.
+  private int IdentityColumns()
+    => _schema.InsertOrder().Sum(table => table.Table.Columns.Count(
+      column => column.GeneratedAs is GeneratedAs.IdentityAlways or GeneratedAs.IdentityByDefault));
+
   [Fact]
-  public async Task ChainAsync_ExplicitIds_NextGeneratedIdFollowsTheWholeChain() {
+  public async Task ChainAsync_LayerAtDepthOne_NextGeneratedIdStartsTheDepthTwoBlock() {
+    // Depth 2 is 2001 to 3000.
     var moved = await SequencePositioner.ChainAsync(_connection, _tree, _schema, "bar", _cancellationToken);
 
-    Assert.Equal(1, moved);
-    Assert.Equal(1002, await NextTagIdAsync());
+    Assert.Equal(IdentityColumns(), moved);
+    Assert.Equal(2001, await NextTagIdAsync());
+  }
+
+  [Fact]
+  public async Task ChainAsync_ChainWithIdsPastTheBlock_FollowsTheLargestId() {
+    await _connection.ExecuteAsync(
+      "INSERT INTO tag.tag (tag_id, name, slug) OVERRIDING SYSTEM VALUE VALUES (2500, 'Thud', 'thud');",
+      _cancellationToken);
+    var tree = new LayerTree([
+      _tree.Get("foo"),
+      LayerParser.Parse(
+        "bar",
+        """
+        description: Child
+        extends: foo
+        tables:
+          tag.tag:
+            upsert:
+              - { tag_id: 2500, name: Thud, slug: thud }
+        """,
+        _schema),
+    ]);
+
+    _ = await SequencePositioner.ChainAsync(_connection, tree, _schema, "bar", _cancellationToken);
+
+    Assert.Equal(2501, await NextTagIdAsync());
   }
 
   [Fact]
@@ -84,17 +116,26 @@ public sealed class SequencePositionerTests : IAsyncLifetime {
     var moved = await SequencePositioner.RootAsync(_connection, _tree, _schema, "bar", _cancellationToken);
 
     Assert.Equal(0, moved);
-    Assert.Equal(1002, await NextTagIdAsync());
+    Assert.Equal(2001, await NextTagIdAsync());
   }
 
   [Fact]
-  public async Task ChainAsync_TableWithNoRows_LeavesItsSequenceAlone() {
-    var moved = await SequencePositioner.ChainAsync(_connection, _tree, _schema, "bar", _cancellationToken);
+  public async Task ChainAsync_TableWithNoRows_StartsItsSequenceAtTheNextBlockToo() {
+    _ = await SequencePositioner.ChainAsync(_connection, _tree, _schema, "bar", _cancellationToken);
+
+    var last = await _connection.QuerySingleAsync<long?>(
+      "SELECT pg_sequence_last_value(pg_get_serial_sequence('tag.alias', 'alias_id')::regclass);",
+      _cancellationToken);
+    Assert.Equal(2000, last);
+  }
+
+  [Fact]
+  public async Task RootAsync_TableWithNoRows_LeavesItsSequenceAlone() {
+    _ = await SequencePositioner.RootAsync(_connection, _tree, _schema, "bar", _cancellationToken);
 
     var untouched = await _connection.QuerySingleAsync<long?>(
       "SELECT pg_sequence_last_value(pg_get_serial_sequence('tag.alias', 'alias_id')::regclass);",
       _cancellationToken);
-    Assert.Equal(1, moved);
     Assert.Null(untouched);
   }
 }
