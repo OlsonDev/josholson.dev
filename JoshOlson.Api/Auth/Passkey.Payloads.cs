@@ -61,8 +61,8 @@ public sealed record EnrollmentChallenge(CredentialCreateOptions Options, byte[]
 public sealed record ConfirmChallenge(string ChangeToken, AssertionOptions Options);
 
 // A change to the passkey set that takes effect only once a registered passkey confirms it (ADR 0031, pending passkey
-// changes).
-public abstract record PendingPasskeyChange;
+// changes). It is `closed`, so a switch over it that misses a case does not compile.
+public closed record PendingPasskeyChange;
 
 public sealed record PendingAddition(VerifiedRegistration Registration, string Nickname) : PendingPasskeyChange;
 

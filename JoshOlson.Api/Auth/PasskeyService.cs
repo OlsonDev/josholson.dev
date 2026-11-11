@@ -171,19 +171,22 @@ public sealed class PasskeyService {
   )
     => _passkeyRepository.RenameAsync(principal.User.UserId, passkeyId, request.Nickname, cancellationToken);
 
+  private async Task<bool> ApplyAsync(int userId, PendingPasskeyChange change, CancellationToken cancellationToken)
+    => change switch {
+      PendingAddition addition => await ApplyAdditionAsync(userId, addition, cancellationToken),
+      PendingRemoval removal => await ApplyRemovalAsync(userId, removal, cancellationToken),
+    };
+
+  private async Task<bool> ApplyAdditionAsync(int userId, PendingAddition addition, CancellationToken cancellationToken) {
+    var passkey = addition.Registration.ToNewPasskey(userId, addition.Nickname);
+    await _passkeyRepository.CreateAsync(passkey, cancellationToken);
+    return true;
+  }
+
   // A removal is re-checked here: the set may have changed since the change was started.
-  private async Task<bool> ApplyAsync(int userId, PendingPasskeyChange change, CancellationToken cancellationToken) {
-    switch (change) {
-      case PendingAddition addition:
-        var passkey = addition.Registration.ToNewPasskey(userId, addition.Nickname);
-        await _passkeyRepository.CreateAsync(passkey, cancellationToken);
-        return true;
-      case PendingRemoval removal:
-        var passkeys = await _passkeyRepository.GetAllAsync(userId, cancellationToken);
-        return passkeys.Count > 1 && await _passkeyRepository.DeleteAsync(userId, removal.PasskeyId, cancellationToken);
-      default:
-        throw new InvalidOperationException($"Unknown passkey change {change.GetType().Name}.");
-    }
+  private async Task<bool> ApplyRemovalAsync(int userId, PendingRemoval removal, CancellationToken cancellationToken) {
+    var passkeys = await _passkeyRepository.GetAllAsync(userId, cancellationToken);
+    return passkeys.Count > 1 && await _passkeyRepository.DeleteAsync(userId, removal.PasskeyId, cancellationToken);
   }
 
   private async Task AddNicknameErrorAsync(
