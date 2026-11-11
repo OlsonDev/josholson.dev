@@ -1,4 +1,5 @@
 using JoshOlson.Database;
+using JoshOlson.Database.Baking;
 using JoshOlson.Database.Catalog;
 using Microsoft.Extensions.DependencyInjection;
 using Spectre.Console.Testing;
@@ -15,6 +16,19 @@ public sealed class SeedAppTests {
 
     using var provider = services.BuildServiceProvider();
     Assert.Same(SeedPaths.ForRepository(), provider.GetRequiredService<SeedPaths>());
+  }
+
+  [Fact]
+  public void AddServices_RegistersWhatTheCommandsTake() {
+    var services = new ServiceCollection();
+
+    SeedApp.AddServices(services);
+
+    using var provider = services.BuildServiceProvider(new ServiceProviderOptions { ValidateOnBuild = true });
+    Assert.NotNull(provider.GetRequiredService<SeedToolFactory>());
+    Assert.NotNull(provider.GetRequiredService<OwnerConnections>());
+    Assert.Same(provider.GetRequiredService<ServerDatabases>(), provider.GetRequiredService<ServerDatabases>());
+    Assert.Same(provider.GetRequiredService<ComposeTools>(), provider.GetRequiredService<ComposeTools>());
   }
 
   [Fact]

@@ -45,20 +45,39 @@ public sealed class SeedTool {
 
   // Reads the lock and the layers under the repository root and sets everything up. The lock has to exist: it types
   // every value in a layer.
-  public static async Task<SeedTool> OpenAsync(SeedPaths paths, IClock clock, CancellationToken cancellationToken) {
+  public static async Task<SeedTool> OpenAsync(SeedPaths paths, IClock clock, CancellationToken cancellationToken)
+    => await OpenAsync(paths, new ServerDatabases(), new ComposeTools(paths.Root), clock, cancellationToken);
+
+  // The same, for a schema the caller already has: `seeds:migrate` checks the layers against the lock it is about to
+  // write, which is not on disk yet.
+  public static async Task<SeedTool> OpenAsync(SeedPaths paths, SeedSchema schema, IClock clock, CancellationToken cancellationToken)
+    => await OpenAsync(paths, new ServerDatabases(), new ComposeTools(paths.Root), schema, clock, cancellationToken);
+
+  // The same with the database operations and the container tools the caller already has, which is how the command line
+  // shares one of each across a run.
+  public static async Task<SeedTool> OpenAsync(
+    SeedPaths paths,
+    ServerDatabases databases,
+    ComposeTools tools,
+    IClock clock,
+    CancellationToken cancellationToken
+  ) {
     if (!File.Exists(paths.LockFile)) {
       throw new SeedFormatException($"{paths.LockFile} does not exist. Run mise run seeds:migrate first.");
     }
     var schemaLock = SchemaLockParser.Parse(await File.ReadAllTextAsync(paths.LockFile, cancellationToken));
-    return await OpenAsync(paths, new SeedSchema(schemaLock), clock, cancellationToken);
+    return await OpenAsync(paths, databases, tools, new SeedSchema(schemaLock), clock, cancellationToken);
   }
 
-  // The same, for a schema the caller already has: `seeds:migrate` checks the layers against the lock it is about to
-  // write, which is not on disk yet.
-  public static async Task<SeedTool> OpenAsync(SeedPaths paths, SeedSchema schema, IClock clock, CancellationToken cancellationToken) {
+  public static async Task<SeedTool> OpenAsync(
+    SeedPaths paths,
+    ServerDatabases databases,
+    ComposeTools tools,
+    SeedSchema schema,
+    IClock clock,
+    CancellationToken cancellationToken
+  ) {
     var tree = await LayerLoader.LoadAsync(paths.Seeds, schema, cancellationToken);
-    var databases = new ServerDatabases();
-    var tools = new ComposeTools(paths.Root);
     var schemaTemplate = new SchemaTemplate(SchemaTemplateOptions.ForRepository(paths), tools, databases);
     var layerTemplate = new LayerTemplate(schemaTemplate, databases, tree, schema, paths.Seeds, clock);
     return new(schemaTemplate, layerTemplate, databases, tree, schema, clock, DatabaseEnvironment.DevelopmentDatabase());

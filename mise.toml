@@ -78,7 +78,7 @@ _.file = ".env"
 [tasks."seeds:bake"]
 description = "Build the schema template and every seed layer's template"
 depends = ["tools:up"]
-run = "dotnet run scripts/seed.cs -- bake"
+run = "dotnet run --project JoshOlson.Seed -- bake"
 
 [tasks."seeds:bake".env]
 _.file = ".env"

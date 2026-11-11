@@ -1,11 +1,10 @@
 #!/usr/bin/env dotnet
 #:project ../JoshOlson.Database
 #:property PublishAot=false
-// The seed tool's commands that have not moved to JoshOlson.Seed yet (`mise run seeds:list` has), a thin layer over
-// JoshOlson.Database (ADR 0033). Run through mise from the repo root:
+// The seed tool's commands that have not moved to JoshOlson.Seed yet (`seeds:list` and `seeds:bake` have), a thin layer
+// over JoshOlson.Database (ADR 0033). Run through mise from the repo root:
 //   mise run seeds:migrate   make migrations/schema.lock.yaml describe the dev database (see below)
 //   mise run seeds:relock    the same, starting the lock over: for migrations rewritten before the first deploy
-//   mise run seeds:bake      build the schema template and every layer's template (a no-op when they are current)
 //   mise run seed <layer>    drop the dev database and rebuild it from the layer, relative times measured from now
 //   mise run seed:test <id> <layer>   a database of its own, seed_test_<id>, cloned from the layer's template
 //   mise run seed:clean [--all]   drop the seed tool's databases the current files no longer name (all with --all)
@@ -24,10 +23,10 @@ var command = args.FirstOrDefault();
 if (command is "migrate" or "relock") {
   return await MigrateAsync(paths, relock: command is "relock");
 }
-if (command is "bake" or "seed" or "test" or "clean") {
+if (command is "seed" or "test" or "clean") {
   return await ToolAsync(paths, command, [.. args.Skip(1)]);
 }
-Console.Error.WriteLine("Usage: dotnet run scripts/seed.cs -- migrate|relock|bake|seed <layer>|test <id> <layer>|clean [--all]");
+Console.Error.WriteLine("Usage: dotnet run scripts/seed.cs -- migrate|relock|seed <layer>|test <id> <layer>|clean [--all]");
 return 2;
 
 // The dev database (POSTGRES_* from .env, which the mise task loads) must have applied exactly the migrations on disk:
@@ -62,11 +61,6 @@ static async Task<int> ToolAsync(SeedPaths paths, string command, List<string> a
     var tool = await SeedTool.OpenAsync(paths, SystemClock.Instance, CancellationToken.None);
     await using var owner = await OpenMaintenanceAsync();
     switch (command) {
-      case "bake":
-        foreach (var (layer, name, built) in await tool.BakeAsync(owner, CancellationToken.None)) {
-          Console.WriteLine($"{layer}: {name} ({(built ? "built" : "current")})");
-        }
-        return 0;
       case "seed" when arguments is [var layer]:
         var rows = await tool.SeedDevelopmentAsync(owner, layer, CancellationToken.None);
         Console.WriteLine($"Rebuilt {tool.Development} from {layer}: {rows.ToInvariantString()} row(s).");
@@ -82,7 +76,7 @@ static async Task<int> ToolAsync(SeedPaths paths, string command, List<string> a
         Console.WriteLine($"{dropped.Count.ToInvariantString()} database(s) dropped.");
         return 0;
       default:
-        Console.Error.WriteLine("Usage: dotnet run scripts/seed.cs -- bake|seed <layer>|test <id> <layer>|clean [--all]");
+        Console.Error.WriteLine("Usage: dotnet run scripts/seed.cs -- seed <layer>|test <id> <layer>|clean [--all]");
         return 2;
     }
   } catch (SeedFormatException exception) {
