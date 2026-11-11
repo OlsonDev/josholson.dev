@@ -37,7 +37,7 @@ public class TrimmingModelBinderProviderTests {
 
   [Fact]
   public void GetBinder_StringWithNoDeclaredSource_ReturnsTheTrimmingBinder()
-    => Assert.IsType<TrimmingModelBinder>(GetBinder(typeof(string), null));
+    => Assert.IsType<TrimmingModelBinder>(GetBinder(typeof(string), source: null));
 
   [Fact]
   public void GetBinder_StringFromTheBody_ReturnsNull()

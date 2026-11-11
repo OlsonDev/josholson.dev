@@ -116,15 +116,12 @@ public sealed class SchemaTemplateTests : IDisposable {
       await connection.OpenAsync(_cancellationToken);
       var hydrationColumns = await connection.QuerySingleAsync<long>(
         "SELECT count(*) FROM information_schema.columns WHERE table_schema = 'seed' AND table_name = 'hydration';",
-        null,
         _cancellationToken);
       var apiSeesSeedSchema = await connection.QuerySingleAsync<bool>(
         "SELECT has_schema_privilege('josholson_api', 'seed', 'USAGE');",
-        null,
         _cancellationToken);
       var apiSeesTags = await connection.QuerySingleAsync<bool>(
         "SELECT has_table_privilege('josholson_api', 'tag.tag', 'SELECT');",
-        null,
         _cancellationToken);
       Assert.Equal(2, hydrationColumns);
       Assert.False(apiSeesSeedSchema);

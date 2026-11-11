@@ -53,7 +53,7 @@ try {
   }
 
   if (string.Equals(mode, "doc", StringComparison.Ordinal)) {
-    if (Directory.Exists(DocPath)) Directory.Delete(DocPath, true);
+    if (Directory.Exists(DocPath)) Directory.Delete(DocPath, recursive: true);
     Directory.CreateDirectory(DocPath);
     foreach (var file in Directory.GetFiles(generated)) File.Copy(file, Path.Combine(DocPath, Path.GetFileName(file)));
     Console.WriteLine($"Wrote {DocPath}");
@@ -74,7 +74,7 @@ try {
   else if (diff.ExitCode is 1) Console.Error.WriteLine($"{DocPath} is out of date. Run: mise run schema:doc");
   return diff.ExitCode;
 } finally {
-  Directory.Delete(work, true);
+  Directory.Delete(work, recursive: true);
 }
 
 // One output file. Links are written as reference-style definitions at the bottom, labelled:

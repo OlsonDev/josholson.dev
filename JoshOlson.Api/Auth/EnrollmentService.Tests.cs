@@ -60,6 +60,6 @@ public class EnrollmentServiceTests : IAsyncLifetime {
       Response = authenticator.Create(started.Options),
     };
 
-    Assert.Null(await _enrollmentService.FinishAsync(request, null, null, _cancellationToken));
+    Assert.Null(await _enrollmentService.FinishAsync(request, ip: null, userAgent: null, _cancellationToken));
   }
 }

@@ -59,7 +59,6 @@ public sealed class SequencePositionerTests : IAsyncLifetime {
   private async Task<int> NextTagIdAsync()
     => await _connection.QuerySingleAsync<int>(
       "INSERT INTO tag.tag (name, slug) VALUES ('Plugh', 'plugh') RETURNING tag_id;",
-      null,
       _cancellationToken);
 
   [Fact]
@@ -94,7 +93,6 @@ public sealed class SequencePositionerTests : IAsyncLifetime {
 
     var untouched = await _connection.QuerySingleAsync<long?>(
       "SELECT pg_sequence_last_value(pg_get_serial_sequence('tag.alias', 'alias_id')::regclass);",
-      null,
       _cancellationToken);
     Assert.Equal(1, moved);
     Assert.Null(untouched);

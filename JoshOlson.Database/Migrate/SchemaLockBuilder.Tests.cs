@@ -23,7 +23,7 @@ public class SchemaLockBuilderTests {
 
   [Fact]
   public void Build_NoExistingLock_LocksEveryMigrationAtTheNewestVersion() {
-    var built = SchemaLockBuilder.Build(null, [Disk(3, "baz", SchemaLockSample.Bbb), Disk(1, "foo", SchemaLockSample.Aaa)], _Catalog);
+    var built = SchemaLockBuilder.Build(existing: null, [Disk(3, "baz", SchemaLockSample.Bbb), Disk(1, "foo", SchemaLockSample.Aaa)], _Catalog);
 
     Assert.Equal(3, built.Version);
     Assert.Equal([1, 3], built.Migrations.Select(migration => migration.Version));
@@ -33,7 +33,7 @@ public class SchemaLockBuilderTests {
 
   [Fact]
   public void Build_CopiesTheCatalog() {
-    var built = SchemaLockBuilder.Build(null, [Disk(1, "foo", SchemaLockSample.Aaa)], _Catalog);
+    var built = SchemaLockBuilder.Build(existing: null, [Disk(1, "foo", SchemaLockSample.Aaa)], _Catalog);
 
     Assert.Equal(_Catalog.Schemas, built.Schemas);
     Assert.Equal(_Catalog.Domains, built.Domains);
@@ -65,5 +65,5 @@ public class SchemaLockBuilderTests {
 
   [Fact]
   public void Build_NoMigrations_Throws()
-    => Assert.Throws<SeedFormatException>(() => SchemaLockBuilder.Build(null, [], _Catalog));
+    => Assert.Throws<SeedFormatException>(() => SchemaLockBuilder.Build(existing: null, [], _Catalog));
 }

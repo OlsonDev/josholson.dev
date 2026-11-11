@@ -33,7 +33,7 @@ public class SessionServiceTests {
     var start = _clock.GetCurrentInstant();
     var userId = await _authTestData.CreateUserAsync(_cancellationToken);
     try {
-      var token = await _sessionService.StartAsync(userId, null, null, _cancellationToken);
+      var token = await _sessionService.StartAsync(userId, ip: null, userAgent: null, _cancellationToken);
       Assert.Equal(userId, (await _sessionService.AuthenticateAsync(token, _cancellationToken))?.User.UserId);
 
       // Six days in: still valid, and the idle expiration slides to a week from now.
@@ -59,7 +59,7 @@ public class SessionServiceTests {
   public async Task Authenticate_AfterTheIdleLifetime_ReturnsNull() {
     var userId = await _authTestData.CreateUserAsync(_cancellationToken);
     try {
-      var token = await _sessionService.StartAsync(userId, null, null, _cancellationToken);
+      var token = await _sessionService.StartAsync(userId, ip: null, userAgent: null, _cancellationToken);
 
       _clock.Advance(Duration.FromDays(8));
 
@@ -73,7 +73,7 @@ public class SessionServiceTests {
   public async Task End_RemovesTheSession() {
     var userId = await _authTestData.CreateUserAsync(_cancellationToken);
     try {
-      var token = await _sessionService.StartAsync(userId, null, null, _cancellationToken);
+      var token = await _sessionService.StartAsync(userId, ip: null, userAgent: null, _cancellationToken);
 
       Assert.True(await _sessionService.EndAsync(token, _cancellationToken));
       Assert.Null(await _sessionService.AuthenticateAsync(token, _cancellationToken));
@@ -91,9 +91,9 @@ public class SessionServiceTests {
     var userAgent = $"test-{Guid.NewGuid():N}";
     var userId = await _authTestData.CreateUserAsync(_cancellationToken);
     try {
-      await _sessionService.StartAsync(userId, null, $"  {userAgent}\n", _cancellationToken);
-      await _sessionService.StartAsync(userId, null, userAgent, _cancellationToken);
-      await _sessionService.StartAsync(userId, null, "  ", _cancellationToken);
+      await _sessionService.StartAsync(userId, ip: null, $"  {userAgent}\n", _cancellationToken);
+      await _sessionService.StartAsync(userId, ip: null, userAgent, _cancellationToken);
+      await _sessionService.StartAsync(userId, ip: null, "  ", _cancellationToken);
 
       var sql = """
         SELECT

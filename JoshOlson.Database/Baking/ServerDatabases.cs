@@ -37,7 +37,7 @@ public sealed class ServerDatabases {
   }
 
   public async Task CreateAsync(NpgsqlConnection owner, string name, CancellationToken cancellationToken)
-    => await owner.ExecuteAsync($"CREATE DATABASE {SeedDatabaseNames.Quote(name)};", null, cancellationToken);
+    => await owner.ExecuteAsync($"CREATE DATABASE {SeedDatabaseNames.Quote(name)};", cancellationToken);
 
   // A clone is a seed tool database, like its source.
   public async Task CloneAsync(NpgsqlConnection owner, string source, string target, CancellationToken cancellationToken)
@@ -57,26 +57,22 @@ public sealed class ServerDatabases {
   public async Task DropAsync(NpgsqlConnection owner, string name, CancellationToken cancellationToken)
     => await owner.ExecuteAsync(
       $"DROP DATABASE IF EXISTS {SeedDatabaseNames.Quote(name)} WITH (FORCE);",
-      null,
       cancellationToken);
 
   public async Task DropDevelopmentAsync(NpgsqlConnection owner, string development, CancellationToken cancellationToken)
     => await owner.ExecuteAsync(
       $"DROP DATABASE IF EXISTS {SeedDatabaseNames.QuoteDevelopment(development)} WITH (FORCE);",
-      null,
       cancellationToken);
 
   // A closed database refuses connections, which is what a template is: only ever a source for `CREATE DATABASE`.
   public async Task CloseAsync(NpgsqlConnection owner, string name, CancellationToken cancellationToken)
     => await owner.ExecuteAsync(
       $"ALTER DATABASE {SeedDatabaseNames.Quote(name)} WITH ALLOW_CONNECTIONS false;",
-      null,
       cancellationToken);
 
   public async Task RenameAsync(NpgsqlConnection owner, string name, string newName, CancellationToken cancellationToken)
     => await owner.ExecuteAsync(
       $"ALTER DATABASE {SeedDatabaseNames.Quote(name)} RENAME TO {SeedDatabaseNames.Quote(newName)};",
-      null,
       cancellationToken);
 
   // Makes sure the template `name` exists, running `build` with the name to build under if it does not, and says
@@ -110,7 +106,7 @@ public sealed class ServerDatabases {
     var sql = $"CREATE DATABASE {target} TEMPLATE {source};";
     for (var attempt = 1; ; attempt++) {
       try {
-        await owner.ExecuteAsync(sql, null, cancellationToken);
+        await owner.ExecuteAsync(sql, cancellationToken);
         return;
       } catch (PostgresException exception) when (exception.SqlState is _SourceInUse && attempt < Attempts) {
         await Task.Delay(Delay, cancellationToken);

@@ -13,7 +13,7 @@ public class UnexpectedAaguidExceptionTests {
 
   [Fact]
   public void Message_SaysSoWhenTheModelIsUnknown() {
-    var exception = new UnexpectedAaguidException(AaguidLookupTests.Aaguid, null);
+    var exception = new UnexpectedAaguidException(AaguidLookupTests.Aaguid, modelName: null);
 
     Assert.Contains("(model unknown)", exception.Message, StringComparison.Ordinal);
     Assert.Contains("`aaguid` column", exception.Message, StringComparison.Ordinal);

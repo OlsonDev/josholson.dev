@@ -36,7 +36,7 @@ public class SessionHttpContextExtensionsTests {
   public async Task GetSession_AfterTheSessionFilterAuthenticated_ReturnsTheUser() {
     var userId = await _authTestData.CreateUserAsync(_cancellationToken);
     try {
-      var token = await _sessionService.StartAsync(userId, null, null, _cancellationToken);
+      var token = await _sessionService.StartAsync(userId, ip: null, userAgent: null, _cancellationToken);
       var httpContext = new DefaultHttpContext { RequestServices = _services };
       httpContext.Request.Headers.Cookie = $"{_options.CookieName}={token}";
       var actionContext = new ActionContext(httpContext, new RouteData(), new ActionDescriptor());

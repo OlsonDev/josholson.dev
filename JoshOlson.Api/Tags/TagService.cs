@@ -12,7 +12,7 @@ public sealed class TagService {
   }
 
   public async Task<ValidationErrors> ValidateCreateAsync(TagRequest request, CancellationToken cancellationToken)
-    => await ValidateAsync(null, request, cancellationToken);
+    => await ValidateAsync(tagId: null, request, cancellationToken);
 
   public async Task<ValidationErrors> ValidateUpdateAsync(
     int tagId,

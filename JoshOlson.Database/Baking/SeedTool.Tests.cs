@@ -52,24 +52,20 @@ public sealed class SeedToolTests {
       var created = await tool.CreateTestDatabaseAsync(owner, id, SeedLayers.MoreTags, _cancellationToken);
 
       await using var clone = await OpenAsync(name, _cancellationToken);
-      var tags = await clone.QuerySingleAsync<long>("SELECT count(*) FROM tag.tag;", null, _cancellationToken);
-      var color = await clone.QuerySingleAsync<string>("SELECT color FROM tag.tag WHERE slug = 'database';", null, _cancellationToken);
-      var anchors = await clone.QuerySingleAsync<long>("SELECT count(*) FROM seed.hydration;", null, _cancellationToken);
+      var tags = await clone.QuerySingleAsync<long>("SELECT count(*) FROM tag.tag;", _cancellationToken);
+      var color = await clone.QuerySingleAsync<string>("SELECT color FROM tag.tag WHERE slug = 'database';", _cancellationToken);
+      var anchors = await clone.QuerySingleAsync<long>("SELECT count(*) FROM seed.hydration;", _cancellationToken);
       var nextId = await clone.QuerySingleAsync<int>(
         "INSERT INTO tag.tag (name, slug) VALUES ('Foo', 'foo') RETURNING tag_id;",
-        null,
         _cancellationToken);
       var apiCanConnect = await clone.QuerySingleAsync<bool>(
         "SELECT has_database_privilege('josholson_api', current_database(), 'CONNECT');",
-        null,
         _cancellationToken);
       var apiCanReadTags = await clone.QuerySingleAsync<bool>(
         "SELECT has_table_privilege('josholson_api', 'tag.tag', 'SELECT');",
-        null,
         _cancellationToken);
       var apiSeesSeedSchema = await clone.QuerySingleAsync<bool>(
         "SELECT has_schema_privilege('josholson_api', 'seed', 'USAGE');",
-        null,
         _cancellationToken);
       Assert.Equal(name, created);
       Assert.Equal(22, tags);
@@ -94,7 +90,7 @@ public sealed class SeedToolTests {
       _ = await tool.CreateTestDatabaseAsync(owner, id, SeedLayers.Minimal, _cancellationToken);
 
       await using var clone = await OpenAsync(name, _cancellationToken);
-      Assert.Equal(3, await clone.QuerySingleAsync<long>("SELECT count(*) FROM tag.tag;", null, _cancellationToken));
+      Assert.Equal(3, await clone.QuerySingleAsync<long>("SELECT count(*) FROM tag.tag;", _cancellationToken));
     } finally {
       await _databases.DropAsync(owner, name, CancellationToken.None);
     }
@@ -135,16 +131,16 @@ public sealed class SeedToolTests {
     try {
       _ = await tool.SeedDevelopmentAsync(owner, SeedLayers.Minimal, _cancellationToken);
       await using (var first = await OpenAsync(development, _cancellationToken)) {
-        await first.ExecuteAsync("INSERT INTO tag.tag (name, slug) VALUES ('Foo', 'foo');", null, _cancellationToken);
+        await first.ExecuteAsync("INSERT INTO tag.tag (name, slug) VALUES ('Foo', 'foo');", _cancellationToken);
       }
       var before = SystemClock.Instance.GetCurrentInstant();
 
       var rows = await tool.SeedDevelopmentAsync(owner, SeedLayers.MoreTags, _cancellationToken);
 
       await using var rebuilt = await OpenAsync(development, _cancellationToken);
-      var tags = await rebuilt.QuerySingleAsync<long>("SELECT count(*) FROM tag.tag;", null, _cancellationToken);
+      var tags = await rebuilt.QuerySingleAsync<long>("SELECT count(*) FROM tag.tag;", _cancellationToken);
       var anchor = Instant.FromDateTimeUtc(
-        await rebuilt.QuerySingleAsync<DateTime>("SELECT anchor_utc FROM seed.hydration;", null, _cancellationToken));
+        await rebuilt.QuerySingleAsync<DateTime>("SELECT anchor_utc FROM seed.hydration;", _cancellationToken));
       Assert.Equal(22, rows);
       Assert.Equal(22, tags);
       Assert.True(anchor >= before);

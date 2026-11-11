@@ -55,17 +55,17 @@ public class TagRepositoryTests {
     try {
       var other = $"test-{Guid.NewGuid():N}";
 
-      Assert.Equal((true, true), await Taken(request.Slug, request.Name, null));
-      Assert.Equal((true, false), await Taken(request.Slug, other, null));
-      Assert.Equal((false, true), await Taken(other, request.Name.ToUpperInvariant(), null));
-      Assert.Equal((false, false), await Taken(other, other, null));
-      Assert.Equal((true, false), await Taken(request.Slug, null, null));
-      Assert.Equal((false, true), await Taken(null, request.Name, null));
-      Assert.Equal((false, false), await Taken(null, null, null));
+      Assert.Equal((true, true), await Taken(request.Slug, request.Name, excludeTagId: null));
+      Assert.Equal((true, false), await Taken(request.Slug, other, excludeTagId: null));
+      Assert.Equal((false, true), await Taken(other, request.Name.ToUpperInvariant(), excludeTagId: null));
+      Assert.Equal((false, false), await Taken(other, other, excludeTagId: null));
+      Assert.Equal((true, false), await Taken(request.Slug, name: null, excludeTagId: null));
+      Assert.Equal((false, true), await Taken(slug: null, request.Name, excludeTagId: null));
+      Assert.Equal((false, false), await Taken(slug: null, name: null, excludeTagId: null));
       // Excluding the tag itself, for each combination of fields checked.
       Assert.Equal((false, false), await Taken(request.Slug, request.Name, tagId));
-      Assert.Equal((false, false), await Taken(request.Slug, null, tagId));
-      Assert.Equal((false, false), await Taken(null, request.Name, tagId));
+      Assert.Equal((false, false), await Taken(request.Slug, name: null, tagId));
+      Assert.Equal((false, false), await Taken(slug: null, request.Name, tagId));
       // 0 is an id like any other, not "none".
       Assert.Equal((true, true), await Taken(request.Slug, request.Name, 0));
     } finally {

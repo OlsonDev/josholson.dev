@@ -29,7 +29,7 @@ public sealed class TagController : ControllerBase {
     if (errors.Any) return UnprocessableEntity(errors.ToProblemDetails());
 
     var tagId = await _tagService.CreateAsync(request, cancellationToken);
-    return CreatedAtAction(nameof(Get), new { tagId }, null);
+    return CreatedAtAction(nameof(Get), new { tagId }, value: null);
   }
 
   [HttpPut("{tagId:int}")]

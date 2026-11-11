@@ -15,7 +15,7 @@ public sealed class ComposeTools {
   // Applies the migrations to a database that already exists. The wrapper in the image builds its connection URL from
   // POSTGRES_DB, so the variable names the database.
   public async Task MigrateAsync(string database, CancellationToken cancellationToken)
-    => _ = await RunAsync(["exec", "-T", "-e", $"POSTGRES_DB={database}", "tools", "waypoint", "migrate"], null, cancellationToken);
+    => _ = await RunAsync(["exec", "-T", "-e", $"POSTGRES_DB={database}", "tools", "waypoint", "migrate"], stdin: null, cancellationToken);
 
   // Runs a SQL file with psql as the owner, stopping at the first error. A psql variable is how the API role's
   // password gets in (`:'api_password'`).

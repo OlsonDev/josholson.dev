@@ -98,7 +98,7 @@ internal sealed record Settings(
 
 internal static class Flows {
   public static async Task<int> EnrollAsync(Settings settings, SecurityKey key, ApiClient api) {
-    var started = await api.PostAsync("/auth/enrollment/options", new { token = settings.Token }, null);
+    var started = await api.PostAsync("/auth/enrollment/options", new { token = settings.Token }, cookie: null);
     started.EnsureSuccess("Starting the enrollment");
     var ceremony = started.Read<Ceremony<CredentialCreateOptions>>();
 
@@ -110,7 +110,7 @@ internal static class Flows {
       nickname = settings.Nickname,
       response = attestation,
     };
-    var enrolled = await api.PostAsync("/auth/enrollment", enrollment, null);
+    var enrolled = await api.PostAsync("/auth/enrollment", enrollment, cookie: null);
     enrolled.EnsureSuccess("Enrolling");
     Console.WriteLine("Enrolled. The API signed this client in:");
     await PrintSessionAsync(api, enrolled.Cookie);
@@ -140,7 +140,7 @@ internal static class Flows {
     byte[] credentialId,
     byte[] userHandle
   ) {
-    var started = await api.PostAsync("/auth/sign-in/options", new { }, null);
+    var started = await api.PostAsync("/auth/sign-in/options", new { }, cookie: null);
     started.EnsureSuccess("Starting the sign-in");
     var ceremony = started.Read<Ceremony<AssertionOptions>>();
 
@@ -149,7 +149,7 @@ internal static class Flows {
       attemptToken = ceremony.AttemptToken,
       response = assertion,
     };
-    var signedIn = await api.PostAsync("/auth/sign-in", request, null);
+    var signedIn = await api.PostAsync("/auth/sign-in", request, cookie: null);
     signedIn.EnsureSuccess("Signing in");
     Console.WriteLine("Signed in:");
     await PrintSessionAsync(api, signedIn.Cookie);

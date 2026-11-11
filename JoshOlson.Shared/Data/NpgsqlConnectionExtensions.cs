@@ -28,30 +28,45 @@ public static class NpgsqlConnectionExtensions {
       => (await QueryPairsAsync<TKey, T>(connection, sql, parameters, splitOn, cancellationToken))
         .ToDictionary(pair => pair.Key, pair => pair.Item);
 
+    public async Task<Dictionary<TKey, T>> QueryDictionaryAsync<TKey, T>(
+      string sql,
+      string splitOn,
+      CancellationToken cancellationToken
+    ) where TKey : notnull
+      => (await QueryPairsAsync<TKey, T>(connection, sql, splitOn, cancellationToken))
+        .ToDictionary(pair => pair.Key, pair => pair.Item);
+
+    public async Task<Dictionary<TKey, List<T>>> QueryGroupedAsync<TKey, T>(
+      string sql,
+      string splitOn,
+      CancellationToken cancellationToken
+    ) where TKey : notnull
+      => Group(await QueryPairsAsync<TKey, T>(connection, sql, splitOn, cancellationToken));
+
     // The same, for any number of rows per key (a table's columns): each key's list is in the order the rows came back.
     public async Task<Dictionary<TKey, List<T>>> QueryGroupedAsync<TKey, T>(
       string sql,
       object? parameters,
       string splitOn,
       CancellationToken cancellationToken
-    ) where TKey : notnull {
-      var groups = new Dictionary<TKey, List<T>>();
-      foreach (var (key, item) in await QueryPairsAsync<TKey, T>(connection, sql, parameters, splitOn, cancellationToken)) {
-        if (!groups.TryGetValue(key, out var list)) {
-          list = [];
-          groups[key] = list;
-        }
-        list.Add(item);
-      }
-      return groups;
-    }
+    ) where TKey : notnull
+      => Group(await QueryPairsAsync<TKey, T>(connection, sql, parameters, splitOn, cancellationToken));
+
+    public Task<T> QuerySingleAsync<T>(string sql, CancellationToken cancellationToken)
+      => connection.QuerySingleAsync<T>(new CommandDefinition(sql, cancellationToken: cancellationToken));
 
     public Task<T> QuerySingleAsync<T>(string sql, object? parameters, CancellationToken cancellationToken)
       => connection.QuerySingleAsync<T>(new CommandDefinition(sql, parameters, cancellationToken: cancellationToken));
 
+    public Task<T?> QuerySingleOrDefaultAsync<T>(string sql, CancellationToken cancellationToken)
+      => connection.QuerySingleOrDefaultAsync<T>(new CommandDefinition(sql, cancellationToken: cancellationToken));
+
     public Task<T?> QuerySingleOrDefaultAsync<T>(string sql, object? parameters, CancellationToken cancellationToken)
       => connection.QuerySingleOrDefaultAsync<T>(
         new CommandDefinition(sql, parameters, cancellationToken: cancellationToken));
+
+    public Task<SqlMapper.GridReader> QueryMultipleAsync(string sql, CancellationToken cancellationToken)
+      => connection.QueryMultipleAsync(new CommandDefinition(sql, cancellationToken: cancellationToken));
 
     public Task<SqlMapper.GridReader> QueryMultipleAsync(
       string sql,
@@ -60,9 +75,35 @@ public static class NpgsqlConnectionExtensions {
     )
       => connection.QueryMultipleAsync(new CommandDefinition(sql, parameters, cancellationToken: cancellationToken));
 
+    public Task<int> ExecuteAsync(string sql, CancellationToken cancellationToken)
+      => connection.ExecuteAsync(new CommandDefinition(sql, cancellationToken: cancellationToken));
+
     public Task<int> ExecuteAsync(string sql, object? parameters, CancellationToken cancellationToken)
       => connection.ExecuteAsync(new CommandDefinition(sql, parameters, cancellationToken: cancellationToken));
   }
+
+  private static Dictionary<TKey, List<T>> Group<TKey, T>(List<(TKey Key, T Item)> pairs) where TKey : notnull {
+    var groups = new Dictionary<TKey, List<T>>();
+    foreach (var (key, item) in pairs) {
+      if (!groups.TryGetValue(key, out var list)) {
+        list = [];
+        groups[key] = list;
+      }
+      list.Add(item);
+    }
+    return groups;
+  }
+
+  private static async Task<List<(TKey Key, T Item)>> QueryPairsAsync<TKey, T>(
+    NpgsqlConnection connection,
+    string sql,
+    string splitOn,
+    CancellationToken cancellationToken
+  )
+    => (await connection.QueryAsync<TKey, T, (TKey, T)>(
+      new CommandDefinition(sql, cancellationToken: cancellationToken),
+      (key, item) => (key, item),
+      splitOn)).AsList();
 
   private static async Task<List<(TKey Key, T Item)>> QueryPairsAsync<TKey, T>(
     NpgsqlConnection connection,

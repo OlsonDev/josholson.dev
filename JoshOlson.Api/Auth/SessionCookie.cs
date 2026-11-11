@@ -12,7 +12,7 @@ public static class SessionCookie {
         CreateCookieOptions(options, options.SessionAbsoluteLifetime));
 
     public void ClearSession(AuthOptions options)
-      => response.Cookies.Delete(options.CookieName, CreateCookieOptions(options, null));
+      => response.Cookies.Delete(options.CookieName, CreateCookieOptions(options, maxAge: null));
   }
 
   extension(HttpRequest request) {

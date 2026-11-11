@@ -23,7 +23,7 @@ public sealed class ServerDatabasesTests : IAsyncLifetime {
     await _databases.CreateAsync(_owner, _source, _cancellationToken);
     await using var source = new NpgsqlConnection(DatabaseEnvironment.OwnerConnectionString(_source));
     await source.OpenAsync(_cancellationToken);
-    await source.ExecuteAsync("CREATE TABLE foo (bar INT); INSERT INTO foo (bar) VALUES (42);", null, _cancellationToken);
+    await source.ExecuteAsync("CREATE TABLE foo (bar INT); INSERT INTO foo (bar) VALUES (42);", _cancellationToken);
   }
 
   public async ValueTask DisposeAsync() {
@@ -107,7 +107,7 @@ public sealed class ServerDatabasesTests : IAsyncLifetime {
 
     await using var renamed = new NpgsqlConnection(DatabaseEnvironment.OwnerConnectionString(_target));
     await renamed.OpenAsync(_cancellationToken);
-    Assert.Equal(42, await renamed.QuerySingleAsync<int>("SELECT bar FROM foo;", null, _cancellationToken));
+    Assert.Equal(42, await renamed.QuerySingleAsync<int>("SELECT bar FROM foo;", _cancellationToken));
     Assert.False(await _databases.ExistsAsync(_owner, _source, _cancellationToken));
   }
 
@@ -117,7 +117,7 @@ public sealed class ServerDatabasesTests : IAsyncLifetime {
 
     await using var clone = new NpgsqlConnection(DatabaseEnvironment.OwnerConnectionString(_target));
     await clone.OpenAsync(_cancellationToken);
-    Assert.Equal(42, await clone.QuerySingleAsync<int>("SELECT bar FROM foo;", null, _cancellationToken));
+    Assert.Equal(42, await clone.QuerySingleAsync<int>("SELECT bar FROM foo;", _cancellationToken));
   }
 
   [Fact]

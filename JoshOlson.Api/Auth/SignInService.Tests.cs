@@ -64,7 +64,7 @@ public class SignInServiceTests : IAsyncLifetime {
     _clock.Advance(Duration.FromMinutes(1));
     var started = _signInService.Start();
 
-    var token = await _signInService.FinishAsync(NewRequest(started), null, null, _cancellationToken);
+    var token = await _signInService.FinishAsync(NewRequest(started), ip: null, userAgent: null, _cancellationToken);
 
     Assert.NotNull(token);
     Assert.Equal(_userId, (await _sessionService.AuthenticateAsync(token, _cancellationToken))?.User.UserId);
@@ -74,7 +74,7 @@ public class SignInServiceTests : IAsyncLifetime {
   public async Task Finish_UnknownAttemptToken_ReturnsNull() {
     var request = NewRequest(_signInService.Start()) with { AttemptToken = OpaqueToken.Create() };
 
-    Assert.Null(await _signInService.FinishAsync(request, null, null, _cancellationToken));
+    Assert.Null(await _signInService.FinishAsync(request, ip: null, userAgent: null, _cancellationToken));
   }
 
   [Fact]
@@ -87,6 +87,6 @@ public class SignInServiceTests : IAsyncLifetime {
       """;
     await _connection.ExecuteAsync(sql, new { userId = _userId }, _cancellationToken);
 
-    Assert.Null(await _signInService.FinishAsync(request, null, null, _cancellationToken));
+    Assert.Null(await _signInService.FinishAsync(request, ip: null, userAgent: null, _cancellationToken));
   }
 }

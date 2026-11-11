@@ -125,7 +125,7 @@ public sealed class WebAuthnService {
       PasskeyTransport.Hybrid => AuthenticatorTransport.Hybrid,
       PasskeyTransport.Internal => AuthenticatorTransport.Internal,
       PasskeyTransport.SmartCard => AuthenticatorTransport.SmartCard,
-      _ => throw new ArgumentOutOfRangeException(nameof(transport), transport, null),
+      _ => throw new ArgumentOutOfRangeException(nameof(transport), transport, message: null),
     };
 
   // A transport this site has no number for (a newer browser may report one) is dropped, not stored.

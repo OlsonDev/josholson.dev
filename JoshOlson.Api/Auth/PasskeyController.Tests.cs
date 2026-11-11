@@ -35,7 +35,7 @@ public class PasskeyControllerTests : IAsyncLifetime {
 
   // The two ceremonies of an addition: register the authenticator (held, not stored), then confirm with another.
   private async Task<string> HoldAdditionAsync(SoftwareAuthenticator added, string nickname) {
-    var optionsResponse = await _client.PostAsync("/auth/passkeys/registration/options", null, _cancellationToken);
+    var optionsResponse = await _client.PostAsync("/auth/passkeys/registration/options", content: null, _cancellationToken);
     var started = await optionsResponse.Content
       .ReadFromJsonAsync<CeremonyResponse<CredentialCreateOptions>>(_cancellationToken);
     var request = new RegistrationRequest {
@@ -91,7 +91,7 @@ public class PasskeyControllerTests : IAsyncLifetime {
 
   [Fact]
   public async Task Add_SameAuthenticatorTwice_IsRefused() {
-    var optionsResponse = await _client.PostAsync("/auth/passkeys/registration/options", null, _cancellationToken);
+    var optionsResponse = await _client.PostAsync("/auth/passkeys/registration/options", content: null, _cancellationToken);
     var started = await optionsResponse.Content
       .ReadFromJsonAsync<CeremonyResponse<CredentialCreateOptions>>(_cancellationToken);
 
@@ -107,7 +107,7 @@ public class PasskeyControllerTests : IAsyncLifetime {
     var passkeys = await ListAsync();
     var second = passkeys.Single(passkey => string.Equals(passkey.Nickname, "second", StringComparison.Ordinal));
 
-    var removal = await _client.PostAsync(PasskeyUrl(second.PasskeyId, "/removal"), null, _cancellationToken);
+    var removal = await _client.PostAsync(PasskeyUrl(second.PasskeyId, "/removal"), content: null, _cancellationToken);
     var pending = await removal.Content.ReadFromJsonAsync<PendingChangeResponse>(_cancellationToken);
     var changeToken = pending!.ChangeToken;
     Assert.Equal(2, (await ListAsync()).Count);
@@ -121,7 +121,7 @@ public class PasskeyControllerTests : IAsyncLifetime {
   public async Task Remove_TheLastPasskey_ReturnsConflict() {
     var only = Assert.Single(await ListAsync());
 
-    var response = await _client.PostAsync(PasskeyUrl(only.PasskeyId, "/removal"), null, _cancellationToken);
+    var response = await _client.PostAsync(PasskeyUrl(only.PasskeyId, "/removal"), content: null, _cancellationToken);
 
     Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
   }

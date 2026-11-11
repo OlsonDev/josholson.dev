@@ -28,7 +28,7 @@ public class SignInControllerTests : IAsyncLifetime {
   }
 
   private async Task<HttpResponseMessage> SignInAsync(HttpClient browser, SoftwareAuthenticator authenticator) {
-    var optionsResponse = await browser.PostAsync("/auth/sign-in/options", null, _cancellationToken);
+    var optionsResponse = await browser.PostAsync("/auth/sign-in/options", content: null, _cancellationToken);
     var started = await optionsResponse.Content
       .ReadFromJsonAsync<CeremonyResponse<AssertionOptions>>(_cancellationToken);
     Assert.Empty(started!.Options.AllowCredentials ?? []);
@@ -65,7 +65,7 @@ public class SignInControllerTests : IAsyncLifetime {
   [Fact]
   public async Task SignIn_ChallengeUsedTwice_ReturnsUnauthorized() {
     using var browser = _authTestData.NewBrowser();
-    var optionsResponse = await browser.PostAsync("/auth/sign-in/options", null, _cancellationToken);
+    var optionsResponse = await browser.PostAsync("/auth/sign-in/options", content: null, _cancellationToken);
     var started = await optionsResponse.Content
       .ReadFromJsonAsync<CeremonyResponse<AssertionOptions>>(_cancellationToken);
     var request = new SignInRequest {
@@ -90,7 +90,7 @@ public class SignInControllerTests : IAsyncLifetime {
 
   [Fact]
   public async Task SignOut_EndsTheSession() {
-    var response = await _client.PostAsync("/auth/sign-out", null, _cancellationToken);
+    var response = await _client.PostAsync("/auth/sign-out", content: null, _cancellationToken);
 
     Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
     Assert.Equal(HttpStatusCode.Unauthorized, (await _client.GetAsync("/auth/me", _cancellationToken)).StatusCode);

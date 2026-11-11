@@ -292,7 +292,13 @@ dotnet_diagnostic.RCS0063.severity = none
 # MA0001 only asks for StringComparison where the default is already ordinal. MA0074 covers culture-sensitive defaults.
 dotnet_diagnostic.MA0001.severity = none
 dotnet_diagnostic.MA0002.severity = warning
-dotnet_diagnostic.MA0003.severity = suggestion
+# A literal `null`, `true`, `false`, or `default` as an argument names its parameter (`userAgent: null`), except in a call
+# with one parameter, where the method name says what it is, and in `SqlMemoizer.ForValues`, whose arguments are the
+# flags the SQL varies by.
+dotnet_diagnostic.MA0003.severity = warning
+MA0003.expression_kinds = Null, Boolean, Default
+MA0003.minimum_method_parameters = 2
+MA0003.excluded_methods_regex = ^M:JoshOlson\.Api\.Common\.Db\.SqlMemoizer.*\.ForValues
 dotnet_diagnostic.MA0005.severity = warning
 dotnet_diagnostic.MA0006.severity = warning
 dotnet_diagnostic.MA0007.severity = warning

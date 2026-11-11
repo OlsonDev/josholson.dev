@@ -39,10 +39,9 @@ public sealed class SeedHydratorTests {
     var rows = await SeedHydrator.HydrateAsync(database.Name, tree, schema, "foo", anchor, _cancellationToken);
 
     await using var connection = await database.OpenAsync(_cancellationToken);
-    var stored = await connection.QuerySingleAsync<DateTime>("SELECT anchor_utc FROM seed.hydration;", null, _cancellationToken);
+    var stored = await connection.QuerySingleAsync<DateTime>("SELECT anchor_utc FROM seed.hydration;", _cancellationToken);
     var next = await connection.QuerySingleAsync<int>(
       "INSERT INTO tag.tag (name, slug) VALUES ('Grault', 'grault') RETURNING tag_id;",
-      null,
       _cancellationToken);
     Assert.Equal(1, rows);
     Assert.Equal(anchor, Instant.FromDateTimeUtc(stored));

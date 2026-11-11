@@ -62,7 +62,7 @@ public sealed class SoftwareAuthenticator : IDisposable {
 
   public AuthenticatorAssertionRawResponse Get(AssertionOptions options) {
     var clientData = ClientData("webauthn.get", options.Challenge);
-    var authData = AuthenticatorData(_UserPresent | _UserVerified, null);
+    var authData = AuthenticatorData(_UserPresent | _UserVerified, aaguid: null);
     var signed = authData.Concat(SHA256.HashData(clientData)).ToArray();
     return new() {
       Id = WebEncoders.Base64UrlEncode(CredentialId),

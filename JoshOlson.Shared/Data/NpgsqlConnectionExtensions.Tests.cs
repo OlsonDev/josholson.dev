@@ -60,15 +60,33 @@ public class NpgsqlConnectionExtensionsTests : IAsyncLifetime {
     Assert.Equal([7], await _connection.QueryAsync<int>(_ParameterSql, parameters, _cancellationToken));
     Assert.Equal(7, await _connection.QuerySingleAsync<int>(_ParameterSql, parameters, _cancellationToken));
     Assert.Equal(7, await _connection.QuerySingleOrDefaultAsync<int?>(_ParameterSql, parameters, _cancellationToken));
-    Assert.Null(await _connection.QuerySingleOrDefaultAsync<int?>(_NoRowsSql, null, _cancellationToken));
+    Assert.Null(await _connection.QuerySingleOrDefaultAsync<int?>(_NoRowsSql, _cancellationToken));
   }
 
   [Fact]
   public async Task QueryMultiple_ReadsEachResultSet() {
-    await using var data = await _connection.QueryMultipleAsync(_TwoResultSetsSql, null, _cancellationToken);
+    await using var data = await _connection.QueryMultipleAsync(_TwoResultSetsSql, _cancellationToken);
 
     Assert.Equal(1, await data.ReadSingleAsync<int>());
     Assert.Equal("foo", await data.ReadSingleAsync<string>());
+  }
+
+  [Fact]
+  public async Task QueryMultiple_WithParameters_ReadsEachResultSet() {
+    var sql = """
+      SELECT
+          @foo  AS value
+      FROM (SELECT) AS _;
+
+      SELECT
+          'bar'  AS value
+      FROM (SELECT) AS _;
+      """;
+
+    await using var data = await _connection.QueryMultipleAsync(sql, new { foo = 7 }, _cancellationToken);
+
+    Assert.Equal(7, await data.ReadSingleAsync<int>());
+    Assert.Equal("bar", await data.ReadSingleAsync<string>());
   }
 
   [Fact]
@@ -81,9 +99,24 @@ public class NpgsqlConnectionExtensionsTests : IAsyncLifetime {
       JOIN generate_series(1, 2)  AS g (n)  ON TRUE;
       """;
 
-    var items = await _connection.QueryDictionaryAsync<int, KeyedItem>(sql, null, "name", _cancellationToken);
+    var items = await _connection.QueryDictionaryAsync<int, KeyedItem>(sql, "name", _cancellationToken);
 
     Assert.Equal(["item1", "item2"], [items[1].Name, items[2].Name]);
+  }
+
+  [Fact]
+  public async Task QueryDictionaryAsync_WithParameters_KeysOnlyTheRowsTheParametersSelect() {
+    var sql = """
+      SELECT
+          n            AS id
+        , 'item' || n  AS name
+      FROM (SELECT) AS _
+      JOIN generate_series(1, 3)  AS g (n)  ON n <= @max;
+      """;
+
+    var items = await _connection.QueryDictionaryAsync<int, KeyedItem>(sql, new { max = 2 }, "name", _cancellationToken);
+
+    Assert.Equal([1, 2], items.Keys.Order());
   }
 
   [Fact]
@@ -97,7 +130,7 @@ public class NpgsqlConnectionExtensionsTests : IAsyncLifetime {
       """;
 
     await Assert.ThrowsAsync<ArgumentException>(
-      () => _connection.QueryDictionaryAsync<int, KeyedItem>(sql, null, "name", _cancellationToken));
+      () => _connection.QueryDictionaryAsync<int, KeyedItem>(sql, "name", _cancellationToken));
   }
 
   [Fact]
@@ -111,7 +144,7 @@ public class NpgsqlConnectionExtensionsTests : IAsyncLifetime {
       ORDER BY n;
       """;
 
-    var groups = await _connection.QueryGroupedAsync<int, KeyedItem>(sql, null, "name", _cancellationToken);
+    var groups = await _connection.QueryGroupedAsync<int, KeyedItem>(sql, "name", _cancellationToken);
 
     Assert.Equal(["item1", "item3"], groups[1].Select(item => item.Name));
     Assert.Equal(["item2"], groups[0].Select(item => item.Name));
@@ -119,8 +152,27 @@ public class NpgsqlConnectionExtensionsTests : IAsyncLifetime {
   }
 
   [Fact]
-  public async Task Execute_ReturnsTheRowCount()
-    => Assert.Equal(-1, await _connection.ExecuteAsync(_OneRowSql, null, _cancellationToken));
+  public async Task QueryGroupedAsync_WithParameters_GroupsOnlyTheRowsTheParametersSelect() {
+    var sql = """
+      SELECT
+          n % 2        AS id
+        , 'item' || n  AS name
+      FROM (SELECT) AS _
+      JOIN generate_series(1, 3)  AS g (n)  ON n <= @max
+      ORDER BY n;
+      """;
+
+    var groups = await _connection.QueryGroupedAsync<int, KeyedItem>(sql, new { max = 2 }, "name", _cancellationToken);
+
+    Assert.Equal(["item1"], groups[1].Select(item => item.Name));
+    Assert.Equal(["item2"], groups[0].Select(item => item.Name));
+  }
+
+  [Fact]
+  public async Task Execute_ReturnsTheRowCount() {
+    Assert.Equal(-1, await _connection.ExecuteAsync(_OneRowSql, _cancellationToken));
+    Assert.Equal(-1, await _connection.ExecuteAsync(_ParameterSql, new { foo = 7 }, _cancellationToken));
+  }
 
   // The reason the token is a required argument: every call must honor it.
   [Fact]
@@ -131,8 +183,12 @@ public class NpgsqlConnectionExtensionsTests : IAsyncLifetime {
     await Assert.ThrowsAnyAsync<OperationCanceledException>(
       () => _connection.QueryAsync<int>(_OneRowSql, cancelled.Token));
     await Assert.ThrowsAnyAsync<OperationCanceledException>(
-      () => _connection.QuerySingleAsync<int>(_OneRowSql, null, cancelled.Token));
+      () => _connection.QuerySingleAsync<int>(_OneRowSql, cancelled.Token));
     await Assert.ThrowsAnyAsync<OperationCanceledException>(
-      () => _connection.ExecuteAsync(_OneRowSql, null, cancelled.Token));
+      () => _connection.ExecuteAsync(_OneRowSql, cancelled.Token));
+    await Assert.ThrowsAnyAsync<OperationCanceledException>(
+      () => _connection.QuerySingleAsync<int>(_ParameterSql, new { foo = 7 }, cancelled.Token));
+    await Assert.ThrowsAnyAsync<OperationCanceledException>(
+      () => _connection.ExecuteAsync(_ParameterSql, new { foo = 7 }, cancelled.Token));
   }
 }
