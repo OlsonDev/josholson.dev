@@ -1,8 +1,8 @@
 #!/usr/bin/env dotnet
 #:project ../JoshOlson.Database
 #:property PublishAot=false
-// The seed tool's command line, a thin layer over JoshOlson.Database (ADR 0033). Run through mise from the repo root:
-//   mise run seeds:list      print the layer tree with row counts per table
+// The seed tool's commands that have not moved to JoshOlson.Seed yet (`mise run seeds:list` has), a thin layer over
+// JoshOlson.Database (ADR 0033). Run through mise from the repo root:
 //   mise run seeds:migrate   make migrations/schema.lock.yaml describe the dev database (see below)
 //   mise run seeds:relock    the same, starting the lock over: for migrations rewritten before the first deploy
 //   mise run seeds:bake      build the schema template and every layer's template (a no-op when they are current)
@@ -14,7 +14,6 @@ using JoshOlson.Database;
 using JoshOlson.Database.Baking;
 using JoshOlson.Database.Catalog;
 using JoshOlson.Database.Layers;
-using JoshOlson.Database.Locks;
 using JoshOlson.Database.Migrate;
 using JoshOlson.Shared.Extensions;
 using NodaTime;
@@ -28,35 +27,8 @@ if (command is "migrate" or "relock") {
 if (command is "bake" or "seed" or "test" or "clean") {
   return await ToolAsync(paths, command, [.. args.Skip(1)]);
 }
-if (command is not "list") {
-  Console.Error.WriteLine("Usage: dotnet run scripts/seed.cs -- list|migrate|relock|bake|seed <layer>|test <id> <layer>|clean [--all]");
-  return 2;
-}
-
-LayerTree tree;
-try {
-  tree = await LoadTreeAsync(paths);
-} catch (SeedFormatException exception) {
-  Console.Error.WriteLine(exception.Message);
-  return 1;
-}
-
-foreach (var root in tree.Roots) {
-  Print(root, 0);
-}
-Console.WriteLine($"{tree.Count} layer(s).");
-return 0;
-
-void Print(SeedLayer layer, int depth) {
-  var indent = new string(' ', depth * 2);
-  Console.WriteLine($"{indent}{layer.Name}: {layer.Description}");
-  foreach (var table in layer.Tables) {
-    Console.WriteLine($"{indent}  {table.Table}: +{table.Upserts.Count} -{table.Deletes.Count}");
-  }
-  foreach (var child in tree.ChildrenOf(layer.Name)) {
-    Print(child, depth + 1);
-  }
-}
+Console.Error.WriteLine("Usage: dotnet run scripts/seed.cs -- migrate|relock|bake|seed <layer>|test <id> <layer>|clean [--all]");
+return 2;
 
 // The dev database (POSTGRES_* from .env, which the mise task loads) must have applied exactly the migrations on disk:
 // `mise run waypoint migrate` first. Writes migrations/schema.lock.yaml, or says everything wrong and writes nothing.
@@ -134,15 +106,4 @@ static async Task<NpgsqlConnection> OpenMaintenanceAsync() {
   var connection = new NpgsqlConnection(DatabaseEnvironment.OwnerConnectionString("postgres"));
   await connection.OpenAsync(CancellationToken.None);
   return connection;
-}
-
-// Layer values are typed by the lock, so the lock has to exist before there is a layer to read.
-static async Task<LayerTree> LoadTreeAsync(SeedPaths paths) {
-  if (!File.Exists(paths.LockFile)) {
-    return LayerLoader.Files(paths.Seeds).Count > 0
-      ? throw new SeedFormatException($"{paths.LockFile} does not exist. Run mise run seeds:migrate first.")
-      : new LayerTree([]);
-  }
-  var schemaLock = SchemaLockParser.Parse(await File.ReadAllTextAsync(paths.LockFile, CancellationToken.None));
-  return await LayerLoader.LoadAsync(paths.Seeds, new SeedSchema(schemaLock), CancellationToken.None);
 }

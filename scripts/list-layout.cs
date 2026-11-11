@@ -15,7 +15,7 @@ using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 var options = CSharpParseOptions.Default.WithPreprocessorSymbols("INCLUDE_TESTS");
-var files = SourceFiles.Enumerate(["JoshOlson.Api", "JoshOlson.Database", "JoshOlson.Shared", "scripts", ".githooks"], "*.cs");
+var files = SourceFiles.Enumerate(["JoshOlson.Api", "JoshOlson.Database", "JoshOlson.Seed", "JoshOlson.Shared", "scripts", ".githooks"], "*.cs");
 
 var violations = 0;
 foreach (var path in files) {

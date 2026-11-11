@@ -9,7 +9,7 @@ using JoshOlson.Shared.IO;
 
 var strict = args.Contains("--strict");
 var untested = new Regex(@"(Payloads|Registration)\.cs$|^Program\.cs$");
-var missing = SourceFiles.Enumerate(["JoshOlson.Api", "JoshOlson.Database", "JoshOlson.Shared"], "*.cs")
+var missing = SourceFiles.Enumerate(["JoshOlson.Api", "JoshOlson.Database", "JoshOlson.Seed", "JoshOlson.Shared"], "*.cs")
   .Where(path => !path.EndsWith(".Tests.cs", StringComparison.Ordinal) && !untested.IsMatch(Path.GetFileName(path)) && !File.Exists(Path.ChangeExtension(path, ".Tests.cs")))
   .ToList();
 
