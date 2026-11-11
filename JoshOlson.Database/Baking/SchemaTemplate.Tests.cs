@@ -10,7 +10,7 @@ namespace JoshOlson.Database.Baking;
 [Collection(TemplateCollection.Name)]
 public sealed class SchemaTemplateTests : IDisposable {
   private readonly CancellationToken _cancellationToken = TestContext.Current.CancellationToken;
-  private readonly string _directory = Path.Combine(Path.GetTempPath(), $"schema-template-{Guid.NewGuid():N}");
+  private readonly string _directory = TempDirectory.Create("schema-template");
 
   public SchemaTemplateTests() {
     _ = Directory.CreateDirectory(_directory);
@@ -29,7 +29,7 @@ public sealed class SchemaTemplateTests : IDisposable {
         ProvisioningScript = Path.Combine(_directory, "provisioning.sql"),
         SeedSchemaScript = Path.Combine(_directory, "seed_schema.sql"),
       },
-      new(RepositoryRoot.Find()));
+      new(SeedPaths.ForRepository().Root));
 
   [Fact]
   public async Task NameAsync_SameFiles_SameName() {
@@ -83,15 +83,15 @@ public sealed class SchemaTemplateTests : IDisposable {
     // Waypoint applies the real migrations from the `tools` container, whatever directory the options name, so a copy of
     // them with one extra file gives a template name of this test's own: the real template is neither dropped nor built
     // under it.
-    var root = RepositoryRoot.Find();
-    var options = SchemaTemplateOptions.ForRepository(root);
+    var paths = SeedPaths.ForRepository();
+    var options = SchemaTemplateOptions.ForRepository(paths);
     var migrations = Path.Combine(_directory, "real-migrations");
     _ = Directory.CreateDirectory(migrations);
     foreach (var file in Directory.EnumerateFiles(options.MigrationsDirectory, "*.sql")) {
       File.Copy(file, Path.Combine(migrations, Path.GetFileName(file)));
     }
     await File.WriteAllTextAsync(Path.Combine(migrations, "R__unique.sql"), $"-- {Guid.NewGuid():N}\n", _cancellationToken);
-    var template = new SchemaTemplate(options with { MigrationsDirectory = migrations }, new(root));
+    var template = new SchemaTemplate(options with { MigrationsDirectory = migrations }, new(paths.Root));
     await using var owner = new NpgsqlConnection(DatabaseEnvironment.OwnerConnectionString());
     await owner.OpenAsync(_cancellationToken);
     var name = await template.NameAsync(_cancellationToken);

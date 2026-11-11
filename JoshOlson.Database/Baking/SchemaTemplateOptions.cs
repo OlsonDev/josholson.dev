@@ -8,13 +8,10 @@ public sealed record SchemaTemplateOptions {
   // granted anything in it.
   public required string SeedSchemaScript { get; init; }
 
-  // The repository's own files, under its root.
-  public static SchemaTemplateOptions ForRepository(string root) {
-    var database = Path.Combine(root, "JoshOlson.Database");
-    return new() {
-      MigrationsDirectory = Path.Combine(database, "migrations"),
-      ProvisioningScript = Path.Combine(database, "provisioning", "api_role.sql"),
-      SeedSchemaScript = Path.Combine(database, "Baking", "seed_schema.sql"),
+  public static SchemaTemplateOptions ForRepository(SeedPaths paths)
+    => new() {
+      MigrationsDirectory = paths.Migrations,
+      ProvisioningScript = paths.ProvisioningScript,
+      SeedSchemaScript = paths.SeedSchemaScript,
     };
-  }
 }

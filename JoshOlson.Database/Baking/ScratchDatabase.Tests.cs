@@ -1,7 +1,5 @@
 using JoshOlson.Database.Layers;
 using JoshOlson.Database.Locks;
-using JoshOlson.Database.Migrate;
-using JoshOlson.Shared.IO;
 using Npgsql;
 
 namespace JoshOlson.Database.Baking;
@@ -16,8 +14,8 @@ internal sealed class ScratchDatabase : IAsyncDisposable {
   public string Name { get; }
 
   public static async Task<ScratchDatabase> CreateAsync(CancellationToken cancellationToken) {
-    var root = RepositoryRoot.Find();
-    var template = new SchemaTemplate(SchemaTemplateOptions.ForRepository(root), new(root));
+    var paths = SeedPaths.ForRepository();
+    var template = new SchemaTemplate(SchemaTemplateOptions.ForRepository(paths), new(paths.Root));
     await using var owner = new NpgsqlConnection(DatabaseEnvironment.OwnerConnectionString());
     await owner.OpenAsync(cancellationToken);
     var (templateName, _) = await template.EnsureAsync(owner, cancellationToken);
@@ -28,8 +26,8 @@ internal sealed class ScratchDatabase : IAsyncDisposable {
 
   // The repository's lock as the layer parser reads it.
   public static async Task<SeedSchema> LoadSchemaAsync(CancellationToken cancellationToken) {
-    var lockPath = Path.Combine(RepositoryRoot.Find(), "JoshOlson.Database", "migrations", SeedMigrator.LockFileName);
-    return new(SchemaLockParser.Parse(await File.ReadAllTextAsync(lockPath, cancellationToken)));
+    var lockText = await File.ReadAllTextAsync(SeedPaths.ForRepository().LockFile, cancellationToken);
+    return new(SchemaLockParser.Parse(lockText));
   }
 
   public async Task<NpgsqlConnection> OpenAsync(CancellationToken cancellationToken) {

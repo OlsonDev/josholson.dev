@@ -1,5 +1,5 @@
+using JoshOlson.Database.Layers;
 using JoshOlson.Shared.Data;
-using JoshOlson.Shared.IO;
 using NodaTime;
 using Npgsql;
 using Xunit;
@@ -14,7 +14,7 @@ public sealed class SeedToolTests {
   private readonly CancellationToken _cancellationToken = TestContext.Current.CancellationToken;
 
   private async Task<SeedTool> OpenToolAsync()
-    => await SeedTool.OpenAsync(RepositoryRoot.Find(), SystemClock.Instance, _cancellationToken);
+    => await SeedTool.OpenAsync(SeedPaths.ForRepository(), SystemClock.Instance, _cancellationToken);
 
   private async Task<NpgsqlConnection> OpenOwnerAsync() {
     var owner = new NpgsqlConnection(DatabaseEnvironment.OwnerConnectionString());
@@ -48,7 +48,7 @@ public sealed class SeedToolTests {
     var id = Guid.NewGuid().ToString("N");
     var name = SeedDatabaseNames.Test(id);
     try {
-      var created = await tool.CreateTestDatabaseAsync(owner, id, "more-tags", _cancellationToken);
+      var created = await tool.CreateTestDatabaseAsync(owner, id, SeedLayers.MoreTags, _cancellationToken);
 
       await using var clone = await OpenAsync(name, _cancellationToken);
       var tags = await clone.QuerySingleAsync<long>("SELECT count(*) FROM tag.tag;", null, _cancellationToken);
@@ -90,7 +90,7 @@ public sealed class SeedToolTests {
     var id = Guid.NewGuid().ToString("N");
     var name = SeedDatabaseNames.Test(id);
     try {
-      _ = await tool.CreateTestDatabaseAsync(owner, id, "minimal", _cancellationToken);
+      _ = await tool.CreateTestDatabaseAsync(owner, id, SeedLayers.Minimal, _cancellationToken);
 
       await using var clone = await OpenAsync(name, _cancellationToken);
       Assert.Equal(3, await clone.QuerySingleAsync<long>("SELECT count(*) FROM tag.tag;", null, _cancellationToken));
@@ -106,10 +106,10 @@ public sealed class SeedToolTests {
     var id = Guid.NewGuid().ToString("N");
     var name = SeedDatabaseNames.Test(id);
     try {
-      _ = await tool.CreateTestDatabaseAsync(owner, id, "minimal", _cancellationToken);
+      _ = await tool.CreateTestDatabaseAsync(owner, id, SeedLayers.Minimal, _cancellationToken);
 
       var exception = await Assert.ThrowsAsync<SeedFormatException>(
-        () => tool.CreateTestDatabaseAsync(owner, id, "minimal", _cancellationToken));
+        () => tool.CreateTestDatabaseAsync(owner, id, SeedLayers.Minimal, _cancellationToken));
 
       Assert.Contains("already exists", exception.Message, StringComparison.Ordinal);
     } finally {
@@ -132,13 +132,13 @@ public sealed class SeedToolTests {
     var tool = (await OpenToolAsync()).WithDevelopment(development);
     await using var owner = await OpenOwnerAsync();
     try {
-      _ = await tool.SeedDevelopmentAsync(owner, "minimal", _cancellationToken);
+      _ = await tool.SeedDevelopmentAsync(owner, SeedLayers.Minimal, _cancellationToken);
       await using (var first = await OpenAsync(development, _cancellationToken)) {
         await first.ExecuteAsync("INSERT INTO tag.tag (name, slug) VALUES ('Foo', 'foo');", null, _cancellationToken);
       }
       var before = SystemClock.Instance.GetCurrentInstant();
 
-      var rows = await tool.SeedDevelopmentAsync(owner, "more-tags", _cancellationToken);
+      var rows = await tool.SeedDevelopmentAsync(owner, SeedLayers.MoreTags, _cancellationToken);
 
       await using var rebuilt = await OpenAsync(development, _cancellationToken);
       var tags = await rebuilt.QuerySingleAsync<long>("SELECT count(*) FROM tag.tag;", null, _cancellationToken);
@@ -159,7 +159,7 @@ public sealed class SeedToolTests {
     var tool = (await OpenToolAsync()).WithDevelopment(development);
     await using var owner = await OpenOwnerAsync();
 
-    _ = await Assert.ThrowsAsync<SeedFormatException>(() => tool.SeedDevelopmentAsync(owner, "minimal", _cancellationToken));
+    _ = await Assert.ThrowsAsync<SeedFormatException>(() => tool.SeedDevelopmentAsync(owner, SeedLayers.Minimal, _cancellationToken));
   }
 
   [Fact]

@@ -10,7 +10,7 @@ namespace JoshOlson.Database.Baking;
 [Collection(TemplateCollection.Name)]
 public sealed class LayerTemplateTests : IDisposable {
   private readonly CancellationToken _cancellationToken = TestContext.Current.CancellationToken;
-  private readonly string _directory = Path.Combine(Path.GetTempPath(), $"layer-template-{Guid.NewGuid():N}");
+  private readonly string _directory = TempDirectory.Create("layer-template");
 
   public LayerTemplateTests()
     => _ = Directory.CreateDirectory(_directory);
@@ -19,7 +19,7 @@ public sealed class LayerTemplateTests : IDisposable {
     => Directory.Delete(_directory, recursive: true);
 
   private async Task<LayerTemplate> OpenAsync() {
-    var root = RepositoryRoot.Find();
+    var paths = SeedPaths.ForRepository();
     var schema = await ScratchDatabase.LoadSchemaAsync(_cancellationToken);
     var layers = new List<SeedLayer>();
     foreach (var path in LayerLoader.Files(_directory)) {
@@ -28,8 +28,8 @@ public sealed class LayerTemplateTests : IDisposable {
       layers.Add(LayerParser.Parse(name, yaml, schema));
     }
     var tree = new LayerTree(layers);
-    var tools = new ComposeTools(root);
-    var schemaTemplate = new SchemaTemplate(SchemaTemplateOptions.ForRepository(root), tools);
+    var tools = new ComposeTools(paths.Root);
+    var schemaTemplate = new SchemaTemplate(SchemaTemplateOptions.ForRepository(paths), tools);
     var cloner = new DatabaseCloner();
     return new(schemaTemplate, cloner, tree, schema, _directory, SystemClock.Instance);
   }

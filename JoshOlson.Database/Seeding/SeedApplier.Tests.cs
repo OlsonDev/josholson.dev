@@ -1,7 +1,6 @@
 using JoshOlson.Database.Layers;
 using JoshOlson.Database.Locks;
 using JoshOlson.Shared.Data;
-using JoshOlson.Shared.IO;
 using NodaTime;
 using Npgsql;
 using Xunit;
@@ -92,7 +91,7 @@ public sealed class SeedApplierTests {
   }
 
   private async Task<SeedSchema> LoadSchemaAsync() {
-    var path = Path.Combine(RepositoryRoot.Find(), "JoshOlson.Database", "migrations", "schema.lock.yaml");
-    return new(SchemaLockParser.Parse(await File.ReadAllTextAsync(path, _cancellationToken)));
+    var lockText = await File.ReadAllTextAsync(SeedPaths.ForRepository().LockFile, _cancellationToken);
+    return new(SchemaLockParser.Parse(lockText));
   }
 }

@@ -11,13 +11,13 @@ namespace JoshOlson.Database.Migrate;
 [Collection(CatalogCollection.Name)]
 public sealed class SeedMigratorTests : IDisposable {
   private readonly CancellationToken _cancellationToken = TestContext.Current.CancellationToken;
-  private readonly string _directory = Path.Combine(Path.GetTempPath(), $"seed-migrator-{Guid.NewGuid():N}");
+  private readonly string _directory = TempDirectory.Create("seed-migrator");
   private readonly MigrateOptions _options;
 
   public SeedMigratorTests() {
     var migrations = Path.Combine(_directory, "migrations");
     _ = Directory.CreateDirectory(migrations);
-    foreach (var file in Directory.EnumerateFiles(RealMigrationsDirectory(), "*.sql")) {
+    foreach (var file in Directory.EnumerateFiles(SeedPaths.ForRepository().Migrations, "*.sql")) {
       File.Copy(file, Path.Combine(migrations, Path.GetFileName(file)));
     }
     _options = new() {
@@ -28,9 +28,6 @@ public sealed class SeedMigratorTests : IDisposable {
 
   public void Dispose()
     => Directory.Delete(_directory, recursive: true);
-
-  private static string RealMigrationsDirectory()
-    => Path.Combine(RepositoryRoot.Find(), "JoshOlson.Database", "migrations");
 
   private async Task<MigrateResult> MigrateAsync(
     bool relock = false,
