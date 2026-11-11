@@ -77,7 +77,7 @@ try {
   Directory.Delete(work, recursive: true);
 }
 
-// One output file. Links are written as reference-style definitions at the bottom, labelled:
+// One output file. Links are written as reference-style definitions at the bottom, labeled:
 //   pg:{type}        the PostgreSQL documentation for a built-in type
 //   domain:{name}    a domain's section in domains.md
 //   table:{name}     a table's page

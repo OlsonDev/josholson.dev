@@ -13,7 +13,7 @@ Every integration test opened its own connection, built the repositories it used
 - `Startup` uses the API's own registrations (`AddDatabase`, `AddServicesAndRepositories`, and so on) against the dev database, so a test resolves the same graph a request does.
 - A class named `*TestData` (a helper that creates and removes a feature's rows) is registered as scoped by the same kind of scan, so tests take it in their constructor too.
 - The in-memory API (`WebApplicationFactory<Program>`) and an `HttpClient` for it are scoped services, built on first use. A test that never asks for them does not start the app.
-- The cancellation token stays out of the scope: a test class keeps it in a field initialised from `TestContext.Current.CancellationToken`.
+- The cancellation token stays out of the scope: a test class keeps it in a field initialized from `TestContext.Current.CancellationToken`.
 - Constructor parameters only. xUnit offers no hook to inject a service into a test method's parameters, so a `[Theory]` takes its data as arguments and its services from the constructor.
 
 ## Alternatives considered

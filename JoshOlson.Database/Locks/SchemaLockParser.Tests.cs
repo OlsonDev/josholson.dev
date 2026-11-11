@@ -315,7 +315,7 @@ public class SchemaLockParserTests {
   [InlineData("not_null: true", "not_null: maybe")]
   [InlineData("default_expression: \"0::numeric\"", "default_expression: \"\"")]
   [InlineData("comment: \"A URL slug\"", "comment: \"\"")]
-  [InlineData("    type: \"decimal(9, 6)\"", "    type: \"decimal(9, 6)\"\n    colour: red")]
+  [InlineData("    type: \"decimal(9, 6)\"", "    type: \"decimal(9, 6)\"\n    color: red")]
   [InlineData("    comment: \"A bar\"", "    comment: \"\"")]
   [InlineData("    primary_key_name: pk_bar\n", "")]
   [InlineData("    primary_key: [tag_id]\n", "")]

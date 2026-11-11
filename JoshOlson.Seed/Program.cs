@@ -20,7 +20,7 @@ SeedApp.AddServices(services);
 var app = new CommandApp(new ServiceCollectionRegistrar(services));
 app.Configure(config => SeedApp.Configure(config));
 
-// Ctrl+C reaches the database calls as a cancelled token instead of killing the process mid-statement.
+// Ctrl+C reaches the database calls as a canceled token instead of killing the process mid-statement.
 using var cancellation = new CancellationTokenSource();
 Console.CancelKeyPress += (_, e) => {
   e.Cancel = true;

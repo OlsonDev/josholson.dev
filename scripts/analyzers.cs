@@ -72,7 +72,7 @@ foreach (var dll in dllPaths.Where(path => Path.GetFileName(path) is var file
     var descriptors = (IEnumerable)type.GetProperty("SupportedDiagnostics")!.GetValue(analyzer)!;
     foreach (var descriptor in descriptors) {
       var id = (string)Get(descriptor, "Id")!;
-      // Fade-out companions (RCS1002FadeOut) only grey out code and cannot be configured.
+      // Fade-out companions (RCS1002FadeOut) only gray out code and cannot be configured.
       if (((IEnumerable)Get(descriptor, "CustomTags")!).Cast<string>().Contains("NotConfigurable")) {
         continue;
       }

@@ -177,18 +177,18 @@ public class NpgsqlConnectionExtensionsTests : IAsyncLifetime {
   // The reason the token is a required argument: every call must honor it.
   [Fact]
   public async Task Calls_HonorTheCancellationToken() {
-    using var cancelled = new CancellationTokenSource();
-    await cancelled.CancelAsync();
+    using var canceled = new CancellationTokenSource();
+    await canceled.CancelAsync();
 
     await Assert.ThrowsAnyAsync<OperationCanceledException>(
-      () => _connection.QueryAsync<int>(_OneRowSql, cancelled.Token));
+      () => _connection.QueryAsync<int>(_OneRowSql, canceled.Token));
     await Assert.ThrowsAnyAsync<OperationCanceledException>(
-      () => _connection.QuerySingleAsync<int>(_OneRowSql, cancelled.Token));
+      () => _connection.QuerySingleAsync<int>(_OneRowSql, canceled.Token));
     await Assert.ThrowsAnyAsync<OperationCanceledException>(
-      () => _connection.ExecuteAsync(_OneRowSql, cancelled.Token));
+      () => _connection.ExecuteAsync(_OneRowSql, canceled.Token));
     await Assert.ThrowsAnyAsync<OperationCanceledException>(
-      () => _connection.QuerySingleAsync<int>(_ParameterSql, new { foo = 7 }, cancelled.Token));
+      () => _connection.QuerySingleAsync<int>(_ParameterSql, new { foo = 7 }, canceled.Token));
     await Assert.ThrowsAnyAsync<OperationCanceledException>(
-      () => _connection.ExecuteAsync(_ParameterSql, new { foo = 7 }, cancelled.Token));
+      () => _connection.ExecuteAsync(_ParameterSql, new { foo = 7 }, canceled.Token));
   }
 }
