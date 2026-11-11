@@ -58,7 +58,7 @@ run = "dotnet run --project JoshOlson.Seed -- list"
 [tasks."seeds:migrate"]
 description = "Make migrations/schema.lock.yaml describe the dev database at the newest migration"
 depends = ["tools:up"]
-run = "dotnet run scripts/seed.cs -- migrate"
+run = "dotnet run --project JoshOlson.Seed -- migrate"
 
 [tasks."seeds:migrate".env]
 _.file = ".env"
@@ -68,7 +68,7 @@ _.file = ".env"
 [tasks."seeds:relock"]
 description = "Start migrations/schema.lock.yaml over from the dev database, for migrations rewritten before the first deploy"
 depends = ["tools:up"]
-run = "dotnet run scripts/seed.cs -- relock"
+run = "dotnet run --project JoshOlson.Seed -- migrate --relock"
 
 [tasks."seeds:relock".env]
 _.file = ".env"

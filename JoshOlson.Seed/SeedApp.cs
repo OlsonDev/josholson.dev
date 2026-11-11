@@ -33,6 +33,8 @@ public static class SeedApp {
     config.ConfigureConsole(console);
     config.SetApplicationName("seed");
     _ = config.AddCommand<ListCommand>("list").WithDescription("Print the seed layer tree with row counts per table");
+    _ = config.AddCommand<MigrateCommand>("migrate")
+      .WithDescription("Make migrations/schema.lock.yaml describe the dev database at the newest migration");
     _ = config.AddCommand<BakeCommand>("bake").WithDescription("Build the schema template and every seed layer's template");
     _ = config.AddCommand<SeedCommand>("seed")
       .WithDescription("Drop the dev database and rebuild it from a seed layer, relative times measured from now");

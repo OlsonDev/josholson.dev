@@ -57,3 +57,4 @@ Template:
 - [0035](0035-typed-seed-values-and-relative-times.md): Typed seed values from the column type, per-column relative times against an anchor, and fixtures from the baked template
 - [0036](0036-shared-library.md): A shared library for utilities (`JoshOlson.Shared`)
 - [0037](0037-dotnet-11-and-csharp-15.md): Target .NET 11 and C# 15, `[with(...)]` for comparers, and a scoped suppression for generated validation code
+- [0038](0038-seed-tool-command-line.md): The seed tool's command line is `JoshOlson.Seed`, on Spectre.Console.Cli and a DI container
