@@ -1,13 +1,10 @@
 #!/usr/bin/env dotnet
 #:project ../JoshOlson.Database
 #:property PublishAot=false
-// The seed tool's commands that have not moved to JoshOlson.Seed yet (`seeds:list` and `seeds:bake` have), a thin layer
-// over JoshOlson.Database (ADR 0033). Run through mise from the repo root:
+// The seed tool's commands that have not moved to JoshOlson.Seed yet (every other one has), a thin layer over
+// JoshOlson.Database (ADR 0033). Run through mise from the repo root:
 //   mise run seeds:migrate   make migrations/schema.lock.yaml describe the dev database (see below)
 //   mise run seeds:relock    the same, starting the lock over: for migrations rewritten before the first deploy
-//   mise run seed <layer>    drop the dev database and rebuild it from the layer, relative times measured from now
-//   mise run seed:test <id> <layer>   a database of its own, seed_test_<id>, cloned from the layer's template
-//   mise run seed:clean [--all]   drop the seed tool's databases the current files no longer name (all with --all)
 // 🚧 seeds:accept and seeds:check arrive with moving layers.
 using JoshOlson.Database;
 using JoshOlson.Database.Baking;
@@ -23,10 +20,7 @@ var command = args.FirstOrDefault();
 if (command is "migrate" or "relock") {
   return await MigrateAsync(paths, relock: command is "relock");
 }
-if (command is "seed" or "test" or "clean") {
-  return await ToolAsync(paths, command, [.. args.Skip(1)]);
-}
-Console.Error.WriteLine("Usage: dotnet run scripts/seed.cs -- migrate|relock|seed <layer>|test <id> <layer>|clean [--all]");
+Console.Error.WriteLine("Usage: dotnet run scripts/seed.cs -- migrate|relock");
 return 2;
 
 // The dev database (POSTGRES_* from .env, which the mise task loads) must have applied exactly the migrations on disk:
@@ -49,37 +43,6 @@ static async Task<int> MigrateAsync(SeedPaths paths, bool relock) {
       : $"{result.Path} is already at version {result.Version.ToInvariantString()}.");
     return 0;
   } catch (Exception exception) when (exception is SeedFormatException or SchemaCatalogException) {
-    Console.Error.WriteLine(exception.Message);
-    return 1;
-  }
-}
-
-// The seed tool's database commands. They connect to the maintenance database, never the dev database: Postgres cannot
-// drop or clone a database somebody is connected to.
-static async Task<int> ToolAsync(SeedPaths paths, string command, List<string> arguments) {
-  try {
-    var tool = await SeedTool.OpenAsync(paths, SystemClock.Instance, CancellationToken.None);
-    await using var owner = await OpenMaintenanceAsync();
-    switch (command) {
-      case "seed" when arguments is [var layer]:
-        var rows = await tool.SeedDevelopmentAsync(owner, layer, CancellationToken.None);
-        Console.WriteLine($"Rebuilt {tool.Development} from {layer}: {rows.ToInvariantString()} row(s).");
-        return 0;
-      case "test" when arguments is [var id, var layer]:
-        Console.WriteLine(await tool.CreateTestDatabaseAsync(owner, id, layer, CancellationToken.None));
-        return 0;
-      case "clean" when arguments is [] or ["--all"]:
-        var dropped = await tool.CleanAsync(owner, everything: arguments is ["--all"], SeedDatabaseNames.Prefix, CancellationToken.None);
-        foreach (var name in dropped) {
-          Console.WriteLine($"Dropped {name}");
-        }
-        Console.WriteLine($"{dropped.Count.ToInvariantString()} database(s) dropped.");
-        return 0;
-      default:
-        Console.Error.WriteLine("Usage: dotnet run scripts/seed.cs -- seed <layer>|test <id> <layer>|clean [--all]");
-        return 2;
-    }
-  } catch (SeedFormatException exception) {
     Console.Error.WriteLine(exception.Message);
     return 1;
   }

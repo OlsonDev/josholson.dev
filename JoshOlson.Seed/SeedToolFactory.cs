@@ -7,25 +7,28 @@ namespace JoshOlson.Seed;
 
 // Opens the `SeedTool` for a run. The tool needs the layer tree and the schema, which are read from disk (or, for
 // `seeds:migrate`, built in memory), so it cannot be a registration of its own; what it is built from can, and this
-// hands it those, so a test can swap the clock or the paths.
+// hands it those, so a test can swap the clock, the paths, or the dev database (the one `seed` drops and makes again,
+// which a test must point at a database of its own).
 public sealed class SeedToolFactory {
   private readonly SeedPaths _paths;
   private readonly ServerDatabases _databases;
   private readonly ComposeTools _tools;
   private readonly IClock _clock;
+  private readonly string _development;
 
-  public SeedToolFactory(SeedPaths paths, ServerDatabases databases, ComposeTools tools, IClock clock) {
+  public SeedToolFactory(SeedPaths paths, ServerDatabases databases, ComposeTools tools, IClock clock, string development) {
     _paths = paths;
     _databases = databases;
     _tools = tools;
     _clock = clock;
+    _development = development;
   }
 
   // Reads the lock under the repository root. It has to exist: it types every value in a layer.
   public async Task<SeedTool> OpenAsync(CancellationToken cancellationToken)
-    => await SeedTool.OpenAsync(_paths, _databases, _tools, _clock, cancellationToken);
+    => (await SeedTool.OpenAsync(_paths, _databases, _tools, _clock, cancellationToken)).WithDevelopment(_development);
 
   // For a schema the caller already has, as `seeds:migrate` has before the lock is written.
   public async Task<SeedTool> OpenAsync(SeedSchema schema, CancellationToken cancellationToken)
-    => await SeedTool.OpenAsync(_paths, _databases, _tools, schema, _clock, cancellationToken);
+    => (await SeedTool.OpenAsync(_paths, _databases, _tools, schema, _clock, cancellationToken)).WithDevelopment(_development);
 }

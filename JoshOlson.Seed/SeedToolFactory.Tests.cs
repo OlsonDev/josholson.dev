@@ -14,7 +14,7 @@ public sealed class SeedToolFactoryTests : IDisposable {
     => Directory.Delete(_directory, recursive: true);
 
   private static SeedToolFactory Factory(SeedPaths paths)
-    => new(paths, new(), new(paths.Root), SystemClock.Instance);
+    => new(paths, new(), new(paths.Root), SystemClock.Instance, "seed_foo");
 
   [Fact]
   public async Task OpenAsync_RepositoryPaths_LoadsTheRealLayers() {
@@ -22,6 +22,13 @@ public sealed class SeedToolFactoryTests : IDisposable {
 
     Assert.Contains(SeedLayers.Minimal, tool.Tree.InBakeOrder().Select(layer => layer.Name));
     Assert.Contains(SeedLayers.MoreTags, tool.Tree.InBakeOrder().Select(layer => layer.Name));
+  }
+
+  [Fact]
+  public async Task OpenAsync_Development_IsTheDatabaseTheFactoryWasGiven() {
+    var tool = await Factory(SeedPaths.ForRepository()).OpenAsync(_cancellationToken);
+
+    Assert.Equal("seed_foo", tool.Development);
   }
 
   [Fact]

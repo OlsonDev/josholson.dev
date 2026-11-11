@@ -17,7 +17,12 @@ public static class SeedApp {
     _ = services.AddSingleton<IClock>(SystemClock.Instance);
     _ = services.AddSingleton<ServerDatabases>();
     _ = services.AddSingleton(provider => new ComposeTools(provider.GetRequiredService<SeedPaths>().Root));
-    _ = services.AddSingleton<SeedToolFactory>();
+    _ = services.AddSingleton(provider => new SeedToolFactory(
+      provider.GetRequiredService<SeedPaths>(),
+      provider.GetRequiredService<ServerDatabases>(),
+      provider.GetRequiredService<ComposeTools>(),
+      provider.GetRequiredService<IClock>(),
+      DatabaseEnvironment.DevelopmentDatabase()));
     _ = services.AddSingleton<OwnerConnections>();
   }
 
@@ -29,6 +34,12 @@ public static class SeedApp {
     config.SetApplicationName("seed");
     _ = config.AddCommand<ListCommand>("list").WithDescription("Print the seed layer tree with row counts per table");
     _ = config.AddCommand<BakeCommand>("bake").WithDescription("Build the schema template and every seed layer's template");
+    _ = config.AddCommand<SeedCommand>("seed")
+      .WithDescription("Drop the dev database and rebuild it from a seed layer, relative times measured from now");
+    _ = config.AddCommand<TestCommand>("test")
+      .WithDescription("Make a scoped database seed_test_<id> from a seed layer");
+    _ = config.AddCommand<CleanCommand>("clean")
+      .WithDescription("Drop the seed tool's stale databases (--all: the current templates too)");
     config.SetExceptionHandler((exception, _) => HandleException(exception, console));
   }
 

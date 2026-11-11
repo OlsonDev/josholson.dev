@@ -88,7 +88,7 @@ _.file = ".env"
 [tasks.seed]
 description = "Drop the dev database and rebuild it from a seed layer, e.g. mise run seed more-tags"
 depends = ["tools:up"]
-run = "dotnet run scripts/seed.cs -- seed"
+run = "dotnet run --project JoshOlson.Seed -- seed"
 
 [tasks.seed.env]
 _.file = ".env"
@@ -97,7 +97,7 @@ _.file = ".env"
 [tasks."seed:test"]
 description = "Make a scoped database seed_test_<id> from a seed layer, e.g. mise run seed:test 42 more-tags"
 depends = ["tools:up"]
-run = "dotnet run scripts/seed.cs -- test"
+run = "dotnet run --project JoshOlson.Seed -- test"
 
 [tasks."seed:test".env]
 _.file = ".env"
@@ -106,7 +106,7 @@ _.file = ".env"
 # templates, test databases, and builds that died halfway. `--all` drops the current templates too.
 [tasks."seed:clean"]
 description = "Drop the seed tool's stale databases (--all: the current templates too)"
-run = "dotnet run scripts/seed.cs -- clean"
+run = "dotnet run --project JoshOlson.Seed -- clean"
 
 [tasks."seed:clean".env]
 _.file = ".env"
