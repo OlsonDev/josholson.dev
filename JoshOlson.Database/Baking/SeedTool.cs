@@ -1,6 +1,5 @@
 using JoshOlson.Database.Layers;
 using JoshOlson.Database.Locks;
-using JoshOlson.Shared.Data;
 using NodaTime;
 using Npgsql;
 
@@ -13,14 +12,14 @@ namespace JoshOlson.Database.Baking;
 public sealed class SeedTool {
   private readonly SchemaTemplate _schemaTemplate;
   private readonly LayerTemplate _layerTemplate;
-  private readonly DatabaseCloner _cloner;
+  private readonly ServerDatabases _databases;
   private readonly SeedSchema _schema;
   private readonly IClock _clock;
 
   private SeedTool(
     SchemaTemplate schemaTemplate,
     LayerTemplate layerTemplate,
-    DatabaseCloner cloner,
+    ServerDatabases databases,
     LayerTree tree,
     SeedSchema schema,
     IClock clock,
@@ -28,7 +27,7 @@ public sealed class SeedTool {
   ) {
     _schemaTemplate = schemaTemplate;
     _layerTemplate = layerTemplate;
-    _cloner = cloner;
+    _databases = databases;
     Tree = tree;
     _schema = schema;
     _clock = clock;
@@ -42,7 +41,7 @@ public sealed class SeedTool {
 
   // The same tool for another development database, which is how a test rebuilds one of its own.
   public SeedTool WithDevelopment(string development)
-    => new(_schemaTemplate, _layerTemplate, _cloner, Tree, _schema, _clock, development);
+    => new(_schemaTemplate, _layerTemplate, _databases, Tree, _schema, _clock, development);
 
   // Reads the lock and the layers under the repository root and sets everything up. The lock has to exist: it types
   // every value in a layer.
@@ -58,11 +57,11 @@ public sealed class SeedTool {
   // write, which is not on disk yet.
   public static async Task<SeedTool> OpenAsync(SeedPaths paths, SeedSchema schema, IClock clock, CancellationToken cancellationToken) {
     var tree = await LayerLoader.LoadAsync(paths.Seeds, schema, cancellationToken);
-    var cloner = new DatabaseCloner();
+    var databases = new ServerDatabases();
     var tools = new ComposeTools(paths.Root);
-    var schemaTemplate = new SchemaTemplate(SchemaTemplateOptions.ForRepository(paths), tools);
-    var layerTemplate = new LayerTemplate(schemaTemplate, cloner, tree, schema, paths.Seeds, clock);
-    return new(schemaTemplate, layerTemplate, cloner, tree, schema, clock, DatabaseEnvironment.DevelopmentDatabase());
+    var schemaTemplate = new SchemaTemplate(SchemaTemplateOptions.ForRepository(paths), tools, databases);
+    var layerTemplate = new LayerTemplate(schemaTemplate, databases, tree, schema, paths.Seeds, clock);
+    return new(schemaTemplate, layerTemplate, databases, tree, schema, clock, DatabaseEnvironment.DevelopmentDatabase());
   }
 
   // Builds the schema template and then every layer's template, parent first. Templates that exist for the current
@@ -103,11 +102,11 @@ public sealed class SeedTool {
   public async Task<string> CreateTestDatabaseAsync(NpgsqlConnection owner, string id, string layer, CancellationToken cancellationToken) {
     var name = SeedDatabaseNames.Test(id);
     _ = Tree.Get(layer);
-    if (await SchemaTemplate.ExistsAsync(owner, name, cancellationToken)) {
+    if (await _databases.ExistsAsync(owner, name, cancellationToken)) {
       throw new SeedFormatException($"{name} already exists. Drop it with seed:clean, or pick another id.");
     }
     var (template, _) = await _layerTemplate.EnsureAsync(owner, layer, cancellationToken);
-    await _cloner.CloneAsync(owner, template, name, cancellationToken);
+    await _databases.CloneAsync(owner, template, name, cancellationToken);
     return name;
   }
 
@@ -116,11 +115,11 @@ public sealed class SeedTool {
   // baked). Everything in that database is lost. `Development` is its name, POSTGRES_DB unless `WithDevelopment` says
   // otherwise.
   public async Task<int> SeedDevelopmentAsync(NpgsqlConnection owner, string layer, CancellationToken cancellationToken) {
-    var quoted = SeedDatabaseNames.QuoteDevelopment(Development);
+    _ = SeedDatabaseNames.QuoteDevelopment(Development);
     _ = Tree.Get(layer);
     var (schemaName, _) = await _schemaTemplate.EnsureAsync(owner, cancellationToken);
-    await owner.ExecuteAsync($"DROP DATABASE IF EXISTS {quoted} WITH (FORCE);", null, cancellationToken);
-    await _cloner.CloneDevelopmentAsync(owner, schemaName, Development, cancellationToken);
+    await _databases.DropDevelopmentAsync(owner, Development, cancellationToken);
+    await _databases.CloneDevelopmentAsync(owner, schemaName, Development, cancellationToken);
     return await SeedHydrator.HydrateAsync(Development, Tree, _schema, layer, SeedHydrator.Anchor(_clock), cancellationToken);
   }
 
@@ -133,7 +132,6 @@ public sealed class SeedTool {
     string prefix,
     CancellationToken cancellationToken
   ) {
-    _ = SeedDatabaseNames.Quote(prefix);
     var keep = new HashSet<string>(StringComparer.Ordinal);
     if (!everything) {
       _ = keep.Add(await _schemaTemplate.NameAsync(cancellationToken));
@@ -141,13 +139,10 @@ public sealed class SeedTool {
         _ = keep.Add(await _layerTemplate.NameAsync(layer.Name, cancellationToken));
       }
     }
-    var names = await owner.QueryAsync<string>(
-      "SELECT datname FROM pg_database WHERE starts_with(datname, @prefix) ORDER BY datname;",
-      new { prefix },
-      cancellationToken);
+    var names = await _databases.ListAsync(owner, prefix, cancellationToken);
     var dropped = new List<string>(names.Count);
     foreach (var name in names.Where(name => !keep.Contains(name))) {
-      await SchemaTemplate.DropAsync(owner, name, cancellationToken);
+      await _databases.DropAsync(owner, name, cancellationToken);
       dropped.Add(name);
     }
     return dropped;

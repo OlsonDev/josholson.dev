@@ -29,9 +29,9 @@ public sealed class LayerTemplateTests : IDisposable {
     }
     var tree = new LayerTree(layers);
     var tools = new ComposeTools(paths.Root);
-    var schemaTemplate = new SchemaTemplate(SchemaTemplateOptions.ForRepository(paths), tools);
-    var cloner = new DatabaseCloner();
-    return new(schemaTemplate, cloner, tree, schema, _directory, SystemClock.Instance);
+    var databases = new ServerDatabases();
+    var schemaTemplate = new SchemaTemplate(SchemaTemplateOptions.ForRepository(paths), tools, databases);
+    return new(schemaTemplate, databases, tree, schema, _directory, SystemClock.Instance);
   }
 
   private async Task WriteAsync(string name, string yaml)

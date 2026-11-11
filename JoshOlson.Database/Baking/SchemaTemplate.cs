@@ -1,5 +1,4 @@
 using System.Security.Cryptography;
-using JoshOlson.Shared.Data;
 using Npgsql;
 
 namespace JoshOlson.Database.Baking;
@@ -10,15 +9,17 @@ namespace JoshOlson.Database.Baking;
 // creates the `seed` schema), so a template that exists for the current files is simply reused, and one for older files
 // is left for `seed:clean`.
 //
-// It is built under a temporary name and renamed when finished, so a bake that died halfway never leaves a template
-// that looks complete. A finished template refuses connections: it is only ever a source for `CREATE DATABASE`.
+// It is built and closed by `ServerDatabases.EnsureTemplateAsync`, so a bake that died halfway never leaves a template
+// that looks complete, and a finished template refuses connections.
 public sealed class SchemaTemplate {
   private readonly SchemaTemplateOptions _options;
   private readonly ComposeTools _tools;
+  private readonly ServerDatabases _databases;
 
-  public SchemaTemplate(SchemaTemplateOptions options, ComposeTools tools) {
+  public SchemaTemplate(SchemaTemplateOptions options, ComposeTools tools, ServerDatabases databases) {
     _options = options;
     _tools = tools;
+    _databases = databases;
   }
 
   public async Task<string> NameAsync(CancellationToken cancellationToken) {
@@ -38,42 +39,18 @@ public sealed class SchemaTemplate {
   // work.
   public async Task<(string Name, bool Built)> EnsureAsync(NpgsqlConnection owner, CancellationToken cancellationToken) {
     var name = await NameAsync(cancellationToken);
-    if (await ExistsAsync(owner, name, cancellationToken)) {
-      return (name, false);
-    }
-    var building = SeedDatabaseNames.Building(name);
-    await DropAsync(owner, building, cancellationToken);
-    await owner.ExecuteAsync($"CREATE DATABASE {SeedDatabaseNames.Quote(building)};", null, cancellationToken);
-    try {
-      await _tools.MigrateAsync(building, cancellationToken);
-      await _tools.RunScriptAsync(building, _options.ProvisioningScript, ApiPasswordVariable(), cancellationToken);
-      await _tools.RunScriptAsync(building, _options.SeedSchemaScript, [], cancellationToken);
-      await owner.ExecuteAsync(
-        $"ALTER DATABASE {SeedDatabaseNames.Quote(building)} WITH ALLOW_CONNECTIONS false;",
-        null,
-        cancellationToken);
-      await owner.ExecuteAsync(
-        $"ALTER DATABASE {SeedDatabaseNames.Quote(building)} RENAME TO {SeedDatabaseNames.Quote(name)};",
-        null,
-        cancellationToken);
-    } catch {
-      await DropAsync(owner, building, CancellationToken.None);
-      throw;
-    }
-    return (name, true);
+    var built = await _databases.EnsureTemplateAsync(
+      owner,
+      name,
+      async building => {
+        await _databases.CreateAsync(owner, building, cancellationToken);
+        await _tools.MigrateAsync(building, cancellationToken);
+        await _tools.RunScriptAsync(building, _options.ProvisioningScript, ApiPasswordVariable(), cancellationToken);
+        await _tools.RunScriptAsync(building, _options.SeedSchemaScript, [], cancellationToken);
+      },
+      cancellationToken);
+    return (name, built);
   }
-
-  public static async Task<bool> ExistsAsync(NpgsqlConnection owner, string name, CancellationToken cancellationToken)
-    => await owner.QuerySingleAsync<bool>(
-      "SELECT EXISTS (SELECT FROM pg_database WHERE datname = @name);",
-      new { name },
-      cancellationToken);
-
-  public static async Task DropAsync(NpgsqlConnection owner, string name, CancellationToken cancellationToken)
-    => await owner.ExecuteAsync(
-      $"DROP DATABASE IF EXISTS {SeedDatabaseNames.Quote(name)} WITH (FORCE);",
-      null,
-      cancellationToken);
 
   private static Dictionary<string, string> ApiPasswordVariable()
     => new(StringComparer.Ordinal) {

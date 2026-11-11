@@ -15,12 +15,13 @@ internal sealed class ScratchDatabase : IAsyncDisposable {
 
   public static async Task<ScratchDatabase> CreateAsync(CancellationToken cancellationToken) {
     var paths = SeedPaths.ForRepository();
-    var template = new SchemaTemplate(SchemaTemplateOptions.ForRepository(paths), new(paths.Root));
+    var databases = new ServerDatabases();
+    var template = new SchemaTemplate(SchemaTemplateOptions.ForRepository(paths), new(paths.Root), databases);
     await using var owner = new NpgsqlConnection(DatabaseEnvironment.OwnerConnectionString());
     await owner.OpenAsync(cancellationToken);
     var (templateName, _) = await template.EnsureAsync(owner, cancellationToken);
     var name = $"seed_scratch_{Guid.NewGuid():N}";
-    await new DatabaseCloner().CloneAsync(owner, templateName, name, cancellationToken);
+    await databases.CloneAsync(owner, templateName, name, cancellationToken);
     return new(name);
   }
 
@@ -39,6 +40,6 @@ internal sealed class ScratchDatabase : IAsyncDisposable {
   public async ValueTask DisposeAsync() {
     await using var owner = new NpgsqlConnection(DatabaseEnvironment.OwnerConnectionString());
     await owner.OpenAsync(CancellationToken.None);
-    await SchemaTemplate.DropAsync(owner, Name, CancellationToken.None);
+    await new ServerDatabases().DropAsync(owner, Name, CancellationToken.None);
   }
 }

@@ -12,6 +12,7 @@ namespace JoshOlson.Database.Baking;
 [Collection(TemplateCollection.Name)]
 public sealed class SeedToolTests {
   private readonly CancellationToken _cancellationToken = TestContext.Current.CancellationToken;
+  private readonly ServerDatabases _databases = new();
 
   private async Task<SeedTool> OpenToolAsync()
     => await SeedTool.OpenAsync(SeedPaths.ForRepository(), SystemClock.Instance, _cancellationToken);
@@ -79,7 +80,7 @@ public sealed class SeedToolTests {
       Assert.True(apiCanReadTags);
       Assert.False(apiSeesSeedSchema);
     } finally {
-      await SchemaTemplate.DropAsync(owner, name, CancellationToken.None);
+      await _databases.DropAsync(owner, name, CancellationToken.None);
     }
   }
 
@@ -95,7 +96,7 @@ public sealed class SeedToolTests {
       await using var clone = await OpenAsync(name, _cancellationToken);
       Assert.Equal(3, await clone.QuerySingleAsync<long>("SELECT count(*) FROM tag.tag;", null, _cancellationToken));
     } finally {
-      await SchemaTemplate.DropAsync(owner, name, CancellationToken.None);
+      await _databases.DropAsync(owner, name, CancellationToken.None);
     }
   }
 
@@ -113,7 +114,7 @@ public sealed class SeedToolTests {
 
       Assert.Contains("already exists", exception.Message, StringComparison.Ordinal);
     } finally {
-      await SchemaTemplate.DropAsync(owner, name, CancellationToken.None);
+      await _databases.DropAsync(owner, name, CancellationToken.None);
     }
   }
 
@@ -148,7 +149,7 @@ public sealed class SeedToolTests {
       Assert.Equal(22, tags);
       Assert.True(anchor >= before);
     } finally {
-      await SchemaTemplate.DropAsync(owner, development, CancellationToken.None);
+      await _databases.DropDevelopmentAsync(owner, development, CancellationToken.None);
     }
   }
 
@@ -170,18 +171,18 @@ public sealed class SeedToolTests {
     var names = new[] { prefix + "foo", prefix + "bar_building" };
     try {
       foreach (var name in names) {
-        await owner.ExecuteAsync($"CREATE DATABASE {SeedDatabaseNames.Quote(name)};", null, _cancellationToken);
+        await _databases.CreateAsync(owner, name, _cancellationToken);
       }
 
       var dropped = await tool.CleanAsync(owner, everything: false, prefix, _cancellationToken);
 
       Assert.Equal(names.Order(StringComparer.Ordinal), dropped);
       foreach (var name in names) {
-        Assert.False(await SchemaTemplate.ExistsAsync(owner, name, _cancellationToken));
+        Assert.False(await _databases.ExistsAsync(owner, name, _cancellationToken));
       }
     } finally {
       foreach (var name in names) {
-        await SchemaTemplate.DropAsync(owner, name, CancellationToken.None);
+        await _databases.DropAsync(owner, name, CancellationToken.None);
       }
     }
   }
@@ -196,7 +197,7 @@ public sealed class SeedToolTests {
     var kept = await tool.CleanAsync(owner, everything: false, current, _cancellationToken);
 
     Assert.Empty(kept);
-    Assert.True(await SchemaTemplate.ExistsAsync(owner, current, _cancellationToken));
+    Assert.True(await _databases.ExistsAsync(owner, current, _cancellationToken));
   }
 
   [Fact]
