@@ -3,7 +3,7 @@ using Xunit;
 namespace JoshOlson.Shared.IO;
 
 public sealed class SourceFilesTests : IDisposable {
-  private readonly string _directory = Directory.CreateTempSubdirectory("source-files-").FullName;
+  private readonly string _directory = TempDirectory.Create("source-files");
   private readonly CancellationToken _cancellationToken = TestContext.Current.CancellationToken;
 
   public void Dispose()

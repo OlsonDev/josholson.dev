@@ -1,4 +1,5 @@
 using JoshOlson.Database.Locks;
+using JoshOlson.Shared.IO;
 using Xunit;
 
 namespace JoshOlson.Database.Layers;
@@ -6,7 +7,7 @@ namespace JoshOlson.Database.Layers;
 public sealed class LayerLoaderTests : IDisposable {
   private static readonly SeedSchema _Schema = new(SchemaLockSample.Create());
 
-  private readonly string _directory = Directory.CreateTempSubdirectory("layers-").FullName;
+  private readonly string _directory = TempDirectory.Create("layers");
   private readonly CancellationToken _cancellationToken = TestContext.Current.CancellationToken;
 
   public void Dispose()

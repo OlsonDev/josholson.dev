@@ -1,10 +1,11 @@
 using System.Text;
+using JoshOlson.Shared.IO;
 using Xunit;
 
 namespace JoshOlson.Database.Locks;
 
 public sealed class MigrationFilesTests : IDisposable {
-  private readonly string _directory = Directory.CreateTempSubdirectory("migrations-").FullName;
+  private readonly string _directory = TempDirectory.Create("migrations");
   private readonly CancellationToken _cancellationToken = TestContext.Current.CancellationToken;
 
   public void Dispose()

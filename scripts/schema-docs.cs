@@ -14,6 +14,7 @@ using System.Text.RegularExpressions;
 using JoshOlson.Database.Catalog;
 using JoshOlson.Database.Schema;
 using JoshOlson.Shared.Extensions;
+using JoshOlson.Shared.IO;
 using Npgsql;
 
 const string DocPath = "docs/schema";
@@ -39,7 +40,7 @@ await using (var connection = new NpgsqlConnection(connectionString)) {
   model = await SchemaCatalog.ReadAsync(connection, new(), CancellationToken.None);
 }
 
-var work = Path.Combine(Path.GetTempPath(), "schema-docs-" + Guid.NewGuid().ToString("N"));
+var work = TempDirectory.Create("schema-docs");
 var generated = Path.Combine(work, "generated");
 Directory.CreateDirectory(generated);
 try {
