@@ -13,7 +13,7 @@ Personal website for Josh Olson: www.josholson.dev (SvelteKit SSR) and api.josho
 
 - `JoshOlson.Database/migrations/`: Flyway-style `V#__name.sql` (versioned) and `R__name.sql` (repeatable)
 - `JoshOlson.Database/provisioning/`: one-off scripts run as the owner after migrations (API role; needs a password, so not a migration)
-- `JoshOlson.Database/seeds/`: seed layers, one YAML file each ([docs/seeding.md](../docs/seeding.md)). The project's own code (`Layers/`: parsing and the `extends` tree; 🚧 the database side is not built yet) is the seed tool ([ADR 0033](../docs/adr/0033-scoped-databases-per-test.md), a scoped database per test)
+- `JoshOlson.Database/seeds/`: seed layers, one YAML file each ([docs/seeding.md](../docs/seeding.md)). The project's own code (`Layers/`: parsing and the `extends` tree; `Seeding/`: merging and applying layers, positioning sequences; `Baking/`: the schema and layer templates, test and dev databases; 🚧 moving layers to a new migration and export are not built yet) is the seed tool ([ADR 0033](../docs/adr/0033-scoped-databases-per-test.md), a scoped database per test)
 - `compose.yaml`: production-safe. `compose.dev.yaml`: dev only, always load explicitly
 - `JoshOlson.slnx` (root): the .NET solution. `JoshOlson.Shared/` holds utilities (the base class library plus Dapper, Npgsql, and NodaTime, and nothing from ASP.NET) shared by projects and scripts, including the database access helpers in `Data/` ([ADR 0036, the shared library](../docs/adr/0036-shared-library.md)). `JoshOlson.Api/` is the API, in feature folders (one per feature, plus `Common/` for cross-cutting code). Tests sit beside the code as `*.Tests.cs` ([ADR 0023](../docs/adr/0023-api-feature-folders-and-colocated-tests.md))
 - `web/`: 🚧 not created yet
@@ -83,10 +83,19 @@ Print the seed layer tree with row counts per table:
 mise run seeds:list
 ```
 
-Write `migrations/schema.lock.yaml` from the dev database, which must have applied exactly the migrations on disk (run `mise run waypoint migrate` first). It reports every problem and writes nothing if there is one, and refuses while any seed layer exists (moving layers is not built yet; reads `.env`):
+Write `migrations/schema.lock.yaml` from the dev database, which must have applied exactly the migrations on disk (run `mise run waypoint migrate` first). It reports every problem and writes nothing if there is one. Seed layers are checked, not moved (moving them is not built yet): each must still read against the new schema and build into a template, or the lock is not written. Needs the `tools` container; reads `.env`:
 
 ```
 mise run seeds:migrate
+```
+
+Build the schema template and every seed layer's template (a no-op when they are current), make a database of its own from a layer for one test, rebuild the dev database from a layer (everything in it is lost; dev only), and drop the seed tool's stale databases (`--all` drops the current templates too; never the dev database). Layers are `JoshOlson.Database/seeds/*.yaml` (`minimal`, `more-tags`); reads `.env`:
+
+```
+mise run seeds:bake
+mise run seed:test <id> <layer>
+mise run seed <layer>
+mise run seed:clean
 ```
 
 Before the first deploy a migration may be rewritten instead of adding a new one. Then drop the dev database and rebuild it from the migrations (everything in it is lost; dev only), and start the lock over (it ignores the old lock's checksums; retired at the first deploy). Regenerate the schema docs afterwards:
@@ -97,7 +106,7 @@ mise run seeds:relock
 mise run schema:doc
 ```
 
-Run every project's tests (the API's need the dev database running and provisioned; reads `.env`), against a Release build, and list source files with no sibling test:
+Run every project's tests (starts the dev containers; the API's need the dev database provisioned; reads `.env`), against a Release build, and list source files with no sibling test:
 
 ```
 mise run test
