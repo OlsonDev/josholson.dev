@@ -3,8 +3,8 @@ namespace JoshOlson.Database.Layers;
 // The layers as a tree: each names its parent with `extends`, and a layer with none is a root. Building the tree is
 // where a duplicate name, a missing parent, or a cycle is found.
 public sealed class LayerTree {
-  private readonly Dictionary<string, SeedLayer> _layers = new(StringComparer.Ordinal);
-  private readonly Dictionary<string, List<SeedLayer>> _children = new(StringComparer.Ordinal);
+  private readonly Dictionary<string, SeedLayer> _layers = [with(StringComparer.Ordinal)];
+  private readonly Dictionary<string, List<SeedLayer>> _children = [with(StringComparer.Ordinal)];
 
   public LayerTree(List<SeedLayer> layers) {
     foreach (var layer in layers) {

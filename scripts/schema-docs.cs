@@ -83,7 +83,7 @@ try {
 //   table:{name}     a table's page
 internal class Page {
   private readonly List<string> _lines = [];
-  private readonly SortedDictionary<string, string> _links = new(StringComparer.Ordinal);
+  private readonly SortedDictionary<string, string> _links = [with(StringComparer.Ordinal)];
 
   public void Add(params string[] added)
     => _lines.AddRange(added);
@@ -315,7 +315,7 @@ internal static class Renderer {
     var keys = new Dictionary<string, SortedSet<string>>();
     void Mark(IEnumerable<string> columns, string key) {
       foreach (var column in columns) {
-        if (!keys.TryGetValue(column, out var set)) keys[column] = set = new SortedSet<string>(StringComparer.Ordinal);
+        if (!keys.TryGetValue(column, out var set)) keys[column] = set = [with(StringComparer.Ordinal)];
         set.Add(key);
       }
     }

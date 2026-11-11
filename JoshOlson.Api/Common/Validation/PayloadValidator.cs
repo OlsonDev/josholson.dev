@@ -6,7 +6,7 @@ namespace JoshOlson.Api.Common.Validation;
 
 // Runs the DataAnnotations attributes on a payload and collects every error, including nested objects and list
 // items. The payload type must be marked [ValidatableType], which makes a source generator emit its rules.
-// Wraps Microsoft.Extensions.Validation, which is experimental in .NET 10, so a change there stays in this file.
+// Wraps Microsoft.Extensions.Validation, which changed between .NET 10 and 11, so a change there stays in this file.
 public sealed class PayloadValidator {
   private readonly ValidationOptions _options;
   private readonly IServiceProvider _services;
@@ -23,14 +23,15 @@ public sealed class PayloadValidator {
 
     var context = new ValidateContext {
       ValidationOptions = _options,
-      ValidationContext = new(payload, _services, null),
+      ServiceProvider = _services,
     };
     await info.ValidateAsync(payload, context, cancellationToken);
 
     var errors = new ValidationErrors();
-    foreach (var (path, messages) in context.ValidationErrors ?? [])
-      foreach (var message in messages)
-        errors.Add(path.ToCamelCasePath(), message);
+    if (context.ValidationErrors is { } found)
+      foreach (var (path, validationErrors) in found)
+        foreach (var validationError in validationErrors)
+          errors.Add(path.ToCamelCasePath(), validationError.ErrorMessage);
     return errors;
   }
 }

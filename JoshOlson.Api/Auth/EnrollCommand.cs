@@ -15,8 +15,8 @@ public static class EnrollCommand {
     await using var scope = services.CreateAsyncScope();
     var enrollmentService = scope.ServiceProvider.GetRequiredService<EnrollmentService>();
     var token = await enrollmentService.CreateTokenAsync(arguments.FirstOrDefault(), cancellationToken);
-    await output.WriteLineAsync("Enrollment token (one use, shown once):");
-    await output.WriteLineAsync(token);
+    await output.WriteLineAsync("Enrollment token (one use, shown once):", cancellationToken);
+    await output.WriteLineAsync(token, cancellationToken);
     return 0;
   }
 }

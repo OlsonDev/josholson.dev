@@ -56,3 +56,4 @@ Template:
 - [0034](0034-seed-lock-file-and-branch-safe-migration.md): Seed lock file with migration checksums, and all-or-nothing, branch-safe `seeds:migrate`
 - [0035](0035-typed-seed-values-and-relative-times.md): Typed seed values from the column type, per-column relative times against an anchor, and fixtures from the baked template
 - [0036](0036-shared-library.md): A shared library for utilities (`JoshOlson.Shared`)
+- [0037](0037-dotnet-11-and-csharp-15.md): Target .NET 11 and C# 15, `[with(...)]` for comparers, and a scoped suppression for generated validation code

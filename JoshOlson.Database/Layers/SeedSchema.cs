@@ -6,7 +6,7 @@ namespace JoshOlson.Database.Layers;
 // The lock as the layer parser needs it: tables by name, each column's type resolved once. A column whose type does not
 // resolve cannot be in a lock the parser accepted, so one here means the lock was built by hand and is refused.
 public sealed class SeedSchema {
-  private readonly Dictionary<string, SeedTable> _tables = new(StringComparer.Ordinal);
+  private readonly Dictionary<string, SeedTable> _tables = [with(StringComparer.Ordinal)];
   private readonly SchemaLock _lock;
 
   public SeedSchema(SchemaLock schemaLock) {

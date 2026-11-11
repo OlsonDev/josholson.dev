@@ -21,7 +21,7 @@ public static class LayerMerger {
           continue;
         }
         if (!state.Tables.TryGetValue(change.Table, out var rows)) {
-          state.Tables[change.Table] = rows = new(RowKeyComparer.Instance);
+          state.Tables[change.Table] = rows = [with(RowKeyComparer.Instance)];
         }
         Delete(layer, change, table, rows, problems);
         Upsert(change, table, rows);
@@ -59,7 +59,7 @@ public static class LayerMerger {
     foreach (var row in change.Upserts) {
       var key = KeyOf(row, table);
       if (!rows.TryGetValue(key, out var merged)) {
-        rows[key] = merged = new(StringComparer.Ordinal);
+        rows[key] = merged = [with(StringComparer.Ordinal)];
       }
       foreach (var (column, value) in row) {
         merged[column] = value;
