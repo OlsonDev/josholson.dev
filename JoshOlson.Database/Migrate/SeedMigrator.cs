@@ -10,6 +10,25 @@ namespace JoshOlson.Database.Migrate;
 public static class SeedMigrator {
   public const string LockFileName = "schema.lock.yaml";
 
+  // `seeds:check`, the lock's half: the lock has to exist, describe the migrations on disk (none changed, renumbered, or
+  // added behind it), and be at the newest one, so the layers are migrated to everything there is. Returns every problem
+  // together, empty when the seeds are current.
+  public static async Task<List<string>> CheckLockAsync(string migrationsDirectory, CancellationToken cancellationToken) {
+    var path = Path.Combine(migrationsDirectory, LockFileName);
+    if (!File.Exists(path)) {
+      return [$"{path} does not exist. Run mise run seeds:migrate."];
+    }
+    var onDisk = await MigrationFiles.LoadAsync(migrationsDirectory, cancellationToken);
+    var check = SchemaLockParser.Parse(await File.ReadAllTextAsync(path, cancellationToken)).Check(onDisk);
+    var problems = check.Problems.ConvertAll(problem => problem.Message);
+    if (check.Pending.Count > 0) {
+      problems.Add(
+        $"{string.Join(", ", check.Pending.Select(migration => migration.File))} {(check.Pending.Count is 1 ? "is" : "are")} newer than the seeds. "
+        + "Run mise run waypoint migrate, then mise run seeds:migrate.");
+    }
+    return problems;
+  }
+
   // `seeds:migrate`, as far as it is built: makes `schema.lock.yaml` describe the database, which must have applied
   // exactly the migrations on disk. The lock is only written if everything checks out, and every problem is reported
   // together. Moving seed layers to a new migration is not built yet: with layers present, they are checked against

@@ -73,6 +73,16 @@ run = "dotnet run --project JoshOlson.Seed -- migrate --relock"
 [tasks."seeds:relock".env]
 _.file = ".env"
 
+# Says whether the seeds are current and changes nothing: the lock describes the migrations and is at the newest, and every
+# layer is canonical, builds, and exports as itself. Exits 1 with every problem listed. Needs the `tools` container. Reads .env.
+[tasks."seeds:check"]
+description = "Check that the lock is current and every seed layer is canonical, builds, and exports as itself"
+depends = ["tools:up"]
+run = "dotnet run --project JoshOlson.Seed -- check"
+
+[tasks."seeds:check".env]
+_.file = ".env"
+
 # Builds the schema template and each layer's template (ADR 0033, a scoped database per test); templates that are
 # current are left alone. Needs the dev database server and the `tools` container. Reads .env.
 [tasks."seeds:bake"]

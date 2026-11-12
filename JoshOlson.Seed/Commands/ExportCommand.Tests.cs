@@ -2,7 +2,6 @@ using JoshOlson.Database;
 using JoshOlson.Database.Baking;
 using JoshOlson.Database.Layers;
 using JoshOlson.Shared.Data;
-using JoshOlson.Shared.IO;
 using Microsoft.Extensions.DependencyInjection;
 using NodaTime;
 using Npgsql;
@@ -15,7 +14,7 @@ namespace JoshOlson.Seed.Commands;
 // written to. Only `ComposeTools` keeps the real root, for the compose files.
 public sealed class ExportCommandTests : IAsyncLifetime {
   private readonly CancellationToken _cancellationToken = TestContext.Current.CancellationToken;
-  private readonly string _directory = TempDirectory.Create("export-command");
+  private readonly SeedRepositoryCopy _copy;
   private readonly ServerDatabases _databases = new();
   private readonly List<string> _created = [];
   private readonly SeedPaths _paths;
@@ -23,23 +22,9 @@ public sealed class ExportCommandTests : IAsyncLifetime {
   private NpgsqlConnection _owner = null!;
 
   public ExportCommandTests() {
-    var real = SeedPaths.ForRepository();
-    _paths = new(_directory);
-    _ = Directory.CreateDirectory(_paths.Migrations);
-    foreach (var file in Directory.EnumerateFiles(real.Migrations)) {
-      File.Copy(file, Path.Combine(_paths.Migrations, Path.GetFileName(file)));
-    }
-    _ = Directory.CreateDirectory(_paths.Seeds);
-    foreach (var file in Directory.EnumerateFiles(real.Seeds, "*.yaml")) {
-      File.Copy(file, Path.Combine(_paths.Seeds, Path.GetFileName(file)));
-    }
-    // The template's name is a hash of these files, so the copies find the real templates current.
-    foreach (var script in new[] { _paths.ProvisioningScript, _paths.SeedSchemaScript }) {
-      _ = Directory.CreateDirectory(Path.GetDirectoryName(script)!);
-    }
-    File.Copy(real.ProvisioningScript, _paths.ProvisioningScript);
-    File.Copy(real.SeedSchemaScript, _paths.SeedSchemaScript);
-    _factory = new(_paths, _databases, new(real.Root), SystemClock.Instance, DatabaseEnvironment.DevelopmentDatabase());
+    _copy = new("export-command");
+    _paths = _copy.Paths;
+    _factory = new(_paths, _databases, new(SeedPaths.ForRepository().Root), SystemClock.Instance, DatabaseEnvironment.DevelopmentDatabase());
   }
 
   public async ValueTask InitializeAsync() {
@@ -52,8 +37,7 @@ public sealed class ExportCommandTests : IAsyncLifetime {
       await _databases.DropAsync(_owner, name, CancellationToken.None);
     }
     await _owner.DisposeAsync();
-    // The only dispose xUnit calls on a class that is async-disposable too, so the directory goes here.
-    Directory.Delete(_directory, recursive: true);
+    _copy.Dispose();
   }
 
   private async Task<string> DatabaseFromAsync(string layer) {

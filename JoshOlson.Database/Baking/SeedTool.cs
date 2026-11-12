@@ -2,6 +2,7 @@ using JoshOlson.Database.Layers;
 using JoshOlson.Database.Locks;
 using JoshOlson.Database.Seeding;
 using JoshOlson.Shared.Data;
+using JoshOlson.Shared.Extensions;
 using NodaTime;
 using Npgsql;
 
@@ -162,6 +163,25 @@ public sealed class SeedTool {
     if (exists && !replaced && !overwrite) {
       throw new SeedFormatException($"There is already a layer named '{name}'. Pass --overwrite to replace it, or pick another name.");
     }
+    var export = await DiffAsync(owner, database, child, parent, name, description, exists, cancellationToken);
+    var (tree, affected) = CheckAgainstTheOthers(export.Layer, replaced);
+    await CheckTheyBuildAsync(owner, tree, affected, cancellationToken);
+    return export;
+  }
+
+  // The layer that is the difference between `child`'s rows and the baseline (the parent's template, or the schema
+  // template for a root), checked against the baseline: the baseline with the layer applied is exactly the rows, and the
+  // text of the layer reads back as the same layer. `database` only names the source in a message.
+  private async Task<LayerExport> DiffAsync(
+    NpgsqlConnection owner,
+    string database,
+    DatabaseState child,
+    string? parent,
+    string name,
+    string description,
+    bool exists,
+    CancellationToken cancellationToken
+  ) {
     var baseline = await ReadBaselineAsync(owner, parent, child.Anchor, cancellationToken);
     var tables = StateDiffer.Diff(baseline, child.Rows, _schema);
     var from = parent is null ? "the schema template" : $"the template for {parent}";
@@ -174,8 +194,6 @@ public sealed class SeedTool {
       Description = description,
       Tables = tables,
     };
-    var (tree, affected) = CheckAgainstTheOthers(layer, replaced);
-    await CheckTheyBuildAsync(owner, tree, affected, cancellationToken);
     var rebuilt = LayerMerger.Merge([StateLayer.Of(baseline, "baseline"), layer], _schema);
     if (!SeedValues.SameState(rebuilt, child.Rows)) {
       throw new InvalidOperationException($"The layer does not give back the rows of {database} when it is applied to {from}. This is a bug in the export.");
@@ -185,6 +203,71 @@ public sealed class SeedTool {
     return string.Equals(written, yaml, StringComparison.Ordinal)
       ? new(layer, yaml, child.Anchor, exists)
       : throw new InvalidOperationException("The layer does not read back as the text it was written as. This is a bug in the export.");
+  }
+
+  // `seeds:check`, the layers' half: every layer must be in the canonical form `LayerWriter` writes (so the diff of a
+  // change is only the change), build into a template, and give itself back: the rows of a database built from it, read
+  // and diffed against its parent's template, are exactly the layer. Every layer is tried, so the problems come back
+  // together, but one whose parent failed is skipped (it would fail the same way). Returns the problems, empty when
+  // all the layers pass.
+  public async Task<List<string>> CheckFilesAsync(NpgsqlConnection owner, string seedsDirectory, CancellationToken cancellationToken) {
+    var problems = new List<string>();
+    var failed = new HashSet<string>(StringComparer.Ordinal);
+    foreach (var layer in Tree.InBakeOrder()) {
+      if (layer.Extends is not null && failed.Contains(layer.Extends)) {
+        _ = failed.Add(layer.Name);
+        continue;
+      }
+      var problem = await CheckFileAsync(owner, seedsDirectory, layer, cancellationToken);
+      if (problem is not null) {
+        _ = failed.Add(layer.Name);
+        problems.Add(problem);
+      }
+    }
+    return problems;
+  }
+
+  private async Task<string?> CheckFileAsync(NpgsqlConnection owner, string seedsDirectory, SeedLayer layer, CancellationToken cancellationToken) {
+    var canonical = LayerWriter.Write(layer, _schema);
+    var path = Path.Combine(seedsDirectory, layer.Name + ".yaml");
+    var onDisk = await File.ReadAllTextAsync(path, cancellationToken);
+    if (!string.Equals(onDisk, canonical, StringComparison.Ordinal)) {
+      return $"{layer.Name}: {path} is not in canonical form ({FirstDifference(canonical, onDisk)}).";
+    }
+    try {
+      var (template, _) = await _layerTemplate.EnsureAsync(owner, layer.Name, cancellationToken);
+      var scratch = $"{SeedDatabaseNames.Prefix}check_{Guid.NewGuid():N}";
+      await _databases.CloneAsync(owner, template, scratch, cancellationToken);
+      try {
+        DatabaseState state;
+        await using (var connection = new NpgsqlConnection(DatabaseEnvironment.OwnerConnectionString(scratch))) {
+          await connection.OpenAsync(cancellationToken);
+          state = await SeedStateReader.ReadAsync(connection, _schema, cancellationToken);
+        }
+        var again = await DiffAsync(owner, scratch, state, layer.Extends, layer.Name, layer.Description, exists: true, cancellationToken);
+        return string.Equals(again.Yaml, canonical, StringComparison.Ordinal)
+          ? null
+          : $"{layer.Name}: a database built from it exports as something else ({FirstDifference(canonical, again.Yaml)}).";
+      } finally {
+        await _databases.DropAsync(owner, scratch, CancellationToken.None);
+      }
+    } catch (SeedFormatException exception) {
+      return $"{layer.Name}: {exception.Message}";
+    }
+  }
+
+  // Where two texts first part ways, for a message: the line number and both lines.
+  private static string FirstDifference(string expected, string found) {
+    var expectedLines = expected.Split('\n');
+    var foundLines = found.Split('\n');
+    for (var line = 0; line < Math.Max(expectedLines.Length, foundLines.Length); line++) {
+      var left = line < expectedLines.Length ? expectedLines[line] : "(end of file)";
+      var right = line < foundLines.Length ? foundLines[line] : "(end of file)";
+      if (!string.Equals(left, right, StringComparison.Ordinal)) {
+        return $"line {(line + 1).ToInvariantString()}: expected `{left}`, found `{right}`";
+      }
+    }
+    return "no line differs";
   }
 
   // After the file is written: the database now stands for the layer it made, so the next export replaces that layer

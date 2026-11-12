@@ -37,6 +37,7 @@ public static class SeedApp {
       .WithDescription("Make migrations/schema.lock.yaml describe the dev database at the newest migration");
     _ = config.AddCommand<ExportCommand>("export")
       .WithDescription("Make a seed layer from what is in a database (default: the dev database)");
+    _ = config.AddCommand<CheckCommand>("check").WithDescription("Check that the lock is current and every seed layer is canonical, builds, and exports as itself");
     _ = config.AddCommand<BakeCommand>("bake").WithDescription("Build the schema template and every seed layer's template");
     _ = config.AddCommand<SeedCommand>("seed")
       .WithDescription("Drop the dev database and rebuild it from a seed layer, relative times measured from now");

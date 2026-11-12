@@ -16,7 +16,7 @@ Personal website for Josh Olson: www.josholson.dev (SvelteKit SSR) and api.josho
 - `JoshOlson.Database/seeds/`: seed layers, one YAML file each ([docs/seeding.md](../docs/seeding.md)). The project's own code (`Layers/`: parsing and the `extends` tree; `Seeding/`: merging and applying layers, positioning sequences; `Baking/`: the schema and layer templates, test and dev databases, and export; 🚧 moving layers to a new migration is not built yet) is the seed tool ([ADR 0033](../docs/adr/0033-scoped-databases-per-test.md), a scoped database per test)
 - `compose.yaml`: production-safe. `compose.dev.yaml`: dev only, always load explicitly
 - `JoshOlson.slnx` (root): the .NET solution. `JoshOlson.Shared/` holds utilities (the base class library plus Dapper, Npgsql, and NodaTime, and nothing from ASP.NET) shared by projects and scripts, including the database access helpers in `Data/` ([ADR 0036, the shared library](../docs/adr/0036-shared-library.md)). `JoshOlson.Api/` is the API, in feature folders (one per feature, plus `Common/` for cross-cutting code). Tests sit beside the code as `*.Tests.cs` ([ADR 0023](../docs/adr/0023-api-feature-folders-and-colocated-tests.md))
-- `JoshOlson.Seed/`: the seed tool's command line, on `Spectre.Console.Cli` and the DI container (`Commands/` one class per command, `Composition/` the container glue, `SeedApp` the wiring), which every `seed` and `seeds` mise task runs. 🚧 `seeds:accept` and `seeds:check` arrive with moving layers
+- `JoshOlson.Seed/`: the seed tool's command line, on `Spectre.Console.Cli` and the DI container (`Commands/` one class per command, `Composition/` the container glue, `SeedApp` the wiring), which every `seed` and `seeds` mise task runs. 🚧 `seeds:accept` arrives with moving layers
 - `web/`: 🚧 not created yet
 - `mise.toml`: pinned tools (bun, dotnet, gh) and tasks. `tools/`: image for the dev `tools` container, which runs Waypoint (no Windows build)
 - `docs/schema/`: generated from the dev database (a page per table, domains, Mermaid ER diagrams). Never edit by hand; run `mise run schema:doc`. `scripts/`: repo tooling as .NET file-based apps (`schema-docs.cs` builds those docs)
@@ -121,6 +121,12 @@ Run every project's tests (starts the dev containers; the API's need the dev dat
 mise run test
 mise run test:release
 mise run test:missing
+```
+
+Say whether the seeds are current without changing anything (exit 1 with every problem listed, so a hook or CI can run it): the lock must describe the migrations and be at the newest, and every layer must be in canonical form, build, and export as itself. Needs the `tools` container; reads `.env`:
+
+```
+mise run seeds:check
 ```
 
 Publish the API with `-p:IncludeTests=false` so no test code ships.
