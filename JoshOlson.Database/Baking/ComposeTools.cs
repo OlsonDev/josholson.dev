@@ -17,6 +17,38 @@ public sealed class ComposeTools {
   public async Task MigrateAsync(string database, CancellationToken cancellationToken)
     => _ = await RunAsync(["exec", "-T", "-e", $"POSTGRES_DB={database}", "tools", "waypoint", "migrate"], stdin: null, cancellationToken);
 
+  // The same, from a directory of migrations inside the container (`PutMigrationsAsync`) instead of the mounted ones: the
+  // wrapper reads WAYPOINT_LOCATIONS.
+  public async Task MigrateAsync(string database, string locations, CancellationToken cancellationToken)
+    => _ = await RunAsync(
+      ["exec", "-T", "-e", $"POSTGRES_DB={database}", "-e", $"WAYPOINT_LOCATIONS={locations}", "tools", "waypoint", "migrate"],
+      stdin: null,
+      cancellationToken);
+
+  // Writes the files into a new directory in the `tools` container and returns its path there. The bytes go through
+  // base64, so a file arrives exactly as it is on disk (Waypoint's checksum of it is the same as of the mounted copy).
+  public async Task<string> PutMigrationsAsync(List<(string Name, byte[] Content)> files, CancellationToken cancellationToken) {
+    var directory = $"/tmp/seed-migrations-{Guid.NewGuid():N}";
+    var lines = string.Join('\n', files.Select(file => $"{file.Name} {Convert.ToBase64String(file.Content)}")) + "\n";
+    _ = await RunAsync(
+      [
+        "exec",
+        "-T",
+        "tools",
+        "sh",
+        "-c",
+        "set -e; mkdir -p \"$1\"; while read -r name data; do printf '%s' \"$data\" | base64 -d > \"$1/$name\"; done",
+        "sh",
+        directory,
+      ],
+      lines,
+      cancellationToken);
+    return directory;
+  }
+
+  public async Task RemoveMigrationsAsync(string directory, CancellationToken cancellationToken)
+    => _ = await RunAsync(["exec", "-T", "tools", "rm", "-rf", directory], stdin: null, cancellationToken);
+
   // Runs a SQL file with psql as the owner, stopping at the first error. A psql variable is how the API role's
   // password gets in (`:'api_password'`).
   public async Task RunScriptAsync(

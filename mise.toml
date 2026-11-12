@@ -10,8 +10,17 @@ PODMAN_COMPOSE_WARNING_LOGS = "false"
 # Waypoint has no Windows build, so it runs in the tools container (tools/Containerfile).
 
 [tasks."tools:up"]
-description = "Start the tools container (builds the image on first use)"
-run = "podman compose -f compose.yaml -f compose.dev.yaml up -d tools"
+description = "Start the tools container (builds the image, and recreates the container when tools/ has changed)"
+run = """
+podman compose -f compose.yaml -f compose.dev.yaml up -d --build tools
+# A running container keeps the image it started from, so it is recreated when the image has moved on.
+container=$(podman ps -q --filter label=com.docker.compose.service=tools)
+{% raw %}
+if [ "$(podman inspect -f '{{.Image}}' "$container")" != "$(podman image inspect -f '{{.Id}}' localhost/josholson-dev_tools)" ]; then
+  podman compose -f compose.yaml -f compose.dev.yaml up -d --force-recreate tools
+fi
+{% endraw %}
+"""
 
 [tasks.waypoint]
 description = "Run waypoint in the tools container, e.g. mise run waypoint migrate"

@@ -1,6 +1,7 @@
 #!/bin/sh
 # Runs waypoint against the compose postgres service. The connection URL is built
-# from the POSTGRES_* variables, percent-encoded so passwords may hold any character.
+# from the POSTGRES_* variables, percent-encoded so passwords may hold any character. WAYPOINT_LOCATIONS names another
+# directory of migrations in the container (the seed tool builds a database at an older version from one).
 encode() {
   rest=$1
   while [ -n "$rest" ]; do
@@ -15,4 +16,4 @@ encode() {
 }
 
 url="postgres://$(encode "$POSTGRES_USER"):$(encode "$POSTGRES_PASSWORD")@postgres:5432/$(encode "$POSTGRES_DB")"
-exec /usr/local/libexec/waypoint --url "$url" --locations /migrations "$@"
+exec /usr/local/libexec/waypoint --url "$url" --locations "${WAYPOINT_LOCATIONS:-/migrations}" "$@"
