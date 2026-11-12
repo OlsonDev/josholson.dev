@@ -1,6 +1,7 @@
 using JoshOlson.Database;
 using JoshOlson.Database.Baking;
 using JoshOlson.Database.Layers;
+using JoshOlson.Database.Migrate;
 using NodaTime;
 
 namespace JoshOlson.Seed;
@@ -13,14 +14,28 @@ public sealed class SeedToolFactory {
   private readonly SeedPaths _paths;
   private readonly ComposeTools _tools;
   private readonly string _development;
+  private readonly ISnapshotSource? _snapshots;
 
-  public SeedToolFactory(SeedPaths paths, ServerDatabases databases, ComposeTools tools, IClock clock, string development) {
+  // `snapshots` is where `seeds:migrate` finds the base; a test that does not care leaves it, and a test that does hands
+  // it one of its own. Without one it is git (`GitSnapshotSource`).
+  public SeedToolFactory(
+    SeedPaths paths,
+    ServerDatabases databases,
+    ComposeTools tools,
+    IClock clock,
+    string development,
+    ISnapshotSource? snapshots = null
+  ) {
     _paths = paths;
     Databases = databases;
     _tools = tools;
     Clock = clock;
     _development = development;
+    _snapshots = snapshots;
   }
+
+  public ISnapshotSource OpenSnapshotSource()
+    => _snapshots ?? new GitSnapshotSource(_paths);
 
   public ServerDatabases Databases { get; }
 

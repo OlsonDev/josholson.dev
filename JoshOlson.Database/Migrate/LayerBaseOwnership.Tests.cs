@@ -1,0 +1,77 @@
+using Xunit;
+
+namespace JoshOlson.Database.Migrate;
+
+// When the base is read, and what it says about whose a layer file is or whether there is a base at all (see
+// `LayerBaseDerivationTests`).
+public sealed class LayerBaseOwnershipTests : IDisposable {
+  private readonly FakeSeedRepository _repository;
+
+  public LayerBaseOwnershipTests()
+    => _repository = new(TestContext.Current.CancellationToken);
+
+  public void Dispose()
+    => _repository.Dispose();
+
+  [Fact]
+  public async Task MigrateAsync_ALayerThatIsExactlyTheBasesCopy_IsTheToolsOwnAgainAndRecorded() {
+    _ = await _repository.MigrateWithLayersAtVersionOneAsync();
+    // The author edits `child` (the lock no longer vouches for it), and the edit is later merged into the base.
+    await _repository.WriteAsync(
+      _repository.Layer("child"),
+      """
+      description: Child
+      extends: base
+      tables:
+        foo.bar:
+          insert:
+            - { bar_id: 1001, name: Three }
+            - { bar_id: 1002, name: Four }
+          update:
+            - { bar_id: 1, name: Uno }
+
+      """);
+    var main = await _repository.SnapshotNowAsync();
+    _repository.UseBase(main);
+
+    _ = await _repository.MigrateAsync();
+
+    Assert.Equal(
+      [await _repository.ChecksumOfAsync("base"), await _repository.ChecksumOfAsync("child")],
+      await _repository.RecordedLayersAsync());
+  }
+
+  [Fact]
+  public async Task MigrateAsync_EveryLayerRecorded_NeverAsksForTheBase() {
+    _ = await _repository.MigrateWithLayersAtVersionOneAsync();
+    _repository.UseBase(await _repository.SnapshotNowAsync());
+
+    _ = await _repository.MigrateAsync();
+
+    Assert.Equal(0, ((FakeSnapshotSource)_repository.Options.Snapshots!).Reads);
+  }
+
+  [Fact]
+  public async Task MigrateAsync_BaseGivenAndItHasNoLock_IsRefused() {
+    _ = await _repository.MigrateWithLayersAtVersionOneAsync();
+    _repository.UseBase(new("origin/main at abc1234 (2026-11-12)", "abc1234def5678", LockText: null, []), explicitBase: "abc1234");
+
+    var exception = await Assert.ThrowsAsync<SeedFormatException>(_repository.MigrateAsync);
+
+    Assert.Contains("has no lock", exception.Message, StringComparison.Ordinal);
+  }
+
+  [Fact]
+  public async Task MigrateAsync_NoBaseToReadAndTheLockDisagrees_ReportsTheDisagreementAndWhyThereIsNoBase() {
+    _ = await _repository.MigrateWithLayersAtVersionOneAsync();
+    await _repository.WriteNoteMigrationAsync();
+    _ = await _repository.MigrateAsync();
+    await _repository.WriteAsync(_repository.Migration("V002__note.sql"), FakeSeedRepository.NoteDefaultingToY);
+    _repository.UseBase(snapshot: null, warnings: ["There is no origin/main, so there is no base to derive the seeds from."]);
+
+    var exception = await Assert.ThrowsAsync<SeedFormatException>(_repository.MigrateAsync);
+
+    Assert.Contains("has changed since the seeds were migrated against it", exception.Message, StringComparison.Ordinal);
+    Assert.Contains("There is no origin/main", exception.Message, StringComparison.Ordinal);
+  }
+}

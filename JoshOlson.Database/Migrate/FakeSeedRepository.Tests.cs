@@ -1,4 +1,5 @@
 using JoshOlson.Database.Baking;
+using JoshOlson.Database.Layers;
 using JoshOlson.Database.Locks;
 using JoshOlson.Shared.IO;
 using NodaTime;
@@ -34,7 +35,24 @@ internal sealed class FakeSeedRepository : IDisposable {
     };
   }
 
-  public MigrateOptions Options { get; }
+  public MigrateOptions Options { get; private set; }
+
+  // The base (`origin/main` in real life) as a test says it is, from this point on: what the source returns, any warnings
+  // it has, and the ref `--base` was given if any.
+  public void UseBase(SeedSnapshot? snapshot, List<string>? warnings = null, string? explicitBase = null)
+    => Options = Options with {
+      Snapshots = new FakeSnapshotSource(new(snapshot, warnings ?? [])),
+      Base = explicitBase,
+    };
+
+  // The lock and layers as they are right now, which is what main would have at the point a branch is made from it.
+  public async Task<SeedSnapshot> SnapshotNowAsync() {
+    var layers = new Dictionary<string, string>(StringComparer.Ordinal);
+    foreach (var path in LayerLoader.Files(Options.SeedsDirectory)) {
+      layers[Path.GetFileNameWithoutExtension(path)] = await ReadAsync(path);
+    }
+    return new("origin/main at abc1234 (2026-11-12)", "abc1234def5678", await ReadAsync(LockFile), layers);
+  }
 
   public string LockFile
     => Path.Combine(Options.MigrationsDirectory, SeedMigrator.LockFileName);
@@ -140,6 +158,33 @@ internal sealed class FakeSeedRepository : IDisposable {
     await WriteLayersAsync();
     return await MigrateAsync();
   }
+
+  // V002 as an edit of the note migration would write it: the same column with another default.
+  public const string NoteDefaultingToY = "ALTER TABLE foo.bar ADD COLUMN note TEXT NOT NULL DEFAULT 'y';\n";
+
+  // Main has the layers at version 1; the branch adds V002 and moves forward from the working tree (no base is needed for
+  // that). Returns main's snapshot, taken before the branch's migration.
+  public async Task<SeedSnapshot> BranchWithAMigrationAsync() {
+    _ = await MigrateWithLayersAtVersionOneAsync();
+    var main = await SnapshotNowAsync();
+    await WriteNoteMigrationAsync();
+    _ = await MigrateAsync();
+    return main;
+  }
+
+  // A layer the branch's author wrote (the lock has never recorded it), valid at version 2.
+  public async Task WriteAuthoredLayerAsync(string note)
+    => await WriteAsync(
+      Layer("extra"),
+      $$"""
+      description: Extra
+      extends: base
+      tables:
+        foo.bar:
+          insert:
+            - { bar_id: 1001, name: Extra, note: {{note}} }
+
+      """);
 
   public async Task<List<LockedLayer>?> RecordedLayersAsync()
     => SchemaLockParser.Parse(await ReadAsync(LockFile)).Layers;

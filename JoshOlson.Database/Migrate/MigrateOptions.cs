@@ -24,6 +24,18 @@ public sealed record MigrateOptions {
   // for the time before the first deploy, while migrations may still be rewritten (`seeds:relock`).
   public bool Relock { get; init; }
 
+  // Where the base is read from (`origin/main` in git, `GitSnapshotSource`); null reads none, and the working tree is all
+  // there is. The base is consulted when the lock and the migrations disagree about a migration the branch has not merged,
+  // when a layer file is not one the lock recorded (it may already be on the base), and always when `Base` is given.
+  public ISnapshotSource? Snapshots { get; init; }
+
+  // A ref to measure from instead of the remote's main (a commit while working on main itself); the branch's lock and
+  // layers are then derived from that commit's, even when the lock is not behind.
+  public string? Base { get; init; }
+
+  // Whether to fetch the remote's main first, when `Base` is not given.
+  public bool Fetch { get; init; } = true;
+
   // Checks the seed layers against the schema the lock is about to describe and returns every problem it finds (empty
   // when they all apply). Called only when there are layers. The real one builds a schema template from the migrations
   // and applies each layer to a clone (`SeedTool.CheckAsync`); without one, a seeds directory with layers is

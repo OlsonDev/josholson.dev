@@ -58,3 +58,4 @@ Template:
 - [0036](0036-shared-library.md): A shared library for utilities (`JoshOlson.Shared`)
 - [0037](0037-dotnet-11-and-csharp-15.md): Target .NET 11 and C# 15, `[with(...)]` for comparers, and a scoped suppression for generated validation code
 - [0038](0038-seed-tool-command-line.md): The seed tool's command line is `JoshOlson.Seed`, on Spectre.Console.Cli and a DI container
+- [0039](0039-derive-the-lock-and-seeds-from-the-base.md): Derive the lock and the seeds from the base branch (`origin/main`), so a branch can iterate on an unmerged migration and a merge needs no manual resolution

@@ -35,19 +35,14 @@ public static class LayerMover {
     SchemaLock existing,
     SchemaLock updated,
     List<MigrationFile> onDisk,
+    LayerTree oldTree,
+    Dictionary<string, string> authored,
+    HashSet<string> dropped,
     CancellationToken cancellationToken
   ) {
     var oldSchema = new SeedSchema(existing);
     var newSchema = new SeedSchema(updated);
     var anchor = SeedHydrator.Anchor(options.Clock);
-    LayerTree oldTree;
-    try {
-      oldTree = await LayerLoader.LoadAsync(options.SeedsDirectory, oldSchema, cancellationToken);
-    } catch (SeedFormatException exception) {
-      throw new SeedFormatException(
-        $"The layers do not read against the schema they were written for (version {existing.Version.ToInvariantString()}):\n{exception.Message}",
-        exception);
-    }
 
     var (fromTemplate, _) = await options.Template.EnsureAsync(owner, existing.Version, cancellationToken);
     var skipped = await options.Template.SkippedAsync(owner, fromTemplate, cancellationToken);
@@ -70,6 +65,9 @@ public static class LayerMover {
     var moved = new List<MovedLayer>();
     if (problems.Count is 0) {
       moved = Rewrite(oldTree, states, baseline, newSchema, problems);
+    }
+    if (problems.Count is 0) {
+      moved = Reconcile(moved, authored, dropped, newSchema, problems);
     }
     if (problems.Count is 0) {
       problems.AddRange(await BuildAtHeadAsync(owner, options, headTemplate, moved, newSchema, anchor, cancellationToken));
@@ -182,6 +180,37 @@ public static class LayerMover {
       moved.Add(new(layer, yaml));
     }
     return moved;
+  }
+
+  // The layers as they will be after the run: the ones the tool made, except those somebody has their own file for, which are
+  // kept exactly as written and read against the newest schema (a table or column a migration renamed since is a problem to
+  // fix by hand, never something to guess at), and without the ones the branch deleted, which were only needed as parents
+  // to move the rest. The whole set must still be a sound tree.
+  private static List<MovedLayer> Reconcile(
+    List<MovedLayer> moved,
+    Dictionary<string, string> authored,
+    HashSet<string> dropped,
+    SeedSchema newSchema,
+    List<string> problems
+  ) {
+    var all = moved.FindAll(layer => !dropped.Contains(layer.Layer.Name) && !authored.ContainsKey(layer.Layer.Name));
+    foreach (var (name, text) in authored.OrderBy(entry => entry.Key, StringComparer.Ordinal)) {
+      try {
+        all.Add(new(LayerParser.Parse(name, text, newSchema), text, Authored: true));
+      } catch (SeedFormatException exception) {
+        problems.Add(
+          $"{name}: {exception.Message}\nIt is your own file, so it was not changed. Edit it to the new names, or make it again: `seed <its parent>`, put the data back, `seeds:export`.");
+      }
+    }
+    if (problems.Count > 0) {
+      return [];
+    }
+    try {
+      problems.AddRange(new LayerTree([.. all.ConvertAll(layer => layer.Layer)]).IdBlockProblems(newSchema));
+    } catch (SeedFormatException exception) {
+      problems.Add(exception.Message);
+    }
+    return all;
   }
 
   // Each new layer's chain, applied to a database at the newest version, which enforces what the in-memory merge cannot:
