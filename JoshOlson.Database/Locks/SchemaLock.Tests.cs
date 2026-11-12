@@ -30,7 +30,6 @@ public class SchemaLockTests {
   // Seeds migrated to version 2; migrations 1 and 2 are locked.
   private static SchemaLock NewLock()
     => new() {
-      Version = 2,
       Migrations = [Locked(1, "foo", _Original), Locked(2, "bar", _Other)],
       Schemas = [],
       Domains = [],
@@ -95,7 +94,6 @@ public class SchemaLockTests {
   [Fact]
   public void Check_MigrationInsertedBelowTheSeedsVersion_IsUnlocked() {
     var schemaLock = NewLock() with {
-      Version = 3,
       Migrations = [Locked(1, "foo", _Original), Locked(3, "baz", _Other)],
     };
 

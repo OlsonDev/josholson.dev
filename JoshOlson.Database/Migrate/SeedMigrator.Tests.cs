@@ -94,7 +94,6 @@ public sealed class SeedMigratorTests : IAsyncLifetime {
     var first = await MigrateAsync();
     var current = SchemaLockParser.Parse(await File.ReadAllTextAsync(first.Path, _cancellationToken));
     var older = current with {
-      Version = current.Version - 1,
       Migrations = [.. current.Migrations.Where(migration => migration.Version < current.Version)],
     };
     await File.WriteAllTextAsync(first.Path, SchemaLockWriter.Write(older), _cancellationToken);

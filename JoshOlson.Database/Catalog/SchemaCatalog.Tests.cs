@@ -83,7 +83,6 @@ public class SchemaCatalogTests {
   public async Task ReadAsync_DevDatabase_ProducesALockThatWritesAndParsesBack() {
     var schema = await ReadAsync();
     var schemaLock = new SchemaLock {
-      Version = 0,
       Migrations = [],
       Schemas = schema.Schemas,
       Domains = schema.Domains,
@@ -256,7 +255,6 @@ public class SchemaCatalogTests {
     var schema = await InScratchSchemaAsync(_ScratchDdl, async name
       => await ReadAsync(new() { OnlySchemas = [name] }));
     var schemaLock = new SchemaLock {
-      Version = 1,
       Migrations = [],
       Schemas = schema.Schemas,
       Domains = schema.Domains,

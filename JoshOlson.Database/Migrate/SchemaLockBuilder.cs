@@ -25,7 +25,6 @@ public static class SchemaLockBuilder {
       });
     }
     return new() {
-      Version = migrations[^1].Version,
       Migrations = migrations,
       Schemas = catalog.Schemas,
       Domains = catalog.Domains,

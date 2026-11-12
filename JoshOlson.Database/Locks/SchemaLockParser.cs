@@ -13,6 +13,7 @@ namespace JoshOlson.Database.Locks;
 // its migrations, schemas, and domains; `SchemaLockParser.Tables.cs` reads the tables.
 public static partial class SchemaLockParser {
   private const string _Context = "schema.lock.yaml";
+  // `version` is accepted and ignored: locks written before the version was derived from the migrations have it.
   private static readonly string[] _LockKeys = [
     "version",
     "migrations",
@@ -41,15 +42,13 @@ public static partial class SchemaLockParser {
   public static SchemaLock Parse(string yaml) {
     var root = YamlNodes.LoadRoot(_Context, yaml);
     YamlNodes.CheckKeys(_Context, "the lock", root, _LockKeys);
-    var version = WholeNumber("version", YamlNodes.RequiredText(_Context, root, "version"), 0);
-    var migrations = ParseMigrations(version, YamlNodes.Required(_Context, root, "migrations"));
+    var migrations = ParseMigrations(YamlNodes.Required(_Context, root, "migrations"));
     var schemas = YamlNodes.Find(root, "schemas") is { } schemasNode ? ParseSchemas(schemasNode) : [];
     var domains = YamlNodes.Find(root, "domains") is { } domainsNode ? ParseDomains(domainsNode) : [];
     var tables = ParseTables(YamlNodes.Required(_Context, root, "tables"));
     CheckTypes(domains, tables);
     CheckReferences(tables);
     return new() {
-      Version = version,
       Migrations = migrations,
       Schemas = schemas,
       Domains = domains,
@@ -57,7 +56,7 @@ public static partial class SchemaLockParser {
     };
   }
 
-  private static List<LockedMigration> ParseMigrations(int lockVersion, YamlNode node) {
+  private static List<LockedMigration> ParseMigrations(YamlNode node) {
     var sequence = YamlNodes.Sequence(_Context, "migrations", node);
     var migrations = new List<LockedMigration>(sequence.Children.Count);
     foreach (var item in sequence.Children) {
@@ -67,9 +66,6 @@ public static partial class SchemaLockParser {
       var file = YamlNodes.RequiredText(_Context, map, "file");
       if (!MigrationFiles.TryParseVersion(file, out var fileVersion) || fileVersion != version) {
         throw new SeedFormatException($"{_Context}: '{file}' is not the file of migration version {version.ToInvariantString()}.");
-      }
-      if (version > lockVersion) {
-        throw new SeedFormatException($"{_Context}: migration {version.ToInvariantString()} is newer than the locked version {lockVersion.ToInvariantString()}.");
       }
       if (migrations.Count > 0 && migrations[^1].Version >= version) {
         throw new SeedFormatException($"{_Context}: migration {version.ToInvariantString()} is out of order or repeated.");

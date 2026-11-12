@@ -10,8 +10,7 @@ namespace JoshOlson.Database.Locks;
 // catalog order, the primary key in key order, everything else in a table by name. A key that has its default value
 // (`nullable: false`, `on_delete: no-action`) or no value (no comment, no default) is left out.
 //
-//   version: 42
-//   migrations:
+//   migrations:                                      # the lock's version is the newest of these
 //     - version: 1
 //       file: V001__foo.sql
 //       checksum: <sha-256>
@@ -54,10 +53,7 @@ public static class SchemaLockWriter {
   private static readonly JsonSerializerOptions _QuotedScalar = new() { Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping };
 
   public static string Write(SchemaLock schemaLock) {
-    List<string> lines = [
-      Header,
-      FormattableString.Invariant($"version: {schemaLock.Version}"),
-    ];
+    List<string> lines = [Header];
     WriteMigrations(lines, schemaLock.Migrations);
     if (schemaLock.Schemas.Count > 0) {
       lines.Add("schemas:");

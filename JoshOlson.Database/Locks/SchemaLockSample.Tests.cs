@@ -14,7 +14,6 @@ internal static class SchemaLockSample {
 
   public static SchemaLock Create()
     => new() {
-      Version = 3,
       Migrations = [
         new() {
           Version = 1,

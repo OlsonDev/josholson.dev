@@ -143,7 +143,6 @@ public class SchemaLockParserTests {
   [Fact]
   public void Parse_OfEmptyLock_RoundTrips() {
     var text = SchemaLockWriter.Write(new() {
-      Version = 0,
       Migrations = [],
       Schemas = [],
       Domains = [],
@@ -260,15 +259,11 @@ public class SchemaLockParserTests {
   }
 
   [Theory]
-  [InlineData("version: 3\nmigrations:", "version: -1\nmigrations:")]
-  [InlineData("version: 3\nmigrations:", "version: three\nmigrations:")]
-  [InlineData("version: 3\nmigrations:", "migrations:")]
-  [InlineData("version: 3\n", "version: 3\nextra: 1\n")]
+  [InlineData("migrations:\n", "extra: 1\nmigrations:\n")]
   [InlineData("migrations:\n", "migrations: nope\n")]
   [InlineData("tables:\n", "tablez:\n")]
   [InlineData("file: V001__foo.sql", "file: V002__foo.sql")]
   [InlineData("file: V001__foo.sql", "file: foo.sql")]
-  [InlineData("  - version: 3\n    file: V003__bar.sql", "  - version: 4\n    file: V004__bar.sql")]
   [InlineData("  - version: 3\n    file: V003__bar.sql", "  - version: 1\n    file: V001__bar.sql")]
   [InlineData("    checksum: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "    checksum: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")]
   [InlineData("    checksum: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "    checksum: abc")]
@@ -361,8 +356,18 @@ public class SchemaLockParserTests {
     => Assert.Throws<SeedFormatException>(() => SchemaLockParser.Parse(yaml));
 
   [Fact]
+  public void Parse_OldVersionKey_IsIgnoredAndTheVersionIsTheNewestMigration() {
+    var text = _Valid.Replace("migrations:", "version: 99\nmigrations:", StringComparison.Ordinal);
+
+    var parsed = SchemaLockParser.Parse(text);
+
+    Assert.Equal(3, parsed.Version);
+    Assert.DoesNotContain("version: 99", SchemaLockWriter.Write(parsed), StringComparison.Ordinal);
+  }
+
+  [Fact]
   public void Parse_Error_NamesTheFile() {
-    var exception = Assert.Throws<SeedFormatException>(() => SchemaLockParser.Parse("version: x\nmigrations: []\ntables: {}"));
+    var exception = Assert.Throws<SeedFormatException>(() => SchemaLockParser.Parse("migrations: nope\ntables: {}"));
 
     Assert.StartsWith("schema.lock.yaml:", exception.Message, StringComparison.Ordinal);
   }
