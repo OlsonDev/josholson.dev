@@ -9,7 +9,6 @@ using Xunit;
 namespace JoshOlson.Database.Seeding;
 
 // Each test works in a database of its own (a clone of the real schema template), because `setval` is not rolled back.
-[Collection(TemplateCollection.Name)]
 public sealed class SequencePositionerTests : IAsyncLifetime {
   private static readonly Instant _Anchor = Instant.FromUtc(2026, 1, 1, 12, 0);
   private readonly CancellationToken _cancellationToken = TestContext.Current.CancellationToken;

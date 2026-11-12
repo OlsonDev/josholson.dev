@@ -9,7 +9,6 @@ using Xunit;
 namespace JoshOlson.Database.Seeding;
 
 // Each test works in a database of its own (a clone of the real schema template).
-[Collection(TemplateCollection.Name)]
 public sealed class SeedStateReaderTests : IAsyncLifetime {
   private const string _KindSql = """
     CREATE SCHEMA foo;

@@ -9,7 +9,6 @@ namespace JoshOlson.Database.Baking;
 
 // `NameAsync` tests need no database. The `EnsureAsync` test builds a real template under a name of its own and drops
 // it when it ends.
-[Collection(TemplateCollection.Name)]
 public sealed class SchemaTemplateTests : IDisposable {
   private readonly CancellationToken _cancellationToken = TestContext.Current.CancellationToken;
   private readonly string _directory = TempDirectory.Create("schema-template");

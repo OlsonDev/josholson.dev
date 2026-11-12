@@ -6,7 +6,6 @@ using Xunit;
 namespace JoshOlson.Database.Baking;
 
 // Each test works on a copy of the real seeds, so a layer can be broken without touching the real one.
-[Collection(TemplateCollection.Name)]
 public sealed class SeedToolCheckTests : IAsyncLifetime {
   private readonly CancellationToken _cancellationToken = TestContext.Current.CancellationToken;
   private readonly SeedRepositoryCopy _copy = new("seed-check");

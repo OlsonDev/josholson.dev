@@ -6,7 +6,6 @@ namespace JoshOlson.Database.Baking;
 
 // Makes and drops databases named `seed_serverdb_*` on the dev database's server; nothing touches the dev database
 // itself.
-[Collection(TemplateCollection.Name)]
 public sealed class ServerDatabasesTests : IAsyncLifetime {
   // What a connection to a database with `ALLOW_CONNECTIONS false` gets.
   private const string _NotAcceptingConnections = "55000";

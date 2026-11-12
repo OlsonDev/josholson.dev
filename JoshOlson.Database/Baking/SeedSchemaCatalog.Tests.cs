@@ -6,7 +6,6 @@ namespace JoshOlson.Database.Baking;
 // A database the seed tool builds has the `seed` schema in it, which belongs to no migration, so the lock and the docs
 // generated from a catalog must never list it: they would otherwise change depending on whether `seed` had rebuilt the
 // dev database.
-[Collection(TemplateCollection.Name)]
 public sealed class SeedSchemaCatalogTests {
   private readonly CancellationToken _cancellationToken = TestContext.Current.CancellationToken;
 

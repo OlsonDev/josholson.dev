@@ -7,7 +7,6 @@ using Xunit;
 namespace JoshOlson.Database.Baking;
 
 // Each test builds a database of its own from the real layers, changes it the way the app would, and exports it.
-[Collection(TemplateCollection.Name)]
 public sealed class SeedToolExportTests : IAsyncLifetime {
   private readonly CancellationToken _cancellationToken = TestContext.Current.CancellationToken;
   private readonly ServerDatabases _databases = new();

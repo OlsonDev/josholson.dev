@@ -11,7 +11,6 @@ namespace JoshOlson.Database.Migrate;
 // Reads the schema from the template for a copy of the repository's migrations, which is the real template while the
 // files are the same and one built for the test when they are not (and dropped when it ends). Each test copies the real
 // migrations into a directory of its own, so the real lock is never touched.
-[Collection(TemplateCollection.Name)]
 public sealed class SeedMigratorTests : IAsyncLifetime {
   private readonly CancellationToken _cancellationToken = TestContext.Current.CancellationToken;
   private readonly string _directory = TempDirectory.Create("seed-migrator");

@@ -5,7 +5,6 @@ using Xunit;
 
 namespace JoshOlson.Database.Baking;
 
-[Collection(TemplateCollection.Name)]
 public sealed class SeedHydratorTests {
   private readonly CancellationToken _cancellationToken = TestContext.Current.CancellationToken;
 

@@ -12,11 +12,22 @@ PODMAN_COMPOSE_WARNING_LOGS = "false"
 [tasks."tools:up"]
 description = "Start the tools container (builds the image, and recreates the container when tools/ has changed)"
 run = """
-podman compose -f compose.yaml -f compose.dev.yaml up -d --build tools
-# A running container keeps the image it started from, so it is recreated when the image has moved on.
-container=$(podman ps -q --filter label=com.docker.compose.service=tools)
 {% raw %}
-if [ "$(podman inspect -f '{{.Image}}' "$container")" != "$(podman image inspect -f '{{.Id}}' localhost/josholson-dev_tools)" ]; then
+image=localhost/josholson-dev_tools
+built=.tmp/tools-image-built
+container=$(podman ps -q --filter label=com.docker.compose.service=tools)
+database=$(podman ps -q --filter label=com.docker.compose.service=postgres)
+# The compose commands take a couple of seconds, so they run only when a container is not up, nothing says the image was
+# built, or something in tools/ is newer than that (the marker is the last build, so a file touched without a change costs
+# one more build and not one every run).
+if [ -z "$container" ] || [ -z "$database" ] || [ ! -e "$built" ] || [ -n "$(find tools -type f -newer "$built" -print -quit)" ]; then
+  podman compose -f compose.yaml -f compose.dev.yaml up -d --build tools
+  mkdir -p .tmp
+  touch "$built"
+  container=$(podman ps -q --filter label=com.docker.compose.service=tools)
+fi
+# A running container keeps the image it started from, so it is recreated when the image has moved on.
+if [ "$(podman inspect -f '{{.Image}}' "$container")" != "$(podman image inspect -f '{{.Id}}' "$image")" ]; then
   podman compose -f compose.yaml -f compose.dev.yaml up -d --force-recreate tools
 fi
 {% endraw %}

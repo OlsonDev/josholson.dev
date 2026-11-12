@@ -7,7 +7,6 @@ namespace JoshOlson.Database.Baking;
 
 // The name needs no database: it is a hash of the schema template's name and the layers' files. Building a template is
 // covered by `SeedToolTests`, which bakes the real layers.
-[Collection(TemplateCollection.Name)]
 public sealed class LayerTemplateTests : IDisposable {
   private readonly CancellationToken _cancellationToken = TestContext.Current.CancellationToken;
   private readonly string _directory = TempDirectory.Create("layer-template");

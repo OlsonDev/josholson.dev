@@ -9,7 +9,6 @@ namespace JoshOlson.Database.Baking;
 // Bakes and clones the real layers. The templates it builds are the real ones and stay for the next run. Everything
 // else it makes is named `seed_tooltest_*` or `seed_cleantest_*` and dropped at the end, and the dev
 // database itself is never touched: the rebuild test points the tool at a database of its own.
-[Collection(TemplateCollection.Name)]
 public sealed class SeedToolTests {
   private readonly CancellationToken _cancellationToken = TestContext.Current.CancellationToken;
   private readonly ServerDatabases _databases = new();
