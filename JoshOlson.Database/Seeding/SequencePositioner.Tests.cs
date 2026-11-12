@@ -70,10 +70,19 @@ public sealed class SequencePositionerTests : IAsyncLifetime {
   [Fact]
   public async Task ChainAsync_LayerAtDepthOne_NextGeneratedIdStartsTheDepthTwoBlock() {
     // Depth 2 is 2001 to 3000.
-    var moved = await SequencePositioner.ChainAsync(_connection, _tree, _schema, "bar", _cancellationToken);
+    var moved = await SequencePositioner.ChainAsync(_connection, _tree, _schema, "bar", editing: false, _cancellationToken);
 
     Assert.Equal(IdentityColumns(), moved);
     Assert.Equal(2001, await NextTagIdAsync());
+  }
+
+  [Fact]
+  public async Task ChainAsync_Editing_NextGeneratedIdStartsTheLayersOwnBlock() {
+    // Depth 1 is 1001 to 2000.
+    _ = await SequencePositioner.ChainAsync(_connection, _tree, _schema, "bar", editing: true, _cancellationToken);
+
+    // The layer's own rows end at 1002, so a row made while editing it goes right after them, in its block.
+    Assert.Equal(1003, await NextTagIdAsync());
   }
 
   [Fact]
@@ -96,7 +105,7 @@ public sealed class SequencePositionerTests : IAsyncLifetime {
         _schema),
     ]);
 
-    _ = await SequencePositioner.ChainAsync(_connection, tree, _schema, "bar", _cancellationToken);
+    _ = await SequencePositioner.ChainAsync(_connection, tree, _schema, "bar", editing: false, _cancellationToken);
 
     Assert.Equal(2501, await NextTagIdAsync());
   }
@@ -111,7 +120,7 @@ public sealed class SequencePositionerTests : IAsyncLifetime {
 
   [Fact]
   public async Task ChainAsync_SequenceAlreadyPastTheIds_LeavesItWhereItIs() {
-    _ = await SequencePositioner.ChainAsync(_connection, _tree, _schema, "bar", _cancellationToken);
+    _ = await SequencePositioner.ChainAsync(_connection, _tree, _schema, "bar", editing: false, _cancellationToken);
 
     var moved = await SequencePositioner.RootAsync(_connection, _tree, _schema, "bar", _cancellationToken);
 
@@ -121,7 +130,7 @@ public sealed class SequencePositionerTests : IAsyncLifetime {
 
   [Fact]
   public async Task ChainAsync_TableWithNoRows_StartsItsSequenceAtTheNextBlockToo() {
-    _ = await SequencePositioner.ChainAsync(_connection, _tree, _schema, "bar", _cancellationToken);
+    _ = await SequencePositioner.ChainAsync(_connection, _tree, _schema, "bar", editing: false, _cancellationToken);
 
     var last = await _connection.QuerySingleAsync<long?>(
       "SELECT pg_sequence_last_value(pg_get_serial_sequence('tag.alias', 'alias_id')::regclass);",
@@ -131,7 +140,7 @@ public sealed class SequencePositionerTests : IAsyncLifetime {
 
   [Fact]
   public async Task ChainAsync_IgnoredTable_KeepsItsSequenceWhereItWas() {
-    _ = await SequencePositioner.ChainAsync(_connection, _tree, _schema, "bar", _cancellationToken);
+    _ = await SequencePositioner.ChainAsync(_connection, _tree, _schema, "bar", editing: false, _cancellationToken);
 
     var untouched = await _connection.QuerySingleAsync<long?>(
       "SELECT pg_sequence_last_value(pg_get_serial_sequence('auth.session', 'session_id')::regclass);",

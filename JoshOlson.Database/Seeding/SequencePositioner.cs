@@ -11,7 +11,8 @@ namespace JoshOlson.Database.Seeding;
 // - `ChainAsync`, when a database is finally built for use: every identity sequence, in every table, goes to the start
 //   of the next depth's block (`IdBlocks`), or past the largest ID its table has in the whole chain if that is higher.
 //   A row created in the database then takes an ID where an export of a child layer expects its new rows, and cannot
-//   collide with a seed row or with a row of any layer at the same depth or above.
+//   collide with a seed row or with a row of any layer at the same depth or above. When the database is for editing the
+//   layer itself (`editing`), the floor is the start of the layer's own block instead, so a new row exports into it.
 // - `RootAsync`, while layers apply for a migration: each sequence goes to the largest ID in the root layer alone, so a
 //   migration that generates IDs gives the same ones in a parent and in every child (the children's blocks start higher).
 // A sequence never moves backwards: rows a migration inserted already advanced it, and those stay behind the new value.
@@ -23,15 +24,16 @@ public static class SequencePositioner {
     LayerTree tree,
     SeedSchema schema,
     string layer,
+    bool editing,
     CancellationToken cancellationToken
   ) {
     var chain = tree.ChainTo(layer);
-    // The chain's length is the next depth: a layer at depth 1 has a chain of two.
+    // The chain's length is the next depth (a layer at depth 1 has a chain of two), and the layer's own depth is one less.
     return await SetAsync(
       connection,
       LayerMerger.Merge(chain, schema),
       schema,
-      IdBlocks.Start(chain.Count),
+      IdBlocks.Start(editing ? chain.Count - 1 : chain.Count),
       cancellationToken);
   }
 

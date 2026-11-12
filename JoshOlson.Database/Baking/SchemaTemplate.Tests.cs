@@ -123,7 +123,7 @@ public sealed class SchemaTemplateTests : IDisposable {
       var apiSeesTags = await connection.QuerySingleAsync<bool>(
         "SELECT has_table_privilege('josholson_api', 'tag.tag', 'SELECT');",
         _cancellationToken);
-      Assert.Equal(2, hydrationColumns);
+      Assert.Equal(4, hydrationColumns);
       Assert.False(apiSeesSeedSchema);
       Assert.True(apiSeesTags);
     } finally {

@@ -51,7 +51,7 @@ public sealed class LayerTemplate {
       name,
       async building => {
         await _databases.CloneAsync(owner, schemaName, building, cancellationToken);
-        _ = await SeedHydrator.HydrateAsync(building, _tree, _schema, layer, SeedHydrator.Anchor(_clock), cancellationToken);
+        _ = await SeedHydrator.HydrateAsync(building, _tree, _schema, layer, editing: false, SeedHydrator.Anchor(_clock), cancellationToken);
       },
       cancellationToken);
     return (name, built);

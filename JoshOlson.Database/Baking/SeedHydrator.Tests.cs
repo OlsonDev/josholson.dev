@@ -36,13 +36,15 @@ public sealed class SeedHydratorTests {
     await using var database = await ScratchDatabase.CreateAsync(_cancellationToken);
     var anchor = Instant.FromUtc(2026, 1, 2, 3, 4, 5).PlusNanoseconds(678_000);
 
-    var rows = await SeedHydrator.HydrateAsync(database.Name, tree, schema, "foo", anchor, _cancellationToken);
+    var rows = await SeedHydrator.HydrateAsync(database.Name, tree, schema, "foo", editing: false, anchor, _cancellationToken);
 
     await using var connection = await database.OpenAsync(_cancellationToken);
     var stored = await connection.QuerySingleAsync<DateTime>("SELECT anchor_utc FROM seed.hydration;", _cancellationToken);
     var next = await connection.QuerySingleAsync<int>(
       "INSERT INTO tag.tag (name, slug) VALUES ('Grault', 'grault') RETURNING tag_id;",
       _cancellationToken);
+    var recorded = await connection.QuerySingleAsync<string>("SELECT layer || ' ' || editing::text FROM seed.hydration;", _cancellationToken);
+    Assert.Equal("foo false", recorded);
     Assert.Equal(1, rows);
     Assert.Equal(anchor, Instant.FromDateTimeUtc(stored));
     // The root's rows end at 7, but a database built from it hands out IDs from the depth-1 block.

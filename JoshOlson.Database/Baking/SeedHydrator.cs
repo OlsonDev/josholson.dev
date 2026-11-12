@@ -9,7 +9,8 @@ namespace JoshOlson.Database.Baking;
 // Fills a database that has the schema (a clone of the schema template) with a layer's rows, the one way every seeded
 // database is made: a layer template, the dev database `seed <layer>` rebuilds, and the checks `seeds:migrate` runs.
 // The chain's rows go in one transaction, the anchor its relative times were worked out from is recorded in
-// `seed.hydration` (the clock a test starts at, and what an export measures from), and then each identity sequence
+// `seed.hydration` with the layer's name (the clock a test starts at, what an export measures from, and the parent it
+// defaults to), and then each identity sequence
 // moves past the IDs the chain took.
 public static class SeedHydrator {
   // Postgres keeps microseconds, so the anchor is cut to one: it is read back equal to what was written.
@@ -22,6 +23,7 @@ public static class SeedHydrator {
     LayerTree tree,
     SeedSchema schema,
     string layer,
+    bool editing,
     Instant anchor,
     CancellationToken cancellationToken
   ) {
@@ -34,10 +36,14 @@ public static class SeedHydrator {
     }
     // A `DateTime` in UTC, because this connection has no NodaTime plugin to write an `Instant` with.
     await connection.ExecuteAsync(
-      "INSERT INTO seed.hydration (anchor_utc) VALUES (@anchor);",
-      new { anchor = anchor.ToDateTimeUtc() },
+      "INSERT INTO seed.hydration (layer, editing, anchor_utc) VALUES (@layer, @editing, @anchor);",
+      new {
+        layer,
+        editing,
+        anchor = anchor.ToDateTimeUtc(),
+      },
       cancellationToken);
-    _ = await SequencePositioner.ChainAsync(connection, tree, schema, layer, cancellationToken);
+    _ = await SequencePositioner.ChainAsync(connection, tree, schema, layer, editing, cancellationToken);
     return rows;
   }
 }

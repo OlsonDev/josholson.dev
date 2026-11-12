@@ -85,7 +85,7 @@ public sealed class SeedStateReaderTests : IAsyncLifetime {
   public async Task ReadAsync_HydratedLayers_GivesBackTheMergedStateAndTheAnchor() {
     var schema = await ScratchDatabase.LoadSchemaAsync(_cancellationToken);
     var tree = await LayerLoader.LoadAsync(SeedPaths.ForRepository().Seeds, schema, _cancellationToken);
-    _ = await SeedHydrator.HydrateAsync(_database.Name, tree, schema, SeedLayers.MoreTags, _Anchor, _cancellationToken);
+    _ = await SeedHydrator.HydrateAsync(_database.Name, tree, schema, SeedLayers.MoreTags, editing: false, _Anchor, _cancellationToken);
     var merged = LayerMerger.Merge(tree.ChainTo(SeedLayers.MoreTags), schema);
     await using var connection = await _database.OpenAsync(_cancellationToken);
 
@@ -93,6 +93,7 @@ public sealed class SeedStateReaderTests : IAsyncLifetime {
 
     // The database holds the layers' rows and the reference data its migrations made, so the layers' are a part of it.
     Assert.Equal(_Anchor, read.Anchor);
+    Assert.Equal(SeedLayers.MoreTags, read.Layer);
     foreach (var (table, rows) in merged.Tables) {
       foreach (var (key, row) in rows) {
         foreach (var (column, value) in row) {

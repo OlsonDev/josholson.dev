@@ -83,6 +83,19 @@ run = "dotnet run --project JoshOlson.Seed -- bake"
 [tasks."seeds:bake".env]
 _.file = ".env"
 
+# Makes a layer from what is in the dev database (ADR 0014, hierarchical seed layers) and writes seeds/<name>.yaml: the
+# difference from the parent layer's template (the layer the database was built from, recorded in seed.hydration; a
+# database that records none makes a root, from the schema template). The flow: `mise run seed minimal`, use the app,
+# then `mise run seeds:export --name my-layer --description "What it adds"`. Needs the `tools` container to build a
+# template that is not current. Reads .env.
+[tasks."seeds:export"]
+description = "Make a seed layer from the dev database, e.g. mise run seeds:export --name my-layer --description \"What it adds\""
+depends = ["tools:up"]
+run = "dotnet run --project JoshOlson.Seed -- export"
+
+[tasks."seeds:export".env]
+_.file = ".env"
+
 # Drops the dev database and makes it again from a layer, its relative times measured from now: mise run seed <layer>.
 # Everything in the dev database is lost. Dev only.
 [tasks.seed]

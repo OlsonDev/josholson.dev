@@ -135,13 +135,13 @@ public sealed class SeedToolTests {
     var tool = (await OpenToolAsync()).WithDevelopment(development);
     await using var owner = await OpenOwnerAsync();
     try {
-      _ = await tool.SeedDevelopmentAsync(owner, SeedLayers.Minimal, _cancellationToken);
+      _ = await tool.SeedDevelopmentAsync(owner, SeedLayers.Minimal, editing: false, _cancellationToken);
       await using (var first = await OpenAsync(development, _cancellationToken)) {
         await first.ExecuteAsync("INSERT INTO tag.tag (name, slug) VALUES ('Foo', 'foo');", _cancellationToken);
       }
       var before = SystemClock.Instance.GetCurrentInstant();
 
-      var rows = await tool.SeedDevelopmentAsync(owner, SeedLayers.MoreTags, _cancellationToken);
+      var rows = await tool.SeedDevelopmentAsync(owner, SeedLayers.MoreTags, editing: false, _cancellationToken);
 
       await using var rebuilt = await OpenAsync(development, _cancellationToken);
       var tags = await rebuilt.QuerySingleAsync<long>("SELECT count(*) FROM tag.tag;", _cancellationToken);
@@ -162,7 +162,7 @@ public sealed class SeedToolTests {
     var tool = (await OpenToolAsync()).WithDevelopment(development);
     await using var owner = await OpenOwnerAsync();
 
-    _ = await Assert.ThrowsAsync<SeedFormatException>(() => tool.SeedDevelopmentAsync(owner, SeedLayers.Minimal, _cancellationToken));
+    _ = await Assert.ThrowsAsync<SeedFormatException>(() => tool.SeedDevelopmentAsync(owner, SeedLayers.Minimal, editing: false, _cancellationToken));
   }
 
   [Fact]

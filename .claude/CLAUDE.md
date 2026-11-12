@@ -13,7 +13,7 @@ Personal website for Josh Olson: www.josholson.dev (SvelteKit SSR) and api.josho
 
 - `JoshOlson.Database/migrations/`: Flyway-style `V#__name.sql` (versioned) and `R__name.sql` (repeatable)
 - `JoshOlson.Database/provisioning/`: one-off scripts run as the owner after migrations (API role; needs a password, so not a migration)
-- `JoshOlson.Database/seeds/`: seed layers, one YAML file each ([docs/seeding.md](../docs/seeding.md)). The project's own code (`Layers/`: parsing and the `extends` tree; `Seeding/`: merging and applying layers, positioning sequences; `Baking/`: the schema and layer templates, test and dev databases; 🚧 moving layers to a new migration and export are not built yet) is the seed tool ([ADR 0033](../docs/adr/0033-scoped-databases-per-test.md), a scoped database per test)
+- `JoshOlson.Database/seeds/`: seed layers, one YAML file each ([docs/seeding.md](../docs/seeding.md)). The project's own code (`Layers/`: parsing and the `extends` tree; `Seeding/`: merging and applying layers, positioning sequences; `Baking/`: the schema and layer templates, test and dev databases, and export; 🚧 moving layers to a new migration is not built yet) is the seed tool ([ADR 0033](../docs/adr/0033-scoped-databases-per-test.md), a scoped database per test)
 - `compose.yaml`: production-safe. `compose.dev.yaml`: dev only, always load explicitly
 - `JoshOlson.slnx` (root): the .NET solution. `JoshOlson.Shared/` holds utilities (the base class library plus Dapper, Npgsql, and NodaTime, and nothing from ASP.NET) shared by projects and scripts, including the database access helpers in `Data/` ([ADR 0036, the shared library](../docs/adr/0036-shared-library.md)). `JoshOlson.Api/` is the API, in feature folders (one per feature, plus `Common/` for cross-cutting code). Tests sit beside the code as `*.Tests.cs` ([ADR 0023](../docs/adr/0023-api-feature-folders-and-colocated-tests.md))
 - `JoshOlson.Seed/`: the seed tool's command line, on `Spectre.Console.Cli` and the DI container (`Commands/` one class per command, `Composition/` the container glue, `SeedApp` the wiring), which every `seed` and `seeds` mise task runs. 🚧 `seeds:accept` and `seeds:check` arrive with moving layers
@@ -97,7 +97,14 @@ Build the schema template and every seed layer's template (a no-op when they are
 mise run seeds:bake
 mise run seed:test <id> <layer>
 mise run seed <layer>
+mise run seed <layer> --edit
 mise run seed:clean
+```
+
+Make a layer from what is in the dev database (or `--database <name>`): the difference from its parent layer's template (the layer the database was built from, which `seed.hydration` records; a database that records none makes a root, from the schema template; one built with `seed <layer> --edit` replaces that layer in place), written to `seeds/<name>.yaml` as `insert`s, `update`s, and `delete`s. The flow is `mise run seed minimal`, use the app, export ([docs/seeding.md](../docs/seeding.md), the Export section). Rows from a real enrolled account would be exported too, so author layers from a database built with `seed`:
+
+```
+mise run seeds:export --name <name> --description "What it adds"
 ```
 
 Before the first deploy a migration may be rewritten instead of adding a new one. Then drop the dev database and rebuild it from the migrations (everything in it is lost; dev only), and start the lock over (it ignores the old lock's checksums; retired at the first deploy). Regenerate the schema docs afterwards:

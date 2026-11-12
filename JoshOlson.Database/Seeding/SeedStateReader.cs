@@ -21,18 +21,23 @@ namespace JoshOlson.Database.Seeding;
 //   clock, and an absolute one is the UTC instant;
 // - `bytea` is lower-case hex, `jsonb` the canonical JSON text (`JsonCanonical`), and `inet` an address with a prefix only
 //   when it is not a whole host, as `SeedValueReader` reads the same values from a file.
-// A database that was not built by the seed tool has no anchor, and is refused.
+// A database that was not built by the seed tool has no anchor and is refused, unless the caller gives one to measure from.
 public static class SeedStateReader {
-  public static async Task<DatabaseState> ReadAsync(NpgsqlConnection connection, SeedSchema schema, CancellationToken cancellationToken) {
+  public static async Task<DatabaseState> ReadAsync(
+    NpgsqlConnection connection,
+    SeedSchema schema,
+    CancellationToken cancellationToken,
+    Instant? anchorIfUnrecorded = null
+  ) {
     await using var transaction = await connection.BeginTransactionAsync(IsolationLevel.RepeatableRead, cancellationToken);
     await ExecuteAsync(connection, transaction, "SET LOCAL TIME ZONE 'UTC'; SET LOCAL DateStyle = 'ISO, YMD'; SET LOCAL bytea_output = 'hex';", cancellationToken);
-    var anchor = await ReadAnchorAsync(connection, transaction, cancellationToken);
+    var (anchor, layer, editing) = await ReadHydrationAsync(connection, transaction, anchorIfUnrecorded, cancellationToken);
     var state = new SeedState();
     foreach (var table in schema.InsertOrder().Where(table => !table.Table.Ignored)) {
       state.Tables[table.Table.Name] = await ReadTableAsync(connection, transaction, table, anchor, cancellationToken);
     }
     await transaction.CommitAsync(cancellationToken);
-    return new(state, anchor);
+    return new(state, anchor, layer, editing);
   }
 
   private static async Task ExecuteAsync(NpgsqlConnection connection, NpgsqlTransaction transaction, string sql, CancellationToken cancellationToken) {
@@ -40,12 +45,22 @@ public static class SeedStateReader {
     _ = await command.ExecuteNonQueryAsync(cancellationToken);
   }
 
-  private static async Task<Instant> ReadAnchorAsync(NpgsqlConnection connection, NpgsqlTransaction transaction, CancellationToken cancellationToken) {
-    await using var command = new NpgsqlCommand("SELECT anchor_utc FROM seed.hydration;", connection, transaction);
-    var anchor = await command.ExecuteScalarAsync(cancellationToken);
-    return anchor is DateTime utc
-      ? Instant.FromDateTimeUtc(DateTime.SpecifyKind(utc, DateTimeKind.Utc))
-      : throw new SeedFormatException("The database has no seed.hydration row, so it was not built by the seed tool and has no anchor to measure relative times from.");
+  private static async Task<(Instant Anchor, string? Layer, bool Editing)> ReadHydrationAsync(
+    NpgsqlConnection connection,
+    NpgsqlTransaction transaction,
+    Instant? anchorIfUnrecorded,
+    CancellationToken cancellationToken
+  ) {
+    await using var command = new NpgsqlCommand("SELECT anchor_utc, layer, editing FROM seed.hydration;", connection, transaction);
+    await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+    return await reader.ReadAsync(cancellationToken)
+      ? (
+        Instant.FromDateTimeUtc(DateTime.SpecifyKind(reader.GetDateTime(0), DateTimeKind.Utc)),
+        await reader.IsDBNullAsync(1, cancellationToken) ? null : reader.GetString(1),
+        reader.GetBoolean(2))
+      : anchorIfUnrecorded is { } fallback
+        ? (fallback, null, false)
+        : throw new SeedFormatException("The database has no seed.hydration row, so it was not built by the seed tool and has no anchor to measure relative times from.");
   }
 
   private static async Task<SortedDictionary<SeedValue[], Dictionary<string, SeedValue?>>> ReadTableAsync(
