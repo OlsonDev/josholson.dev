@@ -18,12 +18,26 @@ public sealed class ComposeTools {
     => _ = await RunAsync(["exec", "-T", "-e", $"POSTGRES_DB={database}", "tools", "waypoint", "migrate"], stdin: null, cancellationToken);
 
   // The same, from a directory of migrations inside the container (`PutMigrationsAsync`) instead of the mounted ones: the
-  // wrapper reads WAYPOINT_LOCATIONS.
-  public async Task MigrateAsync(string database, string locations, CancellationToken cancellationToken)
-    => _ = await RunAsync(
-      ["exec", "-T", "-e", $"POSTGRES_DB={database}", "-e", $"WAYPOINT_LOCATIONS={locations}", "tools", "waypoint", "migrate"],
-      stdin: null,
-      cancellationToken);
+  // wrapper reads WAYPOINT_LOCATIONS. With `transaction` everything pending is applied in one transaction, so a migration
+  // that fails leaves nothing of itself, not even a failed row in Waypoint's history (which it would otherwise want
+  // `waypoint repair` for).
+  public async Task MigrateAsync(string database, string locations, bool transaction, CancellationToken cancellationToken) {
+    List<string> args = [
+      "exec",
+      "-T",
+      "-e",
+      $"POSTGRES_DB={database}",
+      "-e",
+      $"WAYPOINT_LOCATIONS={locations}",
+      "tools",
+      "waypoint",
+      "migrate",
+    ];
+    if (transaction) {
+      args.Add("--transaction");
+    }
+    _ = await RunAsync(args, stdin: null, cancellationToken);
+  }
 
   // Writes the files into a new directory in the `tools` container and returns its path there. The bytes go through
   // base64, so a file arrives exactly as it is on disk (Waypoint's checksum of it is the same as of the mounted copy).

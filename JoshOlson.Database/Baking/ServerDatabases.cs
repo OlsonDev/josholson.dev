@@ -65,6 +65,23 @@ public sealed class ServerDatabases {
       $"DROP DATABASE IF EXISTS {SeedDatabaseNames.QuoteDevelopment(development)} WITH (FORCE);",
       cancellationToken);
 
+  // A note on a database, kept in the server's catalog: it is read without connecting to the database, which a template
+  // does not allow, and stays with the database when it is renamed. A clone does not get it.
+  public async Task CommentAsync(NpgsqlConnection owner, string name, string comment, CancellationToken cancellationToken) {
+    _ = SeedDatabaseNames.Quote(name);
+    var statement = await owner.QuerySingleAsync<string>(
+      "SELECT format('COMMENT ON DATABASE %I IS %L', @name, @comment);",
+      new { name, comment },
+      cancellationToken);
+    await owner.ExecuteAsync(statement, cancellationToken);
+  }
+
+  public async Task<string?> ReadCommentAsync(NpgsqlConnection owner, string name, CancellationToken cancellationToken)
+    => await owner.QuerySingleOrDefaultAsync<string?>(
+      "SELECT shobj_description(d.oid, 'pg_database') FROM pg_database AS d WHERE d.datname = @name;",
+      new { name },
+      cancellationToken);
+
   // A closed database refuses connections, which is what a template is: only ever a source for `CREATE DATABASE`.
   public async Task CloseAsync(NpgsqlConnection owner, string name, CancellationToken cancellationToken)
     => await owner.ExecuteAsync(

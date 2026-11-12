@@ -12,9 +12,10 @@ public static partial class SeedDatabaseNames {
   private const string _LayerPrefix = Prefix + "layer_";
   private const string _TestPrefix = Prefix + "test_";
 
-  // The template for a given hash of the migrations and provisioning script.
-  public static string Schema(string hash)
-    => _SchemaPrefix + hash;
+  // The template for a version of the migrations and a hash of what shapes it (the migrations up to that version, every
+  // repeatable, and the two scripts). The version is in the name so a listing of databases shows what each one is.
+  public static string Schema(int version, string hash)
+    => FormattableString.Invariant($"{_SchemaPrefix}v{version}_{hash}");
 
   // The template for a layer: a hash of the schema template's name and the layer chain's source.
   public static string Layer(string hash)

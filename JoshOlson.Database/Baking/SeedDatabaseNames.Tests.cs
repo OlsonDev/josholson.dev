@@ -22,7 +22,7 @@ public sealed class SeedDatabaseNamesTests {
 
   [Fact]
   public void IsTemplate_SchemaAndLayerNamesOnly() {
-    Assert.True(SeedDatabaseNames.IsTemplate(SeedDatabaseNames.Schema("foo")));
+    Assert.True(SeedDatabaseNames.IsTemplate(SeedDatabaseNames.Schema(1, "foo")));
     Assert.True(SeedDatabaseNames.IsTemplate(SeedDatabaseNames.Layer("foo")));
     Assert.False(SeedDatabaseNames.IsTemplate(SeedDatabaseNames.Test("foo")));
     Assert.False(SeedDatabaseNames.IsTemplate("josholson"));
