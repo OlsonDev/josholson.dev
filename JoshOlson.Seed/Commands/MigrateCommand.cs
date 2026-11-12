@@ -39,6 +39,7 @@ public sealed class MigrateCommand : AsyncCommand<MigrateCommand.Settings> {
       SeedsDirectory = _paths.Seeds,
       Template = _factory.OpenSchemaTemplate(),
       Databases = _factory.Databases,
+      Clock = _factory.Clock,
       Relock = settings.Relock,
       LayerCheck = CheckLayersAsync,
     };
@@ -49,6 +50,13 @@ public sealed class MigrateCommand : AsyncCommand<MigrateCommand.Settings> {
         $"[green]Wrote[/] {result.Path}: {before} to version {result.Version.ToInvariantString()}.");
     } else {
       _console.MarkupLineInterpolated($"{result.Path} is already at version {result.Version.ToInvariantString()}.");
+    }
+    if (result.Layers.Count > 0) {
+      var table = new Table().AddColumn("Layer").AddColumn("State");
+      foreach (var (layer, rewritten) in result.Layers) {
+        _ = table.AddRow(Markup.Escape(layer), rewritten ? "[green]rewritten[/]" : "[dim]unchanged[/]");
+      }
+      _console.Write(table);
     }
     return 0;
   }

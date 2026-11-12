@@ -94,8 +94,19 @@ public sealed class SchemaTemplate {
     return string.IsNullOrEmpty(comment) ? [] : JsonSerializer.Deserialize<List<SkippedRepeatable>>(comment) ?? [];
   }
 
+  // Takes a database cloned from a template for an older version on to the newest: the migrations after it, then every
+  // repeatable (those the older template skipped, and any that changed). Not in one transaction, so a migration that cannot
+  // run in one (`CREATE INDEX CONCURRENTLY`) still can; a failure throws, and the database is the caller's to discard.
+  public async Task MigrateToNewestAsync(string database, CancellationToken cancellationToken) {
+    var files = await VersionedFilesAsync(int.MaxValue, cancellationToken);
+    foreach (var path in RepeatablePaths()) {
+      files.Add((Path.GetFileName(path), await File.ReadAllBytesAsync(path, cancellationToken)));
+    }
+    await MigrateFromAsync(database, files, transaction: false, cancellationToken);
+  }
+
   private async Task ApplyVersionedAsync(string database, int version, CancellationToken cancellationToken)
-    => await MigrateFromAsync(database, await VersionedFilesAsync(version, cancellationToken), cancellationToken);
+    => await MigrateFromAsync(database, await VersionedFilesAsync(version, cancellationToken), transaction: true, cancellationToken);
 
   private async Task<List<(string Name, byte[] Content)>> VersionedFilesAsync(int version, CancellationToken cancellationToken) {
     var files = new List<(string Name, byte[] Content)>();
@@ -105,12 +116,17 @@ public sealed class SchemaTemplate {
     return files;
   }
 
-  // Waypoint reads the files from a directory of their own in the container, which is gone afterwards. Everything pending
-  // in it goes in one transaction.
-  private async Task MigrateFromAsync(string database, List<(string Name, byte[] Content)> files, CancellationToken cancellationToken) {
+  // Waypoint reads the files from a directory of their own in the container, which is gone afterwards. With `transaction`
+  // everything pending in it goes in one.
+  private async Task MigrateFromAsync(
+    string database,
+    List<(string Name, byte[] Content)> files,
+    bool transaction,
+    CancellationToken cancellationToken
+  ) {
     var directory = await _tools.PutMigrationsAsync(files, cancellationToken);
     try {
-      await _tools.MigrateAsync(database, directory, transaction: true, cancellationToken);
+      await _tools.MigrateAsync(database, directory, transaction, cancellationToken);
     } finally {
       await _tools.RemoveMigrationsAsync(directory, CancellationToken.None);
     }
@@ -123,7 +139,7 @@ public sealed class SchemaTemplate {
       var files = await VersionedFilesAsync(version, cancellationToken);
       files.Add((Path.GetFileName(path), await File.ReadAllBytesAsync(path, cancellationToken)));
       try {
-        await MigrateFromAsync(database, files, cancellationToken);
+        await MigrateFromAsync(database, files, transaction: true, cancellationToken);
       } catch (InvalidOperationException exception) when (!newest) {
         skipped.Add(new(Path.GetFileName(path), FirstError(exception.Message)));
       }
@@ -148,7 +164,7 @@ public sealed class SchemaTemplate {
 
   // Waypoint's own line for what went wrong (`ERROR: Migration failed for R__foo.sql: relation "bar" does not exist`), not the
   // whole output.
-  private static string FirstError(string output)
+  public static string FirstError(string output)
     => output.Split('\n').Select(line => line.Trim()).FirstOrDefault(line => line.Contains("ERROR:", StringComparison.Ordinal))
       ?? output.Trim();
 

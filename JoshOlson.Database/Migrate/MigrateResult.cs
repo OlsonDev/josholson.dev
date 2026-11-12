@@ -7,4 +7,8 @@ public sealed record MigrateResult {
   public required int? PreviousVersion { get; init; }
   public required int Version { get; init; }
   public required bool Changed { get; init; }
+
+  // The layers `seeds:migrate` moved to the newest schema, and whether each file was rewritten. Empty when there was nothing
+  // to move: no layers, or a lock that was not behind the migrations.
+  public List<(string Layer, bool Rewritten)> Layers { get; init; } = [];
 }

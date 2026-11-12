@@ -1,5 +1,6 @@
 using JoshOlson.Database.Baking;
 using JoshOlson.Database.Layers;
+using NodaTime;
 
 namespace JoshOlson.Database.Migrate;
 
@@ -14,6 +15,9 @@ public sealed record MigrateOptions {
   // in `MigrationsDirectory`. The dev database plays no part, so it can be in any state, or missing.
   public required SchemaTemplate Template { get; init; }
   public required ServerDatabases Databases { get; init; }
+
+  // The time the layers' relative times are measured from while they are moved; a layer's rows come out as offsets from it.
+  public required IClock Clock { get; init; }
 
   // Builds the lock afresh from the database instead of carrying the old one forward: its version, checksums, and
   // accepted checksums are ignored, so a migration rewritten since the last lock no longer counts as a problem. Only

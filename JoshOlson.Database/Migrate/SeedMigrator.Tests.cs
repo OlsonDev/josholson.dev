@@ -2,6 +2,7 @@ using JoshOlson.Database.Baking;
 using JoshOlson.Database.Layers;
 using JoshOlson.Database.Locks;
 using JoshOlson.Shared.IO;
+using NodaTime;
 using Npgsql;
 using Xunit;
 
@@ -32,6 +33,7 @@ public sealed class SeedMigratorTests : IAsyncLifetime {
       SeedsDirectory = Path.Combine(_directory, "seeds"),
       Template = _template,
       Databases = _databases,
+      Clock = SystemClock.Instance,
     };
     _realTemplate = new SchemaTemplate(SchemaTemplateOptions.ForRepository(paths), new(paths.Root), _databases).NameAsync(_cancellationToken).GetAwaiter().GetResult();
   }

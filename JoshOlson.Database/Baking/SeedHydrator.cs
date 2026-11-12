@@ -46,4 +46,37 @@ public static class SeedHydrator {
     _ = await SequencePositioner.ChainAsync(connection, tree, schema, layer, editing, cancellationToken);
     return rows;
   }
+
+  // The same for `seeds:migrate`, which puts a layer's chain into a database at the schema it was written for before the
+  // newer migrations run over it. Two things differ. Foreign keys are not enforced while the rows go in (`session_replication_role`
+  // is `replica`, which the owner may set): a row can point at reference data from a repeatable migration that is written for
+  // a newer schema and so could not be applied here, and the rows are checked against the real constraints afterwards, at
+  // the newest version. And the sequences are positioned by the root layer alone (`SequencePositioner.RootAsync`), so a
+  // migration that generates IDs gives a parent and every child the same ones.
+  public static async Task<int> HydrateForMigrationAsync(
+    string database,
+    LayerTree tree,
+    SeedSchema schema,
+    string layer,
+    Instant anchor,
+    CancellationToken cancellationToken
+  ) {
+    await using var connection = new NpgsqlConnection(DatabaseEnvironment.OwnerConnectionString(database));
+    await connection.OpenAsync(cancellationToken);
+    int rows;
+    await using (var transaction = await connection.BeginTransactionAsync(cancellationToken)) {
+      await connection.ExecuteAsync("SET LOCAL session_replication_role = replica;", cancellationToken);
+      rows = await SeedApplier.ApplyAsync(transaction, tree, schema, layer, anchor, cancellationToken);
+      await transaction.CommitAsync(cancellationToken);
+    }
+    await connection.ExecuteAsync(
+      "INSERT INTO seed.hydration (layer, editing, anchor_utc) VALUES (@layer, FALSE, @anchor);",
+      new {
+        layer,
+        anchor = anchor.ToDateTimeUtc(),
+      },
+      cancellationToken);
+    _ = await SequencePositioner.RootAsync(connection, tree, schema, layer, cancellationToken);
+    return rows;
+  }
 }

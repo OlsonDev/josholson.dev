@@ -25,15 +25,17 @@ public static class SeedMigrator {
     if (check.Pending.Count > 0) {
       problems.Add(
         $"{string.Join(", ", check.Pending.Select(migration => migration.File))} {(check.Pending.Count is 1 ? "is" : "are")} newer than the seeds. "
-        + "Run mise run waypoint migrate, then mise run seeds:migrate.");
+        + "Run mise run seeds:migrate.");
     }
     return problems;
   }
 
   // `seeds:migrate`, as far as it is built: makes `schema.lock.yaml` describe the schema the migrations on disk produce,
   // which is read from the template for the newest migration (built if it is not there; the dev database is not used).
-  // The lock is only written if everything checks out, and every problem is reported together. Moving seed layers to a new migration is not built yet: with layers present, they are checked against
-  // the new schema instead of rewritten (`CheckLayersAsync`), so the lock never moves ahead of a layer it would break.
+  // The lock is only written if everything checks out, and every problem is reported together. When the lock is behind
+  // the migrations and there are layers, they are moved to the newest schema first (`LayerMover`) and the files and
+  // then the lock are written only if every one of them moved and builds; otherwise, they are checked against the new
+  // schema (`CheckLayersAsync`), so the lock never moves ahead of a layer it would break.
   // `Relock` starts the lock over instead of carrying the old one forward (see `MigrateOptions.Relock`).
   public static async Task<MigrateResult> MigrateAsync(NpgsqlConnection owner, MigrateOptions options, CancellationToken cancellationToken) {
     var path = Path.Combine(options.MigrationsDirectory, LockFileName);
@@ -46,8 +48,9 @@ public static class SeedMigrator {
     }
 
     var problems = new List<string>();
-    if (existing is not null) {
-      problems.AddRange(existing.Check(onDisk).Problems.Select(problem => problem.Message));
+    var check = existing?.Check(onDisk);
+    if (check is not null) {
+      problems.AddRange(check.Problems.Select(problem => problem.Message));
     }
     if (problems.Count > 0) {
       throw new SeedFormatException($"seeds:migrate did not write {LockFileName}:\n- {string.Join("\n- ", problems)}");
@@ -60,10 +63,20 @@ public static class SeedMigrator {
     }
 
     var schemaLock = SchemaLockBuilder.Build(existing, onDisk, catalog);
-    problems.AddRange(await CheckLayersAsync(options, schemaLock, cancellationToken));
+    var moved = new List<MovedLayer>();
+    if (existing is not null && check is { Pending.Count: > 0 } && HasLayers(options)) {
+      try {
+        moved = await LayerMover.MoveAsync(owner, options, existing, schemaLock, onDisk, cancellationToken);
+      } catch (SeedFormatException exception) {
+        problems.Add(exception.Message);
+      }
+    } else {
+      problems.AddRange(await CheckLayersAsync(options, schemaLock, cancellationToken));
+    }
     if (problems.Count > 0) {
       throw new SeedFormatException($"seeds:migrate did not write {LockFileName}:\n- {string.Join("\n- ", problems)}");
     }
+    var layers = await WriteLayersAsync(options, moved, cancellationToken);
 
     var text = SchemaLockWriter.Write(schemaLock);
     var changed = !string.Equals(text, existingText, StringComparison.Ordinal);
@@ -75,6 +88,7 @@ public static class SeedMigrator {
       PreviousVersion = previousVersion,
       Version = onDisk.Max(migration => migration.Version),
       Changed = changed,
+      Layers = layers,
     };
   }
 
@@ -98,6 +112,27 @@ public static class SeedMigrator {
       await options.Databases.DropAsync(owner, clone, CancellationToken.None);
     }
   }
+
+  // Only the layers whose text changed are rewritten, so a migration that leaves a layer as it was leaves its file alone.
+  private static async Task<List<(string Layer, bool Rewritten)>> WriteLayersAsync(
+    MigrateOptions options,
+    List<MovedLayer> moved,
+    CancellationToken cancellationToken
+  ) {
+    var layers = new List<(string Layer, bool Rewritten)>(moved.Count);
+    foreach (var layer in moved) {
+      var path = Path.Combine(options.SeedsDirectory, layer.Layer.Name + ".yaml");
+      var rewritten = !string.Equals(await File.ReadAllTextAsync(path, cancellationToken), layer.Yaml, StringComparison.Ordinal);
+      if (rewritten) {
+        await WriteAsync(path, layer.Yaml, cancellationToken);
+      }
+      layers.Add((layer.Layer.Name, rewritten));
+    }
+    return layers;
+  }
+
+  private static bool HasLayers(MigrateOptions options)
+    => Directory.Exists(options.SeedsDirectory) && LayerLoader.Files(options.SeedsDirectory).Count > 0;
 
   // The layers are not rewritten, only checked: each still has to read as its columns' types in the new schema and
   // apply to a database built from the new migrations (`LayerCheck`). A layer a migration broke is reported, and fixing

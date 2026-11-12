@@ -12,18 +12,19 @@ namespace JoshOlson.Seed;
 public sealed class SeedToolFactory {
   private readonly SeedPaths _paths;
   private readonly ComposeTools _tools;
-  private readonly IClock _clock;
   private readonly string _development;
 
   public SeedToolFactory(SeedPaths paths, ServerDatabases databases, ComposeTools tools, IClock clock, string development) {
     _paths = paths;
     Databases = databases;
     _tools = tools;
-    _clock = clock;
+    Clock = clock;
     _development = development;
   }
 
   public ServerDatabases Databases { get; }
+
+  public IClock Clock { get; }
 
   // The schema template for the repository's migrations, which `seeds:migrate` reads the schema from.
   public SchemaTemplate OpenSchemaTemplate()
@@ -31,9 +32,9 @@ public sealed class SeedToolFactory {
 
   // Reads the lock under the repository root. It has to exist: it types every value in a layer.
   public async Task<SeedTool> OpenAsync(CancellationToken cancellationToken)
-    => (await SeedTool.OpenAsync(_paths, Databases, _tools, _clock, cancellationToken)).WithDevelopment(_development);
+    => (await SeedTool.OpenAsync(_paths, Databases, _tools, Clock, cancellationToken)).WithDevelopment(_development);
 
   // For a schema the caller already has, as `seeds:migrate` has before the lock is written.
   public async Task<SeedTool> OpenAsync(SeedSchema schema, CancellationToken cancellationToken)
-    => (await SeedTool.OpenAsync(_paths, Databases, _tools, schema, _clock, cancellationToken)).WithDevelopment(_development);
+    => (await SeedTool.OpenAsync(_paths, Databases, _tools, schema, Clock, cancellationToken)).WithDevelopment(_development);
 }
