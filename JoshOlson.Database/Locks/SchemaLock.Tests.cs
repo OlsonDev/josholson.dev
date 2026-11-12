@@ -1,35 +1,17 @@
 using JoshOlson.Database.Schema;
-using JoshOlson.Shared.Extensions;
 using Xunit;
 
 namespace JoshOlson.Database.Locks;
 
 public class SchemaLockTests {
-  private static readonly string _Original = new('a', 64);
-  private static readonly string _Edited = new('b', 64);
-  private static readonly string _Other = new('c', 64);
-
-  private static string FileName(int version, string name)
-    => $"V{version.ToInvariantString().PadLeft(3, '0')}__{name}.sql";
-
-  private static LockedMigration Locked(int version, string name, string checksum)
-    => new() {
-      Version = version,
-      File = FileName(version, name),
-      Checksum = checksum,
-    };
-
-  private static MigrationFile OnDisk(int version, string name, string checksum)
-    => new() {
-      Version = version,
-      File = FileName(version, name),
-      Checksum = checksum,
-    };
-
-  // Seeds migrated to version 2; migrations 1 and 2 are locked.
+  // Seeds migrated to version 2; migrations 1 and 2 are locked. On disk, `Aaa` and `Ccc` are their checksums as they
+  // were locked, and `Bbb` is a file that was edited or is someone else's.
   private static SchemaLock NewLock()
     => new() {
-      Migrations = [Locked(1, "foo", _Original), Locked(2, "bar", _Other)],
+      Migrations = [
+        SchemaLockSample.Locked(1, "foo", SchemaLockSample.Aaa),
+        SchemaLockSample.Locked(2, "bar", SchemaLockSample.Ccc),
+      ],
       Schemas = [],
       Domains = [],
       Tables = [],
@@ -37,7 +19,11 @@ public class SchemaLockTests {
 
   [Fact]
   public void Check_SameHistory_IsConsistent_AndListsLaterMigrationsAsPending() {
-    var check = NewLock().Check([OnDisk(1, "foo", _Original), OnDisk(2, "bar", _Other), OnDisk(3, "baz", _Edited)]);
+    var check = NewLock().Check([
+      SchemaLockSample.Disk(1, "foo"),
+      SchemaLockSample.Disk(2, "bar", SchemaLockSample.Ccc),
+      SchemaLockSample.Disk(3, "baz", SchemaLockSample.Bbb),
+    ]);
 
     Assert.True(check.IsConsistent);
     Assert.Equal([3], check.Pending.Select(migration => migration.Version));
@@ -45,7 +31,10 @@ public class SchemaLockTests {
 
   [Fact]
   public void Check_NothingPending_WhenSeedsAreAtTheNewestMigration() {
-    var check = NewLock().Check([OnDisk(1, "foo", _Original), OnDisk(2, "bar", _Other)]);
+    var check = NewLock().Check([
+      SchemaLockSample.Disk(1, "foo"),
+      SchemaLockSample.Disk(2, "bar", SchemaLockSample.Ccc),
+    ]);
 
     Assert.True(check.IsConsistent);
     Assert.Empty(check.Pending);
@@ -53,7 +42,10 @@ public class SchemaLockTests {
 
   [Fact]
   public void Check_EditedMigration_IsChanged_AndSaysToAddANewOne() {
-    var check = NewLock().Check([OnDisk(1, "foo", _Edited), OnDisk(2, "bar", _Other)]);
+    var check = NewLock().Check([
+      SchemaLockSample.Disk(1, "foo", SchemaLockSample.Bbb),
+      SchemaLockSample.Disk(2, "bar", SchemaLockSample.Ccc),
+    ]);
 
     var problem = Assert.Single(check.Problems);
     Assert.Equal(MigrationProblemKind.Changed, problem.Kind);
@@ -64,7 +56,10 @@ public class SchemaLockTests {
 
   [Fact]
   public void Check_BranchTookTheNumber_IsDifferent_AndExplainsTheFix() {
-    var check = NewLock().Check([OnDisk(1, "foo", _Original), OnDisk(2, "mine", _Edited)]);
+    var check = NewLock().Check([
+      SchemaLockSample.Disk(1, "foo"),
+      SchemaLockSample.Disk(2, "mine", SchemaLockSample.Bbb),
+    ]);
 
     var problem = Assert.Single(check.Problems);
     Assert.Equal(MigrationProblemKind.Different, problem.Kind);
@@ -76,14 +71,17 @@ public class SchemaLockTests {
 
   [Fact]
   public void Check_SameNumberAndNameButDifferentContent_IsChangedNotDifferent() {
-    var check = NewLock().Check([OnDisk(1, "foo", _Original), OnDisk(2, "bar", _Edited)]);
+    var check = NewLock().Check([
+      SchemaLockSample.Disk(1, "foo"),
+      SchemaLockSample.Disk(2, "bar", SchemaLockSample.Bbb),
+    ]);
 
     Assert.Equal(MigrationProblemKind.Changed, Assert.Single(check.Problems).Kind);
   }
 
   [Fact]
   public void Check_MigrationGone_IsMissing() {
-    var check = NewLock().Check([OnDisk(1, "foo", _Original)]);
+    var check = NewLock().Check([SchemaLockSample.Disk(1, "foo")]);
 
     var problem = Assert.Single(check.Problems);
     Assert.Equal(MigrationProblemKind.Missing, problem.Kind);
@@ -93,10 +91,17 @@ public class SchemaLockTests {
   [Fact]
   public void Check_MigrationInsertedBelowTheSeedsVersion_IsUnlocked() {
     var schemaLock = NewLock() with {
-      Migrations = [Locked(1, "foo", _Original), Locked(3, "baz", _Other)],
+      Migrations = [
+        SchemaLockSample.Locked(1, "foo", SchemaLockSample.Aaa),
+        SchemaLockSample.Locked(3, "baz", SchemaLockSample.Ccc),
+      ],
     };
 
-    var check = schemaLock.Check([OnDisk(1, "foo", _Original), OnDisk(2, "bar", _Edited), OnDisk(3, "baz", _Other)]);
+    var check = schemaLock.Check([
+      SchemaLockSample.Disk(1, "foo"),
+      SchemaLockSample.Disk(2, "bar", SchemaLockSample.Bbb),
+      SchemaLockSample.Disk(3, "baz", SchemaLockSample.Ccc),
+    ]);
 
     var problem = Assert.Single(check.Problems);
     Assert.Equal(MigrationProblemKind.Unlocked, problem.Kind);
@@ -106,7 +111,10 @@ public class SchemaLockTests {
 
   [Fact]
   public void Check_SeveralProblems_AreOrderedByVersion() {
-    var check = NewLock().Check([OnDisk(2, "bar", _Edited), OnDisk(1, "foo", _Edited)]);
+    var check = NewLock().Check([
+      SchemaLockSample.Disk(2, "bar", SchemaLockSample.Bbb),
+      SchemaLockSample.Disk(1, "foo", SchemaLockSample.Bbb),
+    ]);
 
     Assert.Equal([1, 2], check.Problems.Select(problem => problem.Version));
   }

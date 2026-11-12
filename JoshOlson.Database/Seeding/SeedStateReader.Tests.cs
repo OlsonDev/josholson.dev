@@ -1,7 +1,5 @@
 using JoshOlson.Database.Baking;
 using JoshOlson.Database.Layers;
-using JoshOlson.Database.Locks;
-using JoshOlson.Database.Schema;
 using JoshOlson.Shared.Data;
 using NodaTime;
 using Xunit;
@@ -10,6 +8,8 @@ namespace JoshOlson.Database.Seeding;
 
 // Each test works in a database of its own (a clone of the real schema template).
 public sealed class SeedStateReaderTests : IAsyncLifetime {
+  // `foo.kind` as `SchemaLockSample.KindTable` describes it, with a row of values and a row of nulls. The database has
+  // none of the sample's other tables, so these tests read it with `SampleLayers.SchemaOfKind`.
   private const string _KindSql = """
     CREATE SCHEMA foo;
     CREATE TABLE foo.kind (
@@ -55,30 +55,6 @@ public sealed class SeedStateReaderTests : IAsyncLifetime {
       (SeedValue.Array a, SeedValue.Array b) => a.Items.Count == b.Items.Count && a.Items.Zip(b.Items).All(pair => Same(pair.First, pair.Second)),
       _ => Equals(left, right),
     };
-
-  // The lock describing `foo.kind`, one column of every seed type, plain and as an array, and one generated from an
-  // expression.
-  private static SeedSchema KindSchema() {
-    var kind = SchemaLockSample.NewTable("foo.kind") with {
-      Columns = [
-        SchemaLockSample.Column("id", "bigint"),
-        SchemaLockSample.Column("flag", "boolean", nullable: true),
-        SchemaLockSample.Column("blob", "bytea", nullable: true),
-        SchemaLockSample.Column("doc", "jsonb", nullable: true),
-        SchemaLockSample.Column("address", "inet", nullable: true),
-        SchemaLockSample.Column("note", "text", nullable: true),
-        SchemaLockSample.Column("amount", "decimal(9, 2)", nullable: true),
-        SchemaLockSample.Column("at_utc", "timestamptz", nullable: true, policy: TimePolicy.Relative),
-        SchemaLockSample.Column("seen_utc", "timestamptz", nullable: true, policy: TimePolicy.Absolute),
-        SchemaLockSample.Column("nums", "integer[]", nullable: true),
-        SchemaLockSample.Column("docs", "jsonb[]", nullable: true),
-        SchemaLockSample.Column("times", "timestamptz[]", nullable: true, policy: TimePolicy.Relative),
-        SchemaLockSample.Column("hosts", "inet[]", nullable: true),
-        SchemaLockSample.Column("len", "integer", nullable: true, generatedAs: GeneratedAs.ExpressionStored),
-      ],
-    };
-    return new(SchemaLockSample.Create() with { Tables = [kind] });
-  }
 
   [Fact]
   public async Task ReadAsync_HydratedLayers_GivesBackTheMergedStateAndTheAnchor() {
@@ -137,7 +113,7 @@ public sealed class SeedStateReaderTests : IAsyncLifetime {
     await using var connection = await _database.OpenAsync(_cancellationToken);
     await connection.ExecuteAsync(_KindSql, _cancellationToken);
 
-    var read = await SeedStateReader.ReadAsync(connection, KindSchema(), _cancellationToken);
+    var read = await SeedStateReader.ReadAsync(connection, SampleLayers.SchemaOfKind, _cancellationToken);
 
     var first = read.Rows.Tables["foo.kind"][[new SeedValue.Integer(1)]];
     Assert.Equal(new SeedValue.Integer(1), first["id"]);
@@ -161,7 +137,7 @@ public sealed class SeedStateReaderTests : IAsyncLifetime {
     await using var connection = await _database.OpenAsync(_cancellationToken);
     await connection.ExecuteAsync(_KindSql, _cancellationToken);
 
-    var read = await SeedStateReader.ReadAsync(connection, KindSchema(), _cancellationToken);
+    var read = await SeedStateReader.ReadAsync(connection, SampleLayers.SchemaOfKind, _cancellationToken);
 
     var second = read.Rows.Tables["foo.kind"][[new SeedValue.Integer(2)]];
     Assert.Equal(new SeedValue.Integer(2), second["id"]);

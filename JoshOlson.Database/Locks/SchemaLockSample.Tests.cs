@@ -1,4 +1,6 @@
+using JoshOlson.Database.Migrate;
 using JoshOlson.Database.Schema;
+using JoshOlson.Shared.Extensions;
 
 namespace JoshOlson.Database.Locks;
 
@@ -6,7 +8,8 @@ namespace JoshOlson.Database.Locks;
 // type, over another domain, with a modifier and over an array, with and without checks, defaults, and comments; a
 // nullable column; identity and expression columns; defaults and comments; a composite primary key; unique and check
 // constraints; both time policies; array and `decimal` types; foreign keys with and without actions and deferral; and an
-// index. Shared by the writer and parser tests.
+// index. Shared by the writer and parser tests, and, with the builders below it (the every-type table and the
+// migrations), by every test of the sample schema. `SampleLayers` builds seed rows and layers for it.
 internal static class SchemaLockSample {
   public static readonly string Aaa = new('a', 64);
   public static readonly string Bbb = new('b', 64);
@@ -15,16 +18,8 @@ internal static class SchemaLockSample {
   public static SchemaLock Create()
     => new() {
       Migrations = [
-        new() {
-          Version = 1,
-          File = "V001__foo.sql",
-          Checksum = Aaa,
-        },
-        new() {
-          Version = 3,
-          File = "V003__bar.sql",
-          Checksum = Bbb,
-        },
+        Locked(1, "foo", Aaa),
+        Locked(3, "bar", Bbb),
       ],
       Schemas = [
         new() {
@@ -169,4 +164,72 @@ internal static class SchemaLockSample {
 
   public static Table Table(string name, params ForeignKey[] foreignKeys)
     => NewTable(name) with { ForeignKeys = [.. foreignKeys] };
+
+  // `foo.kind`: one column of every seed type, plain and as an array, and one generated from an expression. The sample
+  // lock has no column for most of them.
+  public static Table KindTable()
+    => NewTable("foo.kind") with {
+      Columns = [
+        Column("id", "bigint"),
+        Column("flag", "boolean", nullable: true),
+        Column("blob", "bytea", nullable: true),
+        Column("doc", "jsonb", nullable: true),
+        Column("address", "inet", nullable: true),
+        Column("note", "text", nullable: true),
+        Column("amount", "decimal(9, 2)", nullable: true),
+        Column("at_utc", "timestamptz", nullable: true, policy: TimePolicy.Relative),
+        Column("seen_utc", "timestamptz", nullable: true, policy: TimePolicy.Absolute),
+        Column("nums", "integer[]", nullable: true),
+        Column("docs", "jsonb[]", nullable: true),
+        Column("times", "timestamptz[]", nullable: true, policy: TimePolicy.Relative),
+        Column("hosts", "inet[]", nullable: true),
+        Column("len", "integer", nullable: true, generatedAs: GeneratedAs.ExpressionStored),
+      ],
+    };
+
+  // The sample lock with `foo.kind` added.
+  public static SchemaLock WithKind()
+    => With(KindTable());
+
+  // The sample lock with more tables after its own.
+  public static SchemaLock With(params Table[] tables) {
+    var sample = Create();
+    return sample with { Tables = [.. sample.Tables, .. tables] };
+  }
+
+  // The sample lock with `foo.kind` as its only table, for a database that has no other table of the sample's.
+  public static SchemaLock OnlyKind()
+    => Create() with { Tables = [KindTable()] };
+
+  public static string FileName(int version, string name)
+    => $"V{version.ToInvariantString().PadLeft(3, '0')}__{name}.sql";
+
+  // A migration on disk, with the checksum `Aaa` unless the test cares which.
+  public static MigrationFile Disk(int version, string name, string? checksum = null)
+    => new() {
+      Version = version,
+      File = FileName(version, name),
+      Checksum = checksum ?? Aaa,
+    };
+
+  // The sample lock's migrations as files on disk, unchanged since they were locked.
+  public static List<MigrationFile> OnDisk()
+    => [
+      Disk(1, "foo", Aaa),
+      Disk(3, "bar", Bbb),
+    ];
+
+  public static LockedMigration Locked(int version, string name, string checksum)
+    => new() {
+      Version = version,
+      File = FileName(version, name),
+      Checksum = checksum,
+    };
+
+  public static AppliedMigration Applied(int version, string name, bool success = true)
+    => new() {
+      Version = version,
+      File = FileName(version, name),
+      Success = success,
+    };
 }

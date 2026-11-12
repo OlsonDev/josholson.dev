@@ -1,6 +1,5 @@
 using JoshOlson.Database.Catalog;
 using JoshOlson.Database.Locks;
-using JoshOlson.Shared.Extensions;
 using Xunit;
 
 namespace JoshOlson.Database.Migrate;
@@ -14,16 +13,12 @@ public class SchemaLockBuilderTests {
     Tables = _Sample.Tables,
   };
 
-  private static MigrationFile Disk(int version, string name, string checksum)
-    => new() {
-      Version = version,
-      File = $"V{version.ToInvariantString().PadLeft(3, '0')}__{name}.sql",
-      Checksum = checksum,
-    };
-
   [Fact]
   public void Build_NoExistingLock_LocksEveryMigrationAtTheNewestVersion() {
-    var built = SchemaLockBuilder.Build(existing: null, [Disk(3, "baz", SchemaLockSample.Bbb), Disk(1, "foo", SchemaLockSample.Aaa)], _Catalog);
+    var built = SchemaLockBuilder.Build(
+      existing: null,
+      [SchemaLockSample.Disk(3, "baz", SchemaLockSample.Bbb), SchemaLockSample.Disk(1, "foo")],
+      _Catalog);
 
     Assert.Equal(3, built.Version);
     Assert.Equal([1, 3], built.Migrations.Select(migration => migration.Version));
@@ -32,7 +27,7 @@ public class SchemaLockBuilderTests {
 
   [Fact]
   public void Build_CopiesTheCatalog() {
-    var built = SchemaLockBuilder.Build(existing: null, [Disk(1, "foo", SchemaLockSample.Aaa)], _Catalog);
+    var built = SchemaLockBuilder.Build(existing: null, [SchemaLockSample.Disk(1, "foo")], _Catalog);
 
     Assert.Equal(_Catalog.Schemas, built.Schemas);
     Assert.Equal(_Catalog.Domains, built.Domains);
@@ -41,7 +36,7 @@ public class SchemaLockBuilderTests {
 
   [Fact]
   public void Build_ExistingEntryThatStillMatches_KeepsIt() {
-    List<MigrationFile> onDisk = [.. _Sample.Migrations.Select(migration => Disk(migration.Version, migration.Version is 1 ? "foo" : "bar", migration.Checksum))];
+    var onDisk = SchemaLockSample.OnDisk();
 
     var built = SchemaLockBuilder.Build(_Sample, onDisk, _Catalog);
 
@@ -50,8 +45,8 @@ public class SchemaLockBuilderTests {
 
   [Fact]
   public void Build_NewerMigration_IsAddedAndMovesTheVersion() {
-    List<MigrationFile> onDisk = [.. _Sample.Migrations.Select(migration => Disk(migration.Version, migration.Version is 1 ? "foo" : "bar", migration.Checksum))];
-    onDisk.Add(Disk(4, "qux", SchemaLockSample.Ccc));
+    var onDisk = SchemaLockSample.OnDisk();
+    onDisk.Add(SchemaLockSample.Disk(4, "qux", SchemaLockSample.Ccc));
 
     var built = SchemaLockBuilder.Build(_Sample, onDisk, _Catalog);
 

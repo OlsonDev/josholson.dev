@@ -1,5 +1,4 @@
 using JoshOlson.Database.Layers;
-using JoshOlson.Database.Locks;
 using NodaTime;
 using NpgsqlTypes;
 using Xunit;
@@ -7,7 +6,6 @@ using Xunit;
 namespace JoshOlson.Database.Seeding;
 
 public class SeedSqlTests {
-  private static readonly SeedSchema _Schema = new(SchemaLockSample.Create());
   private static readonly Instant _Anchor = Instant.FromUtc(2026, 1, 1, 12, 0);
 #pragma warning disable RCS1130 // NpgsqlDbType is a flags enum that Npgsql does not mark [Flags]: Array is OR-ed with the element type.
   private const NpgsqlDbType _SmallintArray = NpgsqlDbType.Array | NpgsqlDbType.Smallint;
@@ -15,37 +13,33 @@ public class SeedSqlTests {
 
   [Fact]
   public void Build_OneStatementPerTable_InForeignKeyOrder() {
-    const string Yaml = """
-      description: Base
-      tables:
+    var layer = Base($$"""
         foo.link:
           insert:
-            - { bar_id: 1, tag_id: 1, flags: ~, tags: ~ }
+            - {{SampleLayers.Link(1, 1)}}
         foo.tag:
           insert:
-            - { tag_id: 1, price: 0 }
+            - {{SampleLayers.Tag(1)}}
         foo.bar:
           insert:
-            - { bar_id: 1, slug: one, name: First, note: ~, created_utc: 0s, published_utc: ~, lat: 1 }
-      """;
+            - {{SampleLayers.Bar(1, "First")}}
+      """);
 
-    var statements = Build(Yaml);
+    var statements = Build(layer);
 
     Assert.Equal(["foo.bar", "foo.tag", "foo.link"], statements.Select(statement => statement.Table));
   }
 
   [Fact]
   public void Build_IdentityColumn_OverridesSystemValue() {
-    const string Yaml = """
-      description: Base
-      tables:
+    var layer = Base($$"""
         foo.tag:
           insert:
-            - { tag_id: 1, price: 2.5 }
-            - { tag_id: 2, price: 0 }
-      """;
+            - {{SampleLayers.Tag(1, price: "2.5")}}
+            - {{SampleLayers.Tag(2)}}
+      """);
 
-    var statement = Build(Yaml).Single();
+    var statement = Build(layer).Single();
 
     Assert.Equal(
       """
@@ -68,15 +62,13 @@ public class SeedSqlTests {
 
   [Fact]
   public void Build_ColumnGeneratedFromAnExpression_IsNotInTheStatement() {
-    const string Yaml = """
-      description: Base
-      tables:
+    var layer = Base($$"""
         foo.bar:
           insert:
-            - { bar_id: 1, slug: one, name: First, note: ~, created_utc: 0s, published_utc: ~, lat: 1 }
-      """;
+            - {{SampleLayers.Bar(1, "First")}}
+      """);
 
-    var statement = Build(Yaml).Single();
+    var statement = Build(layer).Single();
 
     Assert.DoesNotContain("slug_length", statement.Sql, StringComparison.Ordinal);
   }
@@ -87,22 +79,20 @@ public class SeedSqlTests {
     state.Tables["foo.tag"] = [with(RowKeyComparer.Instance)];
     state.Tables["foo.tag"][[new SeedValue.Integer(1)]] = new() { ["tag_id"] = new SeedValue.Integer(1) };
 
-    var exception = Assert.Throws<SeedFormatException>(() => SeedSql.Build(state, _Schema, _Anchor));
+    var exception = Assert.Throws<SeedFormatException>(() => SeedSql.Build(state, SampleLayers.Schema, _Anchor));
 
     Assert.Equal("foo.tag: a row leaves out price, and a seed names every column.", exception.Message);
   }
 
   [Fact]
   public void Build_Null_IsALiteralNotAParameter() {
-    const string Yaml = """
-      description: Base
-      tables:
+    var layer = Base($$"""
         foo.bar:
           insert:
-            - { bar_id: 1, slug: one, name: First, note: ~, created_utc: 0s, published_utc: ~, lat: 1 }
-      """;
+            - {{SampleLayers.Bar(1, "First")}}
+      """);
 
-    var statement = Build(Yaml).Single();
+    var statement = Build(layer).Single();
 
     Assert.Contains("NULL", statement.Sql, StringComparison.Ordinal);
     Assert.Equal(5, statement.Parameters.Count);
@@ -110,15 +100,13 @@ public class SeedSqlTests {
 
   [Fact]
   public void Build_TimestampColumns_RelativeIsAnchorPlusOffset_AbsoluteIsTheInstant() {
-    const string Yaml = """
-      description: Base
-      tables:
+    var layer = Base("""
         foo.bar:
           insert:
             - { bar_id: 1, slug: one, name: First, note: ~, created_utc: -1h 0.000001s, published_utc: 2020-02-03T04:05:06.000007Z, lat: 1 }
-      """;
+      """);
 
-    var parameters = Build(Yaml).Single().Parameters;
+    var parameters = Build(layer).Single().Parameters;
 
     var created = parameters.Single(parameter => parameter.NpgsqlDbType is NpgsqlDbType.TimestampTz && parameter.Value is DateTime { Year: 2026 });
     Assert.Equal(_Anchor.Minus(Duration.FromHours(1)).Minus(Duration.FromNanoseconds(1000)).ToDateTimeUtc(), created.Value);
@@ -128,15 +116,13 @@ public class SeedSqlTests {
 
   [Fact]
   public void Build_Array_IsATypedArrayWithNullableItems() {
-    const string Yaml = """
-      description: Base
-      tables:
+    var layer = Base($$"""
         foo.link:
           insert:
-            - { bar_id: 1, tag_id: 1, flags: [1, ~, 3], tags: ~ }
-      """;
+            - {{SampleLayers.Link(1, 1, flags: "[1, ~, 3]")}}
+      """);
 
-    var flags = Build(Yaml).Single().Parameters.Single(parameter => parameter.Value is short?[]);
+    var flags = Build(layer).Single().Parameters.Single(parameter => parameter.Value is short?[]);
 
     Assert.Equal(_SmallintArray, flags.NpgsqlDbType);
     Assert.Equal(new short?[] { 1, null, 3 }, flags.Value);
@@ -144,40 +130,38 @@ public class SeedSqlTests {
 
   [Fact]
   public void Build_DomainOfAnArray_UsesTheBaseArrayType() {
-    const string Yaml = """
-      description: Base
-      tables:
+    var layer = Base($$"""
         foo.link:
           insert:
-            - { bar_id: 1, tag_id: 1, flags: ~, tags: [7] }
-      """;
+            - {{SampleLayers.Link(1, 1, tags: "[7]")}}
+      """);
 
-    var tags = Build(Yaml).Single().Parameters.Single(parameter => parameter.Value is short?[]);
+    var tags = Build(layer).Single().Parameters.Single(parameter => parameter.Value is short?[]);
 
     Assert.Equal(_SmallintArray, tags.NpgsqlDbType);
   }
 
   [Fact]
   public void Build_TimeBeyondWhatTheAnchorCanReach_IsAProblem() {
-    const string Yaml = """
-      description: Base
-      tables:
+    var layer = Base($$"""
         foo.bar:
           insert:
-            - { bar_id: 1, slug: one, name: First, note: ~, created_utc: -100000000d, published_utc: ~, lat: 1 }
-      """;
+            - {{SampleLayers.Bar(1, "First", created: "-100000000d")}}
+      """);
 
-    var exception = Assert.Throws<SeedFormatException>(() => Build(Yaml));
+    var exception = Assert.Throws<SeedFormatException>(() => Build(layer));
 
     Assert.Equal("foo.bar: created_utc holds a time outside the dates the anchor and a timestamptz can reach.", exception.Message);
   }
 
   [Fact]
   public void Build_NoRows_GivesNoStatements()
-    => Assert.Empty(Build("description: Nothing"));
+    => Assert.Empty(Build(LayerParser.Parse("base", "description: Nothing", SampleLayers.Schema)));
 
-  private static List<SeedStatement> Build(string yaml) {
-    var layer = LayerParser.Parse("base", yaml, _Schema);
-    return SeedSql.Build(LayerMerger.Merge([layer], _Schema), _Schema, _Anchor);
-  }
+  // The root layer `base`, from the text that goes under `tables:`.
+  private static SeedLayer Base(string tables)
+    => SampleLayers.Layer("base", extends: null, tables);
+
+  private static List<SeedStatement> Build(SeedLayer layer)
+    => SeedSql.Build(SampleLayers.Merge(layer), SampleLayers.Schema, _Anchor);
 }

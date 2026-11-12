@@ -1,28 +1,23 @@
 using JoshOlson.Database.Layers;
-using JoshOlson.Database.Locks;
 using Xunit;
 
 namespace JoshOlson.Database.Seeding;
 
 public class StateLayerTests {
-  private static readonly SeedSchema _Schema = new(SchemaLockSample.Create());
-
   [Fact]
   public void Of_AState_MergesBackToTheSameState() {
-    const string Yaml = """
-      description: Base
-      tables:
+    var layer = SampleLayers.Layer("base", extends: null, $$"""
         foo.link:
           insert:
-            - { bar_id: 2, tag_id: 1, flags: [1, 2], tags: ~ }
-            - { bar_id: 1, tag_id: 1, flags: ~, tags: [3] }
+            - {{SampleLayers.Link(2, 1, flags: "[1, 2]")}}
+            - {{SampleLayers.Link(1, 1, tags: "[3]")}}
         foo.tag:
           insert:
-            - { tag_id: 5, price: 1.50 }
-      """;
-    var state = LayerMerger.Merge([LayerParser.Parse("base", Yaml, _Schema)], _Schema);
+            - {{SampleLayers.Tag(5, price: "1.50")}}
+      """);
+    var state = SampleLayers.Merge(layer);
 
-    var rebuilt = LayerMerger.Merge([StateLayer.Of(state, "parent")], _Schema);
+    var rebuilt = SampleLayers.Merge(StateLayer.Of(state, "parent"));
 
     Assert.True(SeedValues.SameState(state, rebuilt));
   }

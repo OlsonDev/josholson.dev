@@ -1,38 +1,25 @@
 using JoshOlson.Database.Layers;
-using JoshOlson.Database.Locks;
-using JoshOlson.Shared.Extensions;
 using Xunit;
 
 namespace JoshOlson.Database.Seeding;
 
 public class LayerMergerTests {
-  private static readonly SeedSchema _Schema = new(SchemaLockSample.Create());
-
-  // A `foo.bar` insert, which names every column that is not generated from an expression.
-  private static string Bar(int id, string slug, string name, string note = "~", string lat = "1.5")
-    => $"{{ bar_id: {id.ToInvariantString()}, slug: {slug}, name: {name}, note: {note}, created_utc: 0s, published_utc: ~, lat: {lat} }}";
-
   [Fact]
   public void Merge_ChildChangesOnlyTheColumnsItNames() {
-    var @base = $$"""
-      description: Base
-      tables:
+    var @base = SampleLayers.Layer("base", extends: null, $$"""
         foo.bar:
           insert:
-            - {{Bar(1, "one", "First")}}
-      """;
-    var child = $$"""
-      description: Child
-      extends: base
-      tables:
+            - {{SampleLayers.Bar(1, "First", slug: "one")}}
+      """);
+    var child = SampleLayers.Layer("child", "base", $$"""
         foo.bar:
           insert:
-            - {{Bar(2, "two", "Second", lat: "2.5")}}
+            - {{SampleLayers.Bar(2, "Second")}}
           update:
             - { bar_id: 1, name: Renamed }
-      """;
+      """);
 
-    var state = Merge(("base", @base), ("child", child));
+    var state = SampleLayers.Merge(@base, child);
 
     var rows = state.Tables["foo.bar"].Values.ToList();
     Assert.Equal(2, rows.Count);
@@ -44,72 +31,57 @@ public class LayerMergerTests {
 
   [Fact]
   public void Merge_ExplicitNull_ReplacesTheValue() {
-    var @base = $$"""
-      description: Base
-      tables:
+    var @base = SampleLayers.Layer("base", extends: null, $$"""
         foo.bar:
           insert:
-            - {{Bar(1, "one", "First", note: "hello")}}
-      """;
-    const string Child = """
-      description: Child
-      extends: base
-      tables:
+            - {{SampleLayers.Bar(1, "First", note: "hello")}}
+      """);
+    var child = SampleLayers.Layer("child", "base", """
         foo.bar:
           update:
             - { bar_id: 1, note: ~ }
-      """;
+      """);
 
-    var state = Merge(("base", @base), ("child", Child));
+    var state = SampleLayers.Merge(@base, child);
 
     Assert.Null(state.Tables["foo.bar"].Values.Single()["note"]);
   }
 
   [Fact]
   public void Merge_DeleteRemovesTheRow() {
-    var @base = $$"""
-      description: Base
-      tables:
+    var @base = SampleLayers.Layer("base", extends: null, $$"""
         foo.bar:
           insert:
-            - {{Bar(1, "one", "First")}}
-            - {{Bar(2, "two", "Second", lat: "2.5")}}
-      """;
-    const string Child = """
-      description: Child
-      extends: base
-      tables:
+            - {{SampleLayers.Bar(1, "First", slug: "one")}}
+            - {{SampleLayers.Bar(2, "Second", slug: "two")}}
+      """);
+    var child = SampleLayers.Layer("child", "base", """
         foo.bar:
           delete:
             - { bar_id: 1 }
-      """;
+      """);
 
-    var state = Merge(("base", @base), ("child", Child));
+    var state = SampleLayers.Merge(@base, child);
 
     Assert.Equal(new SeedValue.Text("two"), state.Tables["foo.bar"].Values.Single()["slug"]);
   }
 
   [Fact]
   public void Merge_InOneLayer_DeletesApplyBeforeInserts() {
-    var @base = $$"""
-      description: Base
-      tables:
+    var @base = SampleLayers.Layer("base", extends: null, $$"""
         foo.bar:
           insert:
-            - {{Bar(1, "one", "First", note: "old")}}
-      """;
-    var child = $$"""
-      description: Child
-      extends: base
-      tables:
+            - {{SampleLayers.Bar(1, "First", slug: "one", note: "old")}}
+      """);
+    var child = SampleLayers.Layer("child", "base", $$"""
         foo.bar:
           insert:
-            - {{Bar(1, "uno", "Again", lat: "3.5")}}
+            - {{SampleLayers.Bar(1, "Again", slug: "uno")}}
           delete:
             - { bar_id: 1 }
-      """;
+      """);
 
-    var row = Merge(("base", @base), ("child", child)).Tables["foo.bar"].Values.Single();
+    var row = SampleLayers.Merge(@base, child).Tables["foo.bar"].Values.Single();
 
     Assert.Equal(new SeedValue.Text("uno"), row["slug"]);
     Assert.Null(row["note"]);
@@ -117,40 +89,33 @@ public class LayerMergerTests {
 
   [Fact]
   public void Merge_RowsComeOutInKeyOrder() {
-    var @base = $$"""
-      description: Base
-      tables:
+    var @base = SampleLayers.Layer("base", extends: null, $$"""
         foo.bar:
           insert:
-            - {{Bar(10, "ten", "Ten", lat: "1")}}
-            - {{Bar(9, "nine", "Nine", lat: "1")}}
-      """;
+            - {{SampleLayers.Bar(10, "Ten")}}
+            - {{SampleLayers.Bar(9, "Nine")}}
+      """);
 
-    var keys = Merge(("base", @base)).Tables["foo.bar"].Keys.Select(key => key[0]);
+    var keys = SampleLayers.Merge(@base).Tables["foo.bar"].Keys.Select(key => key[0]);
 
     Assert.Equal([new SeedValue.Integer(9), new SeedValue.Integer(10)], keys);
   }
 
   [Fact]
   public void Merge_CompositeKey_IdentifiesTheRowByAllItsColumns() {
-    const string Base = """
-      description: Base
-      tables:
+    var @base = SampleLayers.Layer("base", extends: null, $$"""
         foo.link:
           insert:
-            - { bar_id: 1, tag_id: 1, flags: ~, tags: ~ }
-            - { bar_id: 1, tag_id: 2, flags: ~, tags: ~ }
-      """;
-    const string Child = """
-      description: Child
-      extends: base
-      tables:
+            - {{SampleLayers.Link(1, 1)}}
+            - {{SampleLayers.Link(1, 2)}}
+      """);
+    var child = SampleLayers.Layer("child", "base", """
         foo.link:
           update:
             - { bar_id: 1, tag_id: 1, flags: [5] }
-      """;
+      """);
 
-    var rows = Merge(("base", Base), ("child", Child)).Tables["foo.link"].Values.ToList();
+    var rows = SampleLayers.Merge(@base, child).Tables["foo.link"].Values.ToList();
 
     Assert.Equal(2, rows.Count);
     Assert.NotNull(rows[0]["flags"]);
@@ -159,27 +124,22 @@ public class LayerMergerTests {
 
   [Fact]
   public void Merge_ProblemsAreReportedTogether() {
-    var @base = $$"""
-      description: Base
-      tables:
+    var @base = SampleLayers.Layer("base", extends: null, $$"""
         foo.bar:
           insert:
-            - {{Bar(1, "one", "First")}}
-      """;
-    var child = $$"""
-      description: Child
-      extends: base
-      tables:
+            - {{SampleLayers.Bar(1, "First")}}
+      """);
+    var child = SampleLayers.Layer("child", "base", $$"""
         foo.bar:
           insert:
-            - {{Bar(1, "uno", "Again")}}
+            - {{SampleLayers.Bar(1, "Again")}}
           update:
             - { bar_id: 8, name: Nobody }
           delete:
             - { bar_id: 7 }
-      """;
+      """);
 
-    var exception = Assert.Throws<SeedFormatException>(() => Merge(("base", @base), ("child", child)));
+    var exception = Assert.Throws<SeedFormatException>(() => SampleLayers.Merge(@base, child));
 
     Assert.Equal(
       """
@@ -193,64 +153,48 @@ public class LayerMergerTests {
 
   [Fact]
   public void Merge_SameKeyInsertedTwiceInOneLayer_IsRefused() {
-    var yaml = $$"""
-      description: Base
-      tables:
+    var @base = SampleLayers.Layer("base", extends: null, $$"""
         foo.bar:
           insert:
-            - {{Bar(1, "one", "First")}}
-            - {{Bar(1, "uno", "Again")}}
-      """;
+            - {{SampleLayers.Bar(1, "First")}}
+            - {{SampleLayers.Bar(1, "Again")}}
+      """);
 
-    var exception = Assert.Throws<SeedFormatException>(() => Merge(("base", yaml)));
+    var exception = Assert.Throws<SeedFormatException>(() => SampleLayers.Merge(@base));
 
-    Assert.Equal("base: foo.bar inserts the row with key 1, which a layer before it (or this one) already gives.", exception.Message);
+    Assert.Equal(
+      "base: foo.bar inserts the row with key 1, which a layer before it (or this one) already gives.",
+      exception.Message);
   }
 
   [Fact]
   public void Merge_UpdateOfARowNoLayerGives_IsRefused() {
-    const string Yaml = """
-      description: Base
-      tables:
+    var @base = SampleLayers.Layer("base", extends: null, """
         foo.bar:
           update:
             - { bar_id: 1, name: Nobody }
-      """;
+      """);
 
-    var exception = Assert.Throws<SeedFormatException>(() => Merge(("base", Yaml)));
+    var exception = Assert.Throws<SeedFormatException>(() => SampleLayers.Merge(@base));
 
     Assert.Equal("base: foo.bar updates the row with key 1, which no layer before it gives.", exception.Message);
   }
 
   [Fact]
   public void Merge_AChildsUpdate_LeavesTheParentsOwnRowAlone() {
-    var @base = $$"""
-      description: Base
-      tables:
+    var parent = SampleLayers.Layer("base", extends: null, $$"""
         foo.bar:
           insert:
-            - {{Bar(1, "one", "First")}}
-      """;
-    const string Child = """
-      description: Child
-      extends: base
-      tables:
+            - {{SampleLayers.Bar(1, "First")}}
+      """);
+    var child = SampleLayers.Layer("child", "base", """
         foo.bar:
           update:
             - { bar_id: 1, name: Renamed }
-      """;
-    var parent = LayerParser.Parse("base", @base, _Schema);
+      """);
 
-    _ = LayerMerger.Merge([parent, LayerParser.Parse("child", Child, _Schema)], _Schema);
+    _ = SampleLayers.Merge(parent, child);
 
     Assert.Equal(new SeedValue.Text("First"), Assert.Single(parent.Tables[0].Inserts)["name"]);
-  }
-
-  private static SeedState Merge(params (string Name, string Yaml)[] layers) {
-    var chain = new List<SeedLayer>(layers.Length);
-    foreach (var (name, yaml) in layers) {
-      chain.Add(LayerParser.Parse(name, yaml, _Schema));
-    }
-    return LayerMerger.Merge(chain, _Schema);
   }
 }

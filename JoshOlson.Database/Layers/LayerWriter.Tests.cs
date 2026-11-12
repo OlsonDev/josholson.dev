@@ -1,33 +1,12 @@
 using JoshOlson.Database.Locks;
-using JoshOlson.Database.Schema;
 using NodaTime;
 using Xunit;
 
 namespace JoshOlson.Database.Layers;
 
 public class LayerWriterTests {
-  private static readonly SeedSchema _Schema = Schema();
-
-  // The sample lock, and a table with one column of each type it has no column for.
-  private static SeedSchema Schema() {
-    var sample = SchemaLockSample.Create();
-    var kind = SchemaLockSample.NewTable("foo.kind") with {
-      Columns = [
-        SchemaLockSample.Column("id", "bigint"),
-        SchemaLockSample.Column("flag", "boolean", nullable: true),
-        SchemaLockSample.Column("blob", "bytea", nullable: true),
-        SchemaLockSample.Column("doc", "jsonb", nullable: true),
-        SchemaLockSample.Column("address", "inet", nullable: true),
-        SchemaLockSample.Column("note", "text", nullable: true),
-        SchemaLockSample.Column("amount", "decimal(9, 2)", nullable: true),
-        SchemaLockSample.Column("at_utc", "timestamptz", nullable: true, policy: TimePolicy.Relative),
-        SchemaLockSample.Column("seen_utc", "timestamptz", nullable: true, policy: TimePolicy.Absolute),
-        SchemaLockSample.Column("nums", "integer[]", nullable: true),
-        SchemaLockSample.Column("docs", "jsonb[]", nullable: true),
-      ],
-    };
-    return new(sample with { Tables = [.. sample.Tables, kind] });
-  }
+  // The sample schema and `foo.kind`, which has a column of each type the sample has no column for.
+  private static readonly SeedSchema _Schema = SampleLayers.SchemaWithKind;
 
   private static Dictionary<string, SeedValue?> Row(params (string Column, SeedValue? Value)[] cells)
     => cells.ToDictionary(cell => cell.Column, cell => cell.Value, StringComparer.Ordinal);
@@ -85,7 +64,9 @@ public class LayerWriterTests {
         ("at_utc", new SeedValue.RelativeTime(-(3 * 86_400L + 4 * 3_600) * 1_000_000)),
         ("seen_utc", new SeedValue.AbsoluteTime(Instant.FromUtc(2026, 1, 2, 3, 4, 5).PlusNanoseconds(123_456_000))),
         ("nums", new SeedValue.Array([new SeedValue.Integer(1), null, new SeedValue.Integer(3)])),
-        ("docs", new SeedValue.Array([new SeedValue.Json("""{"k":"v"}"""), null])))));
+        ("docs", new SeedValue.Array([new SeedValue.Json("""{"k":"v"}"""), null])),
+        ("times", new SeedValue.Array([new SeedValue.RelativeTime(1_000_000), null])),
+        ("hosts", new SeedValue.Array([new SeedValue.Inet("10.0.0.0/8"), new SeedValue.Inet("::1")])))));
 
     var yaml = LayerWriter.Write(layer, _Schema);
 
@@ -95,7 +76,7 @@ public class LayerWriterTests {
       tables:
         foo.kind:
           insert:
-            - { id: 1, flag: true, blob: \x00ff, doc: { a: [1, 2.50, { b: null }], c: "true", d: "x: y" }, address: 10.0.0.0/8, note: hello, amount: 1.50, at_utc: -3d 4h, seen_utc: 2026-01-02T03:04:05.123456Z, nums: [1, ~, 3], docs: [{ k: "v" }, ~] }
+            - { id: 1, flag: true, blob: \x00ff, doc: { a: [1, 2.50, { b: null }], c: "true", d: "x: y" }, address: 10.0.0.0/8, note: hello, amount: 1.50, at_utc: -3d 4h, seen_utc: 2026-01-02T03:04:05.123456Z, nums: [1, ~, 3], docs: [{ k: "v" }, ~], times: [1s, ~], hosts: [10.0.0.0/8, "::1"] }
 
       """,
       yaml);

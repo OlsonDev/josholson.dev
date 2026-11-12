@@ -4,8 +4,6 @@ using Xunit;
 namespace JoshOlson.Database.Layers;
 
 public class LayerParserTests {
-  private static readonly SeedSchema _Schema = new(SchemaLockSample.Create());
-
   [Fact]
   public void Parse_FullLayer_ReadsEverythingTyped() {
     const string Yaml = """
@@ -25,7 +23,7 @@ public class LayerParserTests {
             - { bar_id: 1, tag_id: 2, flags: [1, 2], tags: ~ }
       """;
 
-    var layer = LayerParser.Parse("foo", Yaml, _Schema);
+    var layer = LayerParser.Parse("foo", Yaml, SampleLayers.Schema);
 
     Assert.Equal("foo", layer.Name);
     Assert.Equal("base", layer.Extends);
@@ -48,7 +46,7 @@ public class LayerParserTests {
 
   [Fact]
   public void Parse_RootLayerWithoutTables_IsValid() {
-    var layer = LayerParser.Parse("foo", "description: Nothing yet", _Schema);
+    var layer = LayerParser.Parse("foo", "description: Nothing yet", SampleLayers.Schema);
 
     Assert.Null(layer.Extends);
     Assert.Empty(layer.Tables);
@@ -76,7 +74,7 @@ public class LayerParserTests {
             - { bar_id: 1, name: ~, slug_length: 3 }
       """;
 
-    var exception = Assert.Throws<SeedFormatException>(() => LayerParser.Parse("foo", Yaml, _Schema));
+    var exception = Assert.Throws<SeedFormatException>(() => LayerParser.Parse("foo", Yaml, SampleLayers.Schema));
 
     Assert.Equal(
       """
@@ -106,7 +104,7 @@ public class LayerParserTests {
             - { tag_id: 1, price: abc }
       """;
 
-    var exception = Assert.Throws<SeedFormatException>(() => LayerParser.Parse("foo", Yaml, _Schema));
+    var exception = Assert.Throws<SeedFormatException>(() => LayerParser.Parse("foo", Yaml, SampleLayers.Schema));
 
     Assert.Equal("foo: foo.tag update row 1: price must be a number, not 'abc'.", exception.Message);
   }
@@ -121,7 +119,7 @@ public class LayerParserTests {
             - { bar_id: 1, tag_id: 2 }
       """;
 
-    var exception = Assert.Throws<SeedFormatException>(() => LayerParser.Parse("foo", Yaml, _Schema));
+    var exception = Assert.Throws<SeedFormatException>(() => LayerParser.Parse("foo", Yaml, SampleLayers.Schema));
 
     Assert.Equal("foo: foo.link insert row 1: an insert names every column, and it leaves out flags, tags.", exception.Message);
   }
@@ -136,7 +134,7 @@ public class LayerParserTests {
             - { bar_id: 1, tag_id: 2, flags: ~, tags: ~ }
       """;
 
-    var layer = LayerParser.Parse("foo", Yaml, _Schema);
+    var layer = LayerParser.Parse("foo", Yaml, SampleLayers.Schema);
 
     Assert.Null(layer.Tables[0].Inserts[0]["flags"]);
     Assert.True(layer.Tables[0].Inserts[0].ContainsKey("flags"));
@@ -152,7 +150,7 @@ public class LayerParserTests {
             - { bar_id: 1 }
       """;
 
-    var exception = Assert.Throws<SeedFormatException>(() => LayerParser.Parse("foo", Yaml, _Schema));
+    var exception = Assert.Throws<SeedFormatException>(() => LayerParser.Parse("foo", Yaml, SampleLayers.Schema));
 
     Assert.Equal("foo: foo.bar update row 1: an update names the key and the columns it changes, and it changes none.", exception.Message);
   }
@@ -167,17 +165,14 @@ public class LayerParserTests {
             - { bar_id: 1, note: changed }
       """;
 
-    var row = Assert.Single(LayerParser.Parse("foo", Yaml, _Schema).Tables[0].Updates);
+    var row = Assert.Single(LayerParser.Parse("foo", Yaml, SampleLayers.Schema).Tables[0].Updates);
 
     Assert.Equal(["bar_id", "note"], row.Keys.Order(StringComparer.Ordinal));
   }
 
   [Fact]
   public void Parse_TableThatIsIgnored_CannotBeNamed() {
-    var sample = SchemaLockSample.Create();
-    var schema = new SeedSchema(sample with {
-      Tables = [.. sample.Tables, SchemaLockSample.NewTable("foo.session") with { Ignored = true }],
-    });
+    var schema = SampleLayers.SchemaWith(SchemaLockSample.NewTable("foo.session") with { Ignored = true });
     const string Yaml = """
       description: Broken
       tables:
@@ -196,7 +191,10 @@ public class LayerParserTests {
   [Fact]
   public void Parse_Upsert_IsNoLongerASection()
     => Assert.Throws<SeedFormatException>(
-      () => LayerParser.Parse("foo", "description: Foo\ntables:\n  foo.link: { upsert: [ { bar_id: 1, tag_id: 2 } ] }", _Schema));
+      () => LayerParser.Parse(
+        "foo",
+        "description: Foo\ntables:\n  foo.link: { upsert: [ { bar_id: 1, tag_id: 2 } ] }",
+        SampleLayers.Schema));
 
   [Theory]
   [InlineData("")]
@@ -208,7 +206,7 @@ public class LayerParserTests {
   [InlineData("1foo")]
   [InlineData("foo bar")]
   public void Parse_InvalidName_Throws(string name)
-    => Assert.Throws<SeedFormatException>(() => LayerParser.Parse(name, "description: Foo", _Schema));
+    => Assert.Throws<SeedFormatException>(() => LayerParser.Parse(name, "description: Foo", SampleLayers.Schema));
 
   [Theory]
   [InlineData("")]
@@ -225,5 +223,5 @@ public class LayerParserTests {
   [InlineData("description: Foo\ntables:\n  foo.bar: { insert: [ { bar_id: 1, bar_id: 2 } ] }")]
   [InlineData("description: [unclosed")]
   public void Parse_InvalidContent_Throws(string yaml)
-    => Assert.Throws<SeedFormatException>(() => LayerParser.Parse("foo", yaml, _Schema));
+    => Assert.Throws<SeedFormatException>(() => LayerParser.Parse("foo", yaml, SampleLayers.Schema));
 }

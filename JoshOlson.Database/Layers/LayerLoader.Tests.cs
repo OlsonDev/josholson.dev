@@ -1,12 +1,9 @@
-using JoshOlson.Database.Locks;
 using JoshOlson.Shared.IO;
 using Xunit;
 
 namespace JoshOlson.Database.Layers;
 
 public sealed class LayerLoaderTests : IDisposable {
-  private static readonly SeedSchema _Schema = new(SchemaLockSample.Create());
-
   private readonly string _directory = TempDirectory.Create("layers");
   private readonly CancellationToken _cancellationToken = TestContext.Current.CancellationToken;
 
@@ -20,14 +17,14 @@ public sealed class LayerLoaderTests : IDisposable {
     await File.WriteAllTextAsync(Path.Combine(_directory, "ignored.yml"), "not: a layer", _cancellationToken);
     await File.WriteAllTextAsync(Path.Combine(_directory, "notes.md"), "# notes", _cancellationToken);
 
-    var tree = await LayerLoader.LoadAsync(_directory, _Schema, _cancellationToken);
+    var tree = await LayerLoader.LoadAsync(_directory, SampleLayers.Schema, _cancellationToken);
 
     Assert.Equal(["base", "foo"], tree.InBakeOrder().Select(layer => layer.Name));
   }
 
   [Fact]
   public async Task LoadAsync_EmptyDirectory_GivesAnEmptyTree() {
-    var tree = await LayerLoader.LoadAsync(_directory, _Schema, _cancellationToken);
+    var tree = await LayerLoader.LoadAsync(_directory, SampleLayers.Schema, _cancellationToken);
 
     Assert.Equal(0, tree.Count);
   }
@@ -36,7 +33,8 @@ public sealed class LayerLoaderTests : IDisposable {
   public async Task LoadAsync_BadFile_ThrowsNamingTheLayer() {
     await File.WriteAllTextAsync(Path.Combine(_directory, "foo.yaml"), "bar: baz", _cancellationToken);
 
-    var exception = await Assert.ThrowsAsync<SeedFormatException>(() => LayerLoader.LoadAsync(_directory, _Schema, _cancellationToken));
+    var exception = await Assert.ThrowsAsync<SeedFormatException>(
+      () => LayerLoader.LoadAsync(_directory, SampleLayers.Schema, _cancellationToken));
 
     Assert.StartsWith("foo:", exception.Message, StringComparison.Ordinal);
   }
@@ -45,7 +43,8 @@ public sealed class LayerLoaderTests : IDisposable {
   public async Task LoadAsync_ValueThatIsNotItsColumnsType_Throws() {
     await File.WriteAllTextAsync(Path.Combine(_directory, "foo.yaml"), "description: Foo\ntables:\n  foo.tag:\n    update:\n      - { tag_id: 1, price: x }", _cancellationToken);
 
-    var exception = await Assert.ThrowsAsync<SeedFormatException>(() => LayerLoader.LoadAsync(_directory, _Schema, _cancellationToken));
+    var exception = await Assert.ThrowsAsync<SeedFormatException>(
+      () => LayerLoader.LoadAsync(_directory, SampleLayers.Schema, _cancellationToken));
 
     Assert.Equal("foo: foo.tag update row 1: price must be a number, not 'x'.", exception.Message);
   }
@@ -55,30 +54,32 @@ public sealed class LayerLoaderTests : IDisposable {
 
   [Fact]
   public async Task LoadAsync_InsertsInsideTheBlockOfTheirDepth_Load() {
-    await WriteAsync("base", "description: Root\ntables:\n  foo.tag:\n    insert:\n      - { tag_id: 7, price: 0 }\n      - { tag_id: 1000, price: 0 }");
-    await WriteAsync("child", "description: Child\nextends: base\ntables:\n  foo.tag:\n    insert:\n      - { tag_id: 1001, price: 0 }\n      - { tag_id: 2000, price: 0 }");
+    await WriteAsync("base", $"description: Root\ntables:\n  foo.tag:\n    insert:\n      - {SampleLayers.Tag(7)}\n      - {SampleLayers.Tag(1000)}");
+    await WriteAsync("child", $"description: Child\nextends: base\ntables:\n  foo.tag:\n    insert:\n      - {SampleLayers.Tag(1001)}\n      - {SampleLayers.Tag(2000)}");
 
-    var tree = await LayerLoader.LoadAsync(_directory, _Schema, _cancellationToken);
+    var tree = await LayerLoader.LoadAsync(_directory, SampleLayers.Schema, _cancellationToken);
 
     Assert.Equal(2, tree.Count);
   }
 
   [Fact]
   public async Task LoadAsync_InsertOutsideTheBlockOfItsDepth_NamesTheLayerTableAndId() {
-    await WriteAsync("base", "description: Root\ntables:\n  foo.tag:\n    insert:\n      - { tag_id: 7, price: 0 }");
-    await WriteAsync("child", "description: Child\nextends: base\ntables:\n  foo.tag:\n    insert:\n      - { tag_id: 8, price: 0 }");
+    await WriteAsync("base", $"description: Root\ntables:\n  foo.tag:\n    insert:\n      - {SampleLayers.Tag(7)}");
+    await WriteAsync("child", $"description: Child\nextends: base\ntables:\n  foo.tag:\n    insert:\n      - {SampleLayers.Tag(8)}");
 
-    var exception = await Assert.ThrowsAsync<SeedFormatException>(() => LayerLoader.LoadAsync(_directory, _Schema, _cancellationToken));
+    var exception = await Assert.ThrowsAsync<SeedFormatException>(
+      () => LayerLoader.LoadAsync(_directory, SampleLayers.Schema, _cancellationToken));
 
     Assert.Equal("child: foo.tag inserts tag_id 8, outside the 1001..2000 block of a layer at depth 1.", exception.Message);
   }
 
   [Fact]
   public async Task LoadAsync_ManyInsertsOutsideTheirBlocks_AreReportedTogether() {
-    await WriteAsync("base", "description: Root\ntables:\n  foo.tag:\n    insert:\n      - { tag_id: 1001, price: 0 }");
-    await WriteAsync("child", "description: Child\nextends: base\ntables:\n  foo.tag:\n    insert:\n      - { tag_id: 2001, price: 0 }");
+    await WriteAsync("base", $"description: Root\ntables:\n  foo.tag:\n    insert:\n      - {SampleLayers.Tag(1001)}");
+    await WriteAsync("child", $"description: Child\nextends: base\ntables:\n  foo.tag:\n    insert:\n      - {SampleLayers.Tag(2001)}");
 
-    var exception = await Assert.ThrowsAsync<SeedFormatException>(() => LayerLoader.LoadAsync(_directory, _Schema, _cancellationToken));
+    var exception = await Assert.ThrowsAsync<SeedFormatException>(
+      () => LayerLoader.LoadAsync(_directory, SampleLayers.Schema, _cancellationToken));
 
     Assert.Equal(
       """
@@ -91,10 +92,10 @@ public sealed class LayerLoaderTests : IDisposable {
 
   [Fact]
   public async Task LoadAsync_UpdateOfAnAncestorsRow_IsNotHeldToTheBlock() {
-    await WriteAsync("base", "description: Root\ntables:\n  foo.tag:\n    insert:\n      - { tag_id: 7, price: 0 }");
+    await WriteAsync("base", $"description: Root\ntables:\n  foo.tag:\n    insert:\n      - {SampleLayers.Tag(7)}");
     await WriteAsync("child", "description: Child\nextends: base\ntables:\n  foo.tag:\n    update:\n      - { tag_id: 7, price: 1 }");
 
-    var tree = await LayerLoader.LoadAsync(_directory, _Schema, _cancellationToken);
+    var tree = await LayerLoader.LoadAsync(_directory, SampleLayers.Schema, _cancellationToken);
 
     Assert.Equal(2, tree.Count);
   }
@@ -103,9 +104,9 @@ public sealed class LayerLoaderTests : IDisposable {
   public async Task LoadAsync_TableWithoutASingleIdentityKey_IsNotHeldToTheBlock() {
     // `foo.link` has a composite key, so there is no one ID to put in a block.
     await WriteAsync("base", "description: Root");
-    await WriteAsync("child", "description: Child\nextends: base\ntables:\n  foo.link:\n    insert:\n      - { bar_id: 5, tag_id: 9, flags: ~, tags: ~ }");
+    await WriteAsync("child", $"description: Child\nextends: base\ntables:\n  foo.link:\n    insert:\n      - {SampleLayers.Link(5, 9)}");
 
-    var tree = await LayerLoader.LoadAsync(_directory, _Schema, _cancellationToken);
+    var tree = await LayerLoader.LoadAsync(_directory, SampleLayers.Schema, _cancellationToken);
 
     Assert.Equal(2, tree.Count);
   }
