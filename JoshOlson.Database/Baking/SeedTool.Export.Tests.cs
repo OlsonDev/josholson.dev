@@ -278,6 +278,17 @@ public sealed class SeedToolExportTests : IAsyncLifetime {
   }
 
   [Fact]
+  public async Task ExportAsync_ReplacingALayerSoThatOneBelowItBreaksAConstraint_NamesIt() {
+    var database = await EditingDatabaseFromAsync(SeedLayers.Minimal);
+    // `more-tags` inserts a tag with the slug `framework`. The merge cannot see a unique constraint, the database can.
+    await RunAsync(database, "INSERT INTO tag.tag (tag_id, name, slug) OVERRIDING SYSTEM VALUE VALUES (900, 'Foo', 'framework');");
+
+    var exception = await Assert.ThrowsAsync<SeedFormatException>(() => ExportAsync(database, name: null, description: null));
+
+    Assert.Contains("more-tags does not build: Inserting into tag.tag failed", exception.Message, StringComparison.Ordinal);
+  }
+
+  [Fact]
   public async Task RecordExportAsync_MakesTheDatabaseTheLayerItExported() {
     var database = await DatabaseFromAsync(SeedLayers.Minimal);
     await RunAsync(database, "INSERT INTO tag.tag (name, slug) VALUES ('Zed', 'zed');");

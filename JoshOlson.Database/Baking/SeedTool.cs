@@ -130,8 +130,8 @@ public sealed class SeedTool {
   // - one that records no layer (made by the migrations alone) makes a root, from the schema template, with relative
   //   times measured from now.
   // The layer is checked before it is returned: its inserts' IDs are in its depth's block, the baseline with the layer
-  // applied is exactly the database's rows, and every layer that extends one it replaces still merges. A template
-  // refuses connections, so a clone of the baseline's is read and dropped. Nothing is written to disk, and the database
+  // applied is exactly the database's rows, every layer that extends one it replaces still merges, and the layer and those below it build
+  // in a database. A template refuses connections, so a clone of the baseline's is read and dropped. Nothing is written to disk, and the database
   // is not changed (`RecordExportAsync` does that once the file is written).
   public async Task<LayerExport> ExportAsync(
     NpgsqlConnection owner,
@@ -174,7 +174,8 @@ public sealed class SeedTool {
       Description = description,
       Tables = tables,
     };
-    CheckAgainstTheOthers(layer, replaced);
+    var (tree, affected) = CheckAgainstTheOthers(layer, replaced);
+    await CheckTheyBuildAsync(owner, tree, affected, cancellationToken);
     var rebuilt = LayerMerger.Merge([StateLayer.Of(baseline, "baseline"), layer], _schema);
     if (!SeedValues.SameState(rebuilt, child.Rows)) {
       throw new InvalidOperationException($"The layer does not give back the rows of {database} when it is applied to {from}. This is a bug in the export.");
@@ -208,15 +209,16 @@ public sealed class SeedTool {
 
   // The tree with the new layer in place of the one of its name (if there is one) must still be sound: the layer's own
   // IDs belong to its depth's block, and every layer below it still merges and keeps to its block (a replaced layer
-  // changes what they are built on, and a layer moved under another parent changes their depth).
-  private void CheckAgainstTheOthers(SeedLayer layer, bool replaced) {
+  // changes what they are built on, and a layer moved under another parent changes their depth). Returns that tree and the
+  // names of the layer and every layer below it, the ones whose chains now differ.
+  private (LayerTree Tree, List<string> Affected) CheckAgainstTheOthers(SeedLayer layer, bool replaced) {
     var others = Tree.InBakeOrder().Where(other => !string.Equals(other.Name, layer.Name, StringComparison.Ordinal));
     var tree = new LayerTree([.. others, layer]);
     var problems = new List<string>();
     var below = new Stack<SeedLayer>(tree.ChildrenOf(layer.Name));
-    var names = new HashSet<string>([layer.Name], StringComparer.Ordinal);
+    var names = new List<string> { layer.Name };
     while (below.TryPop(out var descendant)) {
-      _ = names.Add(descendant.Name);
+      names.Add(descendant.Name);
       try {
         _ = LayerMerger.Merge(tree.ChainTo(descendant.Name), _schema);
       } catch (SeedFormatException exception) {
@@ -227,12 +229,32 @@ public sealed class SeedTool {
       }
     }
     var blocks = tree.IdBlockProblems(_schema)
-      .Where(problem => names.Any(name => problem.StartsWith($"{name}:", StringComparison.Ordinal)))
+      .Where(problem => names.Exists(name => problem.StartsWith($"{name}:", StringComparison.Ordinal)))
       .ToList();
     if (blocks.Count > 0) {
       var hint = replaced ? $"`seed {layer.Name} --edit`" : $"`seed {layer.Extends ?? "<layer>"}`";
       problems.AddRange(blocks);
       problems.Add($"A row made in a database built with {hint} takes its ID from the right block.");
+    }
+    return problems.Count > 0 ? throw new SeedFormatException(string.Join("\n", problems)) : (tree, names);
+  }
+
+  // The merge is in memory and Postgres has not seen the rows, so a foreign key to a row that is gone, a duplicate of a
+  // unique value, or a check a value fails shows only when the chain is applied. Each affected layer's chain is applied to
+  // a clone of the schema template, so a layer that would not build is found here, naming it, instead of at the next bake.
+  private async Task CheckTheyBuildAsync(NpgsqlConnection owner, LayerTree tree, List<string> affected, CancellationToken cancellationToken) {
+    var template = (await _schemaTemplate.EnsureAsync(owner, cancellationToken)).Name;
+    var problems = new List<string>();
+    foreach (var name in affected) {
+      var scratch = $"{SeedDatabaseNames.Prefix}check_{Guid.NewGuid():N}";
+      await _databases.CloneAsync(owner, template, scratch, cancellationToken);
+      try {
+        _ = await SeedHydrator.HydrateAsync(scratch, tree, _schema, name, editing: false, SeedHydrator.Anchor(_clock), cancellationToken);
+      } catch (SeedFormatException exception) {
+        problems.Add($"{name} does not build: {exception.Message}");
+      } finally {
+        await _databases.DropAsync(owner, scratch, CancellationToken.None);
+      }
     }
     if (problems.Count > 0) {
       throw new SeedFormatException(string.Join("\n", problems));
