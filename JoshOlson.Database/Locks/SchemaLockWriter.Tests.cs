@@ -12,8 +12,6 @@ public class SchemaLockWriterTests {
         - version: 3
           file: V003__bar.sql
           checksum: {{SchemaLockSample.Bbb}}
-          accepted_checksums:
-            - {{SchemaLockSample.Ccc}}
       schemas:
         foo: "Things and their tags"
       domains:

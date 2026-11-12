@@ -5,7 +5,7 @@
 
 ## Context
 
-[ADR 0034 (the seed lock file and branch-safe migration)](0034-seed-lock-file-and-branch-safe-migration.md) makes `seeds:migrate` move the layers forward from the working tree, and refuses a migration whose checksum no longer matches the lock. On a feature branch that is the wrong default. A branch iterates on its own unmerged migration over several commits, and every edit changes a checksum the lock recorded on the last run, so each one needs `seeds:accept` or `--relock`. When `main` moves, the lock and the layers conflict at merge, and a conflict in generated files has no good manual resolution.
+[ADR 0034 (the seed lock file and branch-safe migration)](0034-seed-lock-file-and-branch-safe-migration.md) makes `seeds:migrate` move the layers forward from the working tree, and refuses a migration whose checksum no longer matches the lock. On a feature branch that is the wrong default. A branch iterates on its own unmerged migration over several commits, and every edit changes a checksum the lock recorded on the last run, so each one needs `--relock`. When `main` moves, the lock and the layers conflict at merge, and a conflict in generated files has no good manual resolution.
 
 The lock and the layers the tool wrote are derived data: they are a function of what `main` has (its lock, its layers, its migrations) and the migrations the branch adds. Only a layer somebody wrote is input.
 
@@ -24,4 +24,4 @@ The lock and the layers the tool wrote are derived data: they are a function of 
 - A branch needs a base with a lock. Before `main` has one the command says so, and `--relock` is still there.
 - A migration must give the same result for the same rows every time (a `DEFAULT now()` on a new column would make a child layer appear to update every row it inherits), because each layer is migrated in a database of its own.
 - Reference data in repeatable migrations is written for the newest schema, so at the base's version one may not apply. Rows are put in with foreign keys not enforced and checked at the newest version, where a layer pointing at reference data that is gone fails with the layer and the skipped repeatable named.
-- Not decided here: `seeds:accept`, and whether `seeds:check` should compare the lock with a derivation from the base.
+- Not decided here: whether `seeds:check` should compare the lock with a derivation from the base.

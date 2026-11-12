@@ -28,7 +28,6 @@ public class SchemaLockBuilderTests {
     Assert.Equal(3, built.Version);
     Assert.Equal([1, 3], built.Migrations.Select(migration => migration.Version));
     Assert.Equal([SchemaLockSample.Aaa, SchemaLockSample.Bbb], built.Migrations.Select(migration => migration.Checksum));
-    Assert.All(built.Migrations, migration => Assert.Empty(migration.AcceptedChecksums));
   }
 
   [Fact]
@@ -41,14 +40,12 @@ public class SchemaLockBuilderTests {
   }
 
   [Fact]
-  public void Build_ExistingEntryThatStillMatches_KeepsItsAcceptedChecksums() {
-    List<MigrationFile> onDisk = [.. _Sample.Migrations.Select(migration => Disk(migration.Version, migration.Version is 1 ? "foo" : "bar", SchemaLockSample.Ccc))];
+  public void Build_ExistingEntryThatStillMatches_KeepsIt() {
+    List<MigrationFile> onDisk = [.. _Sample.Migrations.Select(migration => Disk(migration.Version, migration.Version is 1 ? "foo" : "bar", migration.Checksum))];
 
     var built = SchemaLockBuilder.Build(_Sample, onDisk, _Catalog);
 
-    var kept = built.Migrations.Single(migration => migration.Version is 3);
-    Assert.Equal(SchemaLockSample.Bbb, kept.Checksum);
-    Assert.Equal([SchemaLockSample.Ccc], kept.AcceptedChecksums);
+    Assert.Equal(_Sample.Migrations, built.Migrations);
   }
 
   [Fact]

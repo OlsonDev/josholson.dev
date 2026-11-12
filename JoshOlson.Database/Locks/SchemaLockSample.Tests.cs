@@ -2,7 +2,7 @@ using JoshOlson.Database.Schema;
 
 namespace JoshOlson.Database.Locks;
 
-// One lock that exercises everything the file format has: an accepted checksum; a schema comment; domains over a base
+// One lock that exercises everything the file format has: a schema comment; domains over a base
 // type, over another domain, with a modifier and over an array, with and without checks, defaults, and comments; a
 // nullable column; identity and expression columns; defaults and comments; a composite primary key; unique and check
 // constraints; both time policies; array and `decimal` types; foreign keys with and without actions and deferral; and an
@@ -19,13 +19,11 @@ internal static class SchemaLockSample {
           Version = 1,
           File = "V001__foo.sql",
           Checksum = Aaa,
-          AcceptedChecksums = [],
         },
         new() {
           Version = 3,
           File = "V003__bar.sql",
           Checksum = Bbb,
-          AcceptedChecksums = [Ccc],
         },
       ],
       Schemas = [

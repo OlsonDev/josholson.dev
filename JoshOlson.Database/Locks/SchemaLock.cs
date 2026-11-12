@@ -46,9 +46,8 @@ public sealed record SchemaLock {
         problems.Add(Problem(
           locked.Version,
           MigrationProblemKind.Changed,
-          $"{locked.File} has changed since the seeds were migrated against it. If the change is only a comment or "
-          + $"whitespace, seeds:accept {version} checks that the seeds are unaffected and records it. "
-          + "Otherwise add a new migration instead of editing this one."));
+          $"{locked.File} has changed since the seeds were migrated against it. "
+          + "Add a new migration instead of editing this one."));
       }
     }
 
@@ -67,26 +66,6 @@ public sealed record SchemaLock {
       Problems = problems,
       Pending = [.. onDisk.Where(migration => migration.Version > Version).OrderBy(migration => migration.Version)],
     };
-  }
-
-  // The lock with one more checksum accepted for the migration, kept in order and without duplicates. The tool calls
-  // this only after checking the edit leaves every seed unaffected; the lock itself cannot tell.
-  public SchemaLock WithAcceptedChecksum(int version, string checksum) {
-    var migrations = new List<LockedMigration>(Migrations.Count);
-    var found = false;
-    foreach (var migration in Migrations) {
-      if (migration.Version != version) {
-        migrations.Add(migration);
-        continue;
-      }
-      found = true;
-      migrations.Add(migration.Matches(checksum)
-        ? migration
-        : migration with { AcceptedChecksums = [.. migration.AcceptedChecksums.Append(checksum).Order(StringComparer.Ordinal)] });
-    }
-    return found
-      ? this with { Migrations = migrations }
-      : throw new SeedFormatException($"The lock has no migration with version {version.ToInvariantString()}.");
   }
 
   // The tables in an order rows can be inserted in: each one after every table its foreign keys point at, ties broken by

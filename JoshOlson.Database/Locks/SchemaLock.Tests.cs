@@ -12,12 +12,11 @@ public class SchemaLockTests {
   private static string FileName(int version, string name)
     => $"V{version.ToInvariantString().PadLeft(3, '0')}__{name}.sql";
 
-  private static LockedMigration Locked(int version, string name, string checksum, params string[] acceptedChecksums)
+  private static LockedMigration Locked(int version, string name, string checksum)
     => new() {
       Version = version,
       File = FileName(version, name),
       Checksum = checksum,
-      AcceptedChecksums = [.. acceptedChecksums],
     };
 
   private static MigrationFile OnDisk(int version, string name, string checksum)
@@ -53,13 +52,13 @@ public class SchemaLockTests {
   }
 
   [Fact]
-  public void Check_EditedMigration_IsChanged_AndPointsToSeedsAccept() {
+  public void Check_EditedMigration_IsChanged_AndSaysToAddANewOne() {
     var check = NewLock().Check([OnDisk(1, "foo", _Edited), OnDisk(2, "bar", _Other)]);
 
     var problem = Assert.Single(check.Problems);
     Assert.Equal(MigrationProblemKind.Changed, problem.Kind);
     Assert.Equal(1, problem.Version);
-    Assert.Contains("seeds:accept 1", problem.Message, StringComparison.Ordinal);
+    Assert.Contains("Add a new migration", problem.Message, StringComparison.Ordinal);
     Assert.Contains("V001__foo.sql", problem.Message, StringComparison.Ordinal);
   }
 
@@ -111,38 +110,6 @@ public class SchemaLockTests {
 
     Assert.Equal([1, 2], check.Problems.Select(problem => problem.Version));
   }
-
-  [Fact]
-  public void WithAcceptedChecksum_EditedMigrationThenPassesAndTheOriginalStillDoes() {
-    var edited = NewLock().Check([OnDisk(1, "foo", _Edited), OnDisk(2, "bar", _Other)]);
-    Assert.False(edited.IsConsistent);
-
-    var accepted = NewLock().WithAcceptedChecksum(1, _Edited);
-
-    Assert.True(accepted.Check([OnDisk(1, "foo", _Edited), OnDisk(2, "bar", _Other)]).IsConsistent);
-    Assert.True(accepted.Check([OnDisk(1, "foo", _Original), OnDisk(2, "bar", _Other)]).IsConsistent);
-    Assert.False(accepted.Check([OnDisk(1, "foo", _Other), OnDisk(2, "bar", _Other)]).IsConsistent);
-  }
-
-  [Fact]
-  public void WithAcceptedChecksum_KeepsChecksumsOrderedAndWithoutDuplicates() {
-    var schemaLock = NewLock().WithAcceptedChecksum(1, _Other).WithAcceptedChecksum(1, _Edited).WithAcceptedChecksum(1, _Other).WithAcceptedChecksum(1, _Original);
-
-    Assert.Equal([_Edited, _Other], schemaLock.Migrations[0].AcceptedChecksums);
-  }
-
-  [Fact]
-  public void WithAcceptedChecksum_DoesNotChangeTheOriginalLock() {
-    var schemaLock = NewLock();
-
-    _ = schemaLock.WithAcceptedChecksum(1, _Edited);
-
-    Assert.Empty(schemaLock.Migrations[0].AcceptedChecksums);
-  }
-
-  [Fact]
-  public void WithAcceptedChecksum_UnknownVersion_Throws()
-    => Assert.Throws<SeedFormatException>(() => NewLock().WithAcceptedChecksum(9, _Edited));
 
   private static SchemaLock WithTables(params Table[] tables)
     => NewLock() with { Tables = [.. tables] };

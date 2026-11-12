@@ -38,7 +38,6 @@ public static partial class SchemaLockParser {
     "version",
     "file",
     "checksum",
-    "accepted_checksums",
   ];
 
   public static SchemaLock Parse(string yaml) {
@@ -74,22 +73,10 @@ public static partial class SchemaLockParser {
       if (migrations.Count > 0 && migrations[^1].Version >= version) {
         throw new SeedFormatException($"{_Context}: migration {version.ToInvariantString()} is out of order or repeated.");
       }
-
-      var acceptedChecksums = new List<string>();
-      if (YamlNodes.Find(map, "accepted_checksums") is { } acceptedNode) {
-        foreach (var entry in YamlNodes.Sequence(_Context, $"{file} accepted_checksums", acceptedNode).Children) {
-          var checksum = Checksum(file, YamlNodes.Text(_Context, $"{file} accepted_checksums", entry));
-          if (acceptedChecksums.Contains(checksum, StringComparer.Ordinal)) {
-            throw new SeedFormatException($"{_Context}: {file} accepts the same checksum twice.");
-          }
-          acceptedChecksums.Add(checksum);
-        }
-      }
       migrations.Add(new() {
         Version = version,
         File = file,
         Checksum = Checksum(file, YamlNodes.RequiredText(_Context, map, "checksum")),
-        AcceptedChecksums = acceptedChecksums,
       });
     }
     return migrations;

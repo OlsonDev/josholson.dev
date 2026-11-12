@@ -19,8 +19,8 @@ public sealed record MigrateOptions {
   // The time the layers' relative times are measured from while they are moved; a layer's rows come out as offsets from it.
   public required IClock Clock { get; init; }
 
-  // Builds the lock afresh from the database instead of carrying the old one forward: its version, checksums, and
-  // accepted checksums are ignored, so a migration rewritten since the last lock no longer counts as a problem. Only
+  // Builds the lock afresh from the database instead of carrying the old one forward: its version and checksums
+  // are ignored, so a migration rewritten since the last lock no longer counts as a problem. Only
   // for the time before the first deploy, while migrations may still be rewritten (`seeds:relock`).
   public bool Relock { get; init; }
 

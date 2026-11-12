@@ -14,8 +14,6 @@ namespace JoshOlson.Database.Locks;
 //     - version: 1
 //       file: V001__foo.sql
 //       checksum: <sha-256>
-//       accepted_checksums:        # only when an edit was accepted
-//         - <sha-256>
 //   layers:                                          # the layer files the tool wrote, by name: `{}` when none is the tool's
 //     foo-bar: <sha-256>                             # omitted entirely when the lock says nothing about layers
 //   schemas:                                         # only schemas that have a comment
@@ -96,10 +94,6 @@ public static class SchemaLockWriter {
       lines.Add(FormattableString.Invariant($"  - version: {migration.Version}"));
       lines.Add($"    file: {Scalar(migration.File)}");
       lines.Add($"    checksum: {Scalar(migration.Checksum)}");
-      if (migration.AcceptedChecksums.Count > 0) {
-        lines.Add("    accepted_checksums:");
-        lines.AddRange(migration.AcceptedChecksums.Select(checksum => $"      - {Scalar(checksum)}"));
-      }
     }
   }
 

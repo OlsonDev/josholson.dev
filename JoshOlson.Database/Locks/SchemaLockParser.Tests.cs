@@ -14,7 +14,6 @@ public class SchemaLockParserTests {
 
     Assert.Equal(_Valid, SchemaLockWriter.Write(parsed));
     Assert.Equal(3, parsed.Version);
-    Assert.Equal([SchemaLockSample.Ccc], parsed.Migrations[1].AcceptedChecksums);
     Assert.Equal(["foo.bar", "foo.link", "foo.tag"], parsed.Tables.Select(table => table.Name));
   }
 
@@ -195,7 +194,6 @@ public class SchemaLockParserTests {
         - version: 3
           file: V003__bar.sql
           checksum: {{SchemaLockSample.Bbb}}
-          accepted_checksums: [{{SchemaLockSample.Ccc}}]
       schemas:
         foo: Things and their tags
       domains:
@@ -302,7 +300,6 @@ public class SchemaLockParserTests {
   [InlineData("  - version: 3\n    file: V003__bar.sql", "  - version: 1\n    file: V001__bar.sql")]
   [InlineData("    checksum: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "    checksum: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")]
   [InlineData("    checksum: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "    checksum: abc")]
-  [InlineData("      - cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc", "      - nope")]
   [InlineData("  foo.link:", "  foolink:")]
   [InlineData("  foo.link:", "  foo.bar:")]
   [InlineData("  foo.tag:\n    columns:", "  foo.tag:\n    colums:")]
