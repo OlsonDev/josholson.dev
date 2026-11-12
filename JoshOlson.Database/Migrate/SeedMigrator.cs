@@ -1,4 +1,5 @@
 using System.Text;
+using JoshOlson.Database.Baking;
 using JoshOlson.Database.Catalog;
 using JoshOlson.Database.Layers;
 using JoshOlson.Database.Locks;
@@ -29,12 +30,12 @@ public static class SeedMigrator {
     return problems;
   }
 
-  // `seeds:migrate`, as far as it is built: makes `schema.lock.yaml` describe the database, which must have applied
-  // exactly the migrations on disk. The lock is only written if everything checks out, and every problem is reported
-  // together. Moving seed layers to a new migration is not built yet: with layers present, they are checked against
+  // `seeds:migrate`, as far as it is built: makes `schema.lock.yaml` describe the schema the migrations on disk produce,
+  // which is read from the template for the newest migration (built if it is not there; the dev database is not used).
+  // The lock is only written if everything checks out, and every problem is reported together. Moving seed layers to a new migration is not built yet: with layers present, they are checked against
   // the new schema instead of rewritten (`CheckLayersAsync`), so the lock never moves ahead of a layer it would break.
   // `Relock` starts the lock over instead of carrying the old one forward (see `MigrateOptions.Relock`).
-  public static async Task<MigrateResult> MigrateAsync(NpgsqlConnection connection, MigrateOptions options, CancellationToken cancellationToken) {
+  public static async Task<MigrateResult> MigrateAsync(NpgsqlConnection owner, MigrateOptions options, CancellationToken cancellationToken) {
     var path = Path.Combine(options.MigrationsDirectory, LockFileName);
     var onDisk = await MigrationFiles.LoadAsync(options.MigrationsDirectory, cancellationToken);
     var existingText = File.Exists(path) ? await File.ReadAllTextAsync(path, cancellationToken) : null;
@@ -48,12 +49,16 @@ public static class SeedMigrator {
     if (existing is not null) {
       problems.AddRange(existing.Check(onDisk).Problems.Select(problem => problem.Message));
     }
-    problems.AddRange(MigrationHistory.Check(onDisk, await MigrationHistory.ReadAsync(connection, cancellationToken)));
     if (problems.Count > 0) {
       throw new SeedFormatException($"seeds:migrate did not write {LockFileName}:\n- {string.Join("\n- ", problems)}");
     }
 
-    var catalog = await SchemaCatalog.ReadAsync(connection, new(), cancellationToken);
+    var (catalog, applied) = await InspectAsync(owner, options, cancellationToken);
+    problems.AddRange(MigrationHistory.Check(onDisk, applied));
+    if (problems.Count > 0) {
+      throw new SeedFormatException($"seeds:migrate did not write {LockFileName}:\n- {string.Join("\n- ", problems)}");
+    }
+
     var schemaLock = SchemaLockBuilder.Build(existing, onDisk, catalog);
     problems.AddRange(await CheckLayersAsync(options, schemaLock, cancellationToken));
     if (problems.Count > 0) {
@@ -71,6 +76,27 @@ public static class SeedMigrator {
       Version = onDisk.Max(migration => migration.Version),
       Changed = changed,
     };
+  }
+
+  // The catalog and Waypoint's history of the template for the newest migration. The template refuses connections, so a
+  // clone is read and dropped.
+  private static async Task<(CatalogSchema Catalog, List<AppliedMigration> Applied)> InspectAsync(
+    NpgsqlConnection owner,
+    MigrateOptions options,
+    CancellationToken cancellationToken
+  ) {
+    var (template, _) = await options.Template.EnsureAsync(owner, cancellationToken);
+    var clone = $"{SeedDatabaseNames.Prefix}migrate_{Guid.NewGuid():N}";
+    await options.Databases.CloneAsync(owner, template, clone, cancellationToken);
+    try {
+      await using var connection = new NpgsqlConnection(DatabaseEnvironment.OwnerConnectionString(clone));
+      await connection.OpenAsync(cancellationToken);
+      return (
+        await SchemaCatalog.ReadAsync(connection, new(), cancellationToken),
+        await MigrationHistory.ReadAsync(connection, cancellationToken));
+    } finally {
+      await options.Databases.DropAsync(owner, clone, CancellationToken.None);
+    }
   }
 
   // The layers are not rewritten, only checked: each still has to read as its columns' types in the new schema and

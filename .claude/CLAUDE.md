@@ -85,7 +85,7 @@ Print the seed layer tree with row counts per table:
 mise run seeds:list
 ```
 
-Write `migrations/schema.lock.yaml` from the dev database, which must have applied exactly the migrations on disk (run `mise run waypoint migrate` first). It reports every problem and writes nothing if there is one. Seed layers are checked, not moved (moving them is not built yet): each must still read against the new schema and build into a template, or the lock is not written. Needs the `tools` container; reads `.env`:
+Write `migrations/schema.lock.yaml` from the schema the migrations on disk produce, read from the schema template for the newest one (built if it is not there; the dev database is not used, so no `waypoint migrate` first). It reports every problem and writes nothing if there is one. Seed layers are checked, not moved (moving them is not built yet): each must still read against the new schema and build into a template, or the lock is not written. Needs the `tools` container; reads `.env`:
 
 ```
 mise run seeds:migrate
@@ -107,7 +107,7 @@ Make a layer from what is in the dev database (or `--database <name>`): the diff
 mise run seeds:export --name <name> --description "What it adds"
 ```
 
-Before the first deploy a migration may be rewritten instead of adding a new one. Then drop the dev database and rebuild it from the migrations (everything in it is lost; dev only), and start the lock over (it ignores the old lock's checksums; retired at the first deploy). Regenerate the schema docs afterwards:
+Before the first deploy a migration may be rewritten instead of adding a new one. Then start the lock over (it ignores the old lock's checksums; retired at the first deploy), and, if you use the dev database, drop and rebuild it from the migrations (everything in it is lost; dev only). Regenerate the schema docs afterwards:
 
 ```
 mise run db:reset

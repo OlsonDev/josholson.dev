@@ -6,9 +6,9 @@ using Xunit;
 
 namespace JoshOlson.Seed.Commands;
 
-// Reads the dev database's catalog, which must have the repository's migrations applied (`mise run waypoint migrate`).
-// Each test copies the real migrations and seeds into a directory of its own, so the real lock is never touched. The
-// layer check still builds templates through the real paths, which are current after any `mise run seeds:bake`.
+// Reads the schema from the template for a copy of the repository's migrations, which is the real template (current after
+// any `mise run seeds:bake`) while the files are the same. Each test copies the real migrations and seeds into a directory
+// of its own, so the real lock is never touched.
 public sealed class MigrateCommandTests : IDisposable {
   private readonly CancellationToken _cancellationToken = TestContext.Current.CancellationToken;
   private readonly string _directory = TempDirectory.Create("migrate-command");
@@ -106,17 +106,6 @@ public sealed class MigrateCommandTests : IDisposable {
 
     Assert.Equal(1, exitCode);
     Assert.Contains("nope", output, StringComparison.Ordinal);
-    Assert.False(File.Exists(_paths.LockFile));
-  }
-
-  [Fact]
-  public async Task Execute_MigrationNotAppliedToTheDatabase_FailsAndWritesNoLock() {
-    await File.WriteAllTextAsync(Path.Combine(_paths.Migrations, "V999__foo.sql"), "CREATE TABLE foo (bar INT);\n", _cancellationToken);
-
-    var (exitCode, output) = await RunAsync("migrate");
-
-    Assert.Equal(1, exitCode);
-    Assert.DoesNotContain("   at ", output, StringComparison.Ordinal);
     Assert.False(File.Exists(_paths.LockFile));
   }
 }

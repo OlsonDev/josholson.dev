@@ -61,11 +61,12 @@ _.file = ".env"
 description = "Print the seed layer tree with row counts per table"
 run = "dotnet run --project JoshOlson.Seed -- list"
 
-# Writes migrations/schema.lock.yaml from the dev database (ADR 0034, lock file and branch-safe migration). Run
-# `mise run waypoint migrate` first: the database must have applied exactly the migrations on disk. With layers it also
-# checks that each still builds into a template (the `tools` container runs the migrations). Reads .env.
+# Writes migrations/schema.lock.yaml from the schema the migrations on disk produce (ADR 0034, lock file and branch-safe
+# migration), read from the schema template for the newest one, which is built if it is not there. The dev database is not
+# used. With layers it also checks that each still builds into a template (the `tools` container runs the migrations).
+# Reads .env.
 [tasks."seeds:migrate"]
-description = "Make migrations/schema.lock.yaml describe the dev database at the newest migration"
+description = "Make migrations/schema.lock.yaml describe the schema the migrations produce, at the newest migration"
 depends = ["tools:up"]
 run = "dotnet run --project JoshOlson.Seed -- migrate"
 
@@ -73,9 +74,10 @@ run = "dotnet run --project JoshOlson.Seed -- migrate"
 _.file = ".env"
 
 # Before the first deploy migrations may be rewritten (sql.md), which leaves the lock's checksums stale. This starts the
-# lock over from the dev database, ignoring the old lock's version and checksums. Retire it at the first deploy.
+# lock over from the schema the migrations produce, ignoring the old lock's version and checksums. Retire it at the first
+# deploy.
 [tasks."seeds:relock"]
-description = "Start migrations/schema.lock.yaml over from the dev database, for migrations rewritten before the first deploy"
+description = "Start migrations/schema.lock.yaml over from the migrations, for migrations rewritten before the first deploy"
 depends = ["tools:up"]
 run = "dotnet run --project JoshOlson.Seed -- migrate --relock"
 

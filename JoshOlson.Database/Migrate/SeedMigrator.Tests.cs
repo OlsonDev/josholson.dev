@@ -1,3 +1,4 @@
+using JoshOlson.Database.Baking;
 using JoshOlson.Database.Layers;
 using JoshOlson.Database.Locks;
 using JoshOlson.Shared.IO;
@@ -6,13 +7,17 @@ using Xunit;
 
 namespace JoshOlson.Database.Migrate;
 
-// Runs against the dev database, which must have the repository's migrations applied (`mise run waypoint migrate`):
-// each test copies the real migrations into a directory of its own, so the real lock is never touched.
-[Collection(CatalogCollection.Name)]
-public sealed class SeedMigratorTests : IDisposable {
+// Reads the schema from the template for a copy of the repository's migrations, which is the real template while the
+// files are the same and one built for the test when they are not (and dropped when it ends). Each test copies the real
+// migrations into a directory of its own, so the real lock is never touched.
+[Collection(TemplateCollection.Name)]
+public sealed class SeedMigratorTests : IAsyncLifetime {
   private readonly CancellationToken _cancellationToken = TestContext.Current.CancellationToken;
   private readonly string _directory = TempDirectory.Create("seed-migrator");
+  private readonly ServerDatabases _databases = new();
   private readonly MigrateOptions _options;
+  private readonly SchemaTemplate _template;
+  private readonly string _realTemplate;
 
   public SeedMigratorTests() {
     var migrations = Path.Combine(_directory, "migrations");
@@ -20,23 +25,39 @@ public sealed class SeedMigratorTests : IDisposable {
     foreach (var file in Directory.EnumerateFiles(SeedPaths.ForRepository().Migrations, "*.sql")) {
       File.Copy(file, Path.Combine(migrations, Path.GetFileName(file)));
     }
+    var paths = SeedPaths.ForRepository();
+    _template = new(SchemaTemplateOptions.ForRepository(paths) with { MigrationsDirectory = migrations }, new(paths.Root), _databases);
     _options = new() {
       MigrationsDirectory = migrations,
       SeedsDirectory = Path.Combine(_directory, "seeds"),
+      Template = _template,
+      Databases = _databases,
     };
+    _realTemplate = new SchemaTemplate(SchemaTemplateOptions.ForRepository(paths), new(paths.Root), _databases).NameAsync(_cancellationToken).GetAwaiter().GetResult();
   }
 
-  public void Dispose()
-    => Directory.Delete(_directory, recursive: true);
+  public ValueTask InitializeAsync()
+    => ValueTask.CompletedTask;
+
+  // A test that changed a migration made a template of its own, which goes, so only the real one is left.
+  public async ValueTask DisposeAsync() {
+    await using var owner = new NpgsqlConnection(DatabaseEnvironment.OwnerConnectionString("postgres"));
+    await owner.OpenAsync(CancellationToken.None);
+    var name = await _template.NameAsync(CancellationToken.None);
+    if (!string.Equals(name, _realTemplate, StringComparison.Ordinal)) {
+      await _databases.DropAsync(owner, name, CancellationToken.None);
+    }
+    Directory.Delete(_directory, recursive: true);
+  }
 
   private async Task<MigrateResult> MigrateAsync(
     bool relock = false,
     Func<SeedSchema, CancellationToken, Task<List<string>>>? check = null
   ) {
-    await using var connection = new NpgsqlConnection(DatabaseEnvironment.OwnerConnectionString());
-    await connection.OpenAsync(_cancellationToken);
+    await using var owner = new NpgsqlConnection(DatabaseEnvironment.OwnerConnectionString("postgres"));
+    await owner.OpenAsync(_cancellationToken);
     return await SeedMigrator.MigrateAsync(
-      connection,
+      owner,
       _options with { Relock = relock, LayerCheck = check },
       _cancellationToken);
   }
@@ -115,23 +136,17 @@ public sealed class SeedMigratorTests : IDisposable {
   }
 
   [Fact]
-  public async Task MigrateAsync_Relock_StillRefusesWhenTheDatabaseLacksAMigration() {
-    _ = await MigrateAsync();
-    await File.WriteAllTextAsync(Path.Combine(_options.MigrationsDirectory, "V999__not_applied.sql"), "SELECT 1;\n", _cancellationToken);
+  public async Task MigrateAsync_NewMigration_IsReadFromATemplateBuiltFromItAndNoDevelopmentDatabaseIsInvolved() {
+    await File.WriteAllTextAsync(
+      Path.Combine(_options.MigrationsDirectory, "V999__probe.sql"),
+      "CREATE SCHEMA zz_probe;\nCREATE TABLE zz_probe.foo (bar INT NOT NULL);\n",
+      _cancellationToken);
 
-    var exception = await Assert.ThrowsAsync<SeedFormatException>(() => MigrateAsync(relock: true));
+    var result = await MigrateAsync();
 
-    Assert.Contains("V999__not_applied.sql", exception.Message, StringComparison.Ordinal);
-  }
-
-  [Fact]
-  public async Task MigrateAsync_MigrationTheDatabaseDoesNotHave_WritesNoLock() {
-    await File.WriteAllTextAsync(Path.Combine(_options.MigrationsDirectory, "V999__not_applied.sql"), "SELECT 1;\n", _cancellationToken);
-
-    var exception = await Assert.ThrowsAsync<SeedFormatException>(() => MigrateAsync());
-
-    Assert.Contains("V999__not_applied.sql", exception.Message, StringComparison.Ordinal);
-    Assert.False(File.Exists(Path.Combine(_options.MigrationsDirectory, SeedMigrator.LockFileName)));
+    var schemaLock = SchemaLockParser.Parse(await File.ReadAllTextAsync(result.Path, _cancellationToken));
+    Assert.Equal(999, result.Version);
+    Assert.Contains(schemaLock.Tables, table => table.Name is "zz_probe.foo");
   }
 
   private async Task WriteLayerAsync() {

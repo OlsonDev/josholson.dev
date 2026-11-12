@@ -1,3 +1,4 @@
+using JoshOlson.Database.Baking;
 using JoshOlson.Database.Layers;
 
 namespace JoshOlson.Database.Migrate;
@@ -8,6 +9,11 @@ namespace JoshOlson.Database.Migrate;
 public sealed record MigrateOptions {
   public required string MigrationsDirectory { get; init; }
   public required string SeedsDirectory { get; init; }
+
+  // Where the schema the migrations produce is read from: the template for the newest migration, built from the files
+  // in `MigrationsDirectory`. The dev database plays no part, so it can be in any state, or missing.
+  public required SchemaTemplate Template { get; init; }
+  public required ServerDatabases Databases { get; init; }
 
   // Builds the lock afresh from the database instead of carrying the old one forward: its version, checksums, and
   // accepted checksums are ignored, so a migration rewritten since the last lock no longer counts as a problem. Only
