@@ -78,8 +78,12 @@ public sealed class SchemaTemplate {
         await _databases.CreateAsync(owner, building, cancellationToken);
         await ApplyVersionedAsync(building, version, cancellationToken);
         var skipped = await ApplyRepeatablesAsync(building, version, newest, cancellationToken);
-        await _tools.RunScriptAsync(building, _options.ProvisioningScript, ApiPasswordVariable(), cancellationToken);
-        await _tools.RunScriptAsync(building, _options.SeedSchemaScript, [], cancellationToken);
+        // One psql session, so one round trip: the provisioning first, so the API role is granted nothing in the `seed` schema.
+        await _tools.RunScriptsAsync(
+          building,
+          [_options.ProvisioningScript, _options.SeedSchemaScript],
+          ApiPasswordVariable(),
+          cancellationToken);
         await _databases.CommentAsync(owner, building, JsonSerializer.Serialize(skipped), cancellationToken);
       },
       cancellationToken);
@@ -102,11 +106,11 @@ public sealed class SchemaTemplate {
     foreach (var path in RepeatablePaths()) {
       files.Add((Path.GetFileName(path), await File.ReadAllBytesAsync(path, cancellationToken)));
     }
-    await MigrateFromAsync(database, files, transaction: false, cancellationToken);
+    await _tools.MigrateAsync(database, files, transaction: false, cancellationToken);
   }
 
   private async Task ApplyVersionedAsync(string database, int version, CancellationToken cancellationToken)
-    => await MigrateFromAsync(database, await VersionedFilesAsync(version, cancellationToken), transaction: true, cancellationToken);
+    => await _tools.MigrateAsync(database, await VersionedFilesAsync(version, cancellationToken), transaction: true, cancellationToken);
 
   private async Task<List<(string Name, byte[] Content)>> VersionedFilesAsync(int version, CancellationToken cancellationToken) {
     var files = new List<(string Name, byte[] Content)>();
@@ -116,22 +120,6 @@ public sealed class SchemaTemplate {
     return files;
   }
 
-  // Waypoint reads the files from a directory of their own in the container, which is gone afterwards. With `transaction`
-  // everything pending in it goes in one.
-  private async Task MigrateFromAsync(
-    string database,
-    List<(string Name, byte[] Content)> files,
-    bool transaction,
-    CancellationToken cancellationToken
-  ) {
-    var directory = await _tools.PutMigrationsAsync(files, cancellationToken);
-    try {
-      await _tools.MigrateAsync(database, directory, transaction, cancellationToken);
-    } finally {
-      await _tools.RemoveMigrationsAsync(directory, CancellationToken.None);
-    }
-  }
-
   private async Task<List<SkippedRepeatable>> ApplyRepeatablesAsync(string database, int version, bool newest, CancellationToken cancellationToken) {
     var skipped = new List<SkippedRepeatable>();
     foreach (var path in RepeatablePaths()) {
@@ -139,7 +127,7 @@ public sealed class SchemaTemplate {
       var files = await VersionedFilesAsync(version, cancellationToken);
       files.Add((Path.GetFileName(path), await File.ReadAllBytesAsync(path, cancellationToken)));
       try {
-        await MigrateFromAsync(database, files, transaction: true, cancellationToken);
+        await _tools.MigrateAsync(database, files, transaction: true, cancellationToken);
       } catch (InvalidOperationException exception) when (!newest) {
         skipped.Add(new(Path.GetFileName(path), FirstError(exception.Message)));
       }

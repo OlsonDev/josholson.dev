@@ -124,8 +124,10 @@ public sealed class ServerDatabasesTests : IAsyncLifetime {
   public async Task CloneAsync_SourceStaysInUse_GivesUpAfterTheAttempts() {
     await using var holder = new NpgsqlConnection(DatabaseEnvironment.OwnerConnectionString(_source));
     await holder.OpenAsync(_cancellationToken);
+    // Postgres itself waits five seconds inside each attempt to clone a source somebody is connected to, so one attempt is all
+    // this needs to see the error given up on; the test below has the retrying.
     var databases = new ServerDatabases {
-      Attempts = 3,
+      Attempts = 1,
       Delay = TimeSpan.FromMilliseconds(10),
     };
 
