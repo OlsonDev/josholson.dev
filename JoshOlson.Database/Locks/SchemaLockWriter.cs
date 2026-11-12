@@ -16,6 +16,8 @@ namespace JoshOlson.Database.Locks;
 //       checksum: <sha-256>
 //       accepted_checksums:        # only when an edit was accepted
 //         - <sha-256>
+//   layers:                                          # the layer files the tool wrote, by name: `{}` when none is the tool's
+//     foo-bar: <sha-256>                             # omitted entirely when the lock says nothing about layers
 //   schemas:                                         # only schemas that have a comment
 //     foo: Comment text
 //   domains:                                         # only when there are some
@@ -55,6 +57,14 @@ public static class SchemaLockWriter {
   public static string Write(SchemaLock schemaLock) {
     List<string> lines = [Header];
     WriteMigrations(lines, schemaLock.Migrations);
+    if (schemaLock.Layers is { } layers) {
+      if (layers.Count is 0) {
+        lines.Add("layers: {}");
+      } else {
+        lines.Add("layers:");
+        lines.AddRange(layers.Select(layer => $"  {Scalar(layer.Name)}: {Scalar(layer.Checksum)}"));
+      }
+    }
     if (schemaLock.Schemas.Count > 0) {
       lines.Add("schemas:");
       lines.AddRange(schemaLock.Schemas.Select(schema => $"  {Scalar(schema.Name)}: {Scalar(schema.Comment)}"));

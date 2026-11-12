@@ -1,4 +1,5 @@
 using System.Globalization;
+using JoshOlson.Database.Layers;
 using JoshOlson.Database.Schema;
 using JoshOlson.Database.Yaml;
 using JoshOlson.Shared.Extensions;
@@ -17,6 +18,7 @@ public static partial class SchemaLockParser {
   private static readonly string[] _LockKeys = [
     "version",
     "migrations",
+    "layers",
     "schemas",
     "domains",
     "tables",
@@ -43,6 +45,7 @@ public static partial class SchemaLockParser {
     var root = YamlNodes.LoadRoot(_Context, yaml);
     YamlNodes.CheckKeys(_Context, "the lock", root, _LockKeys);
     var migrations = ParseMigrations(YamlNodes.Required(_Context, root, "migrations"));
+    var layers = YamlNodes.Find(root, "layers") is { } layersNode ? ParseLayers(layersNode) : null;
     var schemas = YamlNodes.Find(root, "schemas") is { } schemasNode ? ParseSchemas(schemasNode) : [];
     var domains = YamlNodes.Find(root, "domains") is { } domainsNode ? ParseDomains(domainsNode) : [];
     var tables = ParseTables(YamlNodes.Required(_Context, root, "tables"));
@@ -50,6 +53,7 @@ public static partial class SchemaLockParser {
     CheckReferences(tables);
     return new() {
       Migrations = migrations,
+      Layers = layers,
       Schemas = schemas,
       Domains = domains,
       Tables = tables,
@@ -89,6 +93,22 @@ public static partial class SchemaLockParser {
       });
     }
     return migrations;
+  }
+
+  private static List<LockedLayer> ParseLayers(YamlNode node) {
+    var map = YamlNodes.Mapping(_Context, "layers", node);
+    var layers = new List<LockedLayer>(map.Children.Count);
+    foreach (var (key, value) in map.Children) {
+      var name = YamlNodes.Key(_Context, key);
+      if (!LayerName.IsValid(name)) {
+        throw new SeedFormatException($"{_Context}: '{name}' is not a layer name.");
+      }
+      if (layers.Count > 0 && string.CompareOrdinal(layers[^1].Name, name) >= 0) {
+        throw new SeedFormatException($"{_Context}: layer {name} is out of order or repeated.");
+      }
+      layers.Add(new(name, Checksum(name, YamlNodes.Text(_Context, $"the checksum of layer {name}", value))));
+    }
+    return layers;
   }
 
   private static List<SchemaComment> ParseSchemas(YamlNode node) {

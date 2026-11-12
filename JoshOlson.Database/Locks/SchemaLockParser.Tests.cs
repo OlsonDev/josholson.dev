@@ -19,6 +19,41 @@ public class SchemaLockParserTests {
   }
 
   [Fact]
+  public void Parse_LayerChecksums_RoundTripAndAnAbsentSectionIsNull() {
+    var withLayers = SchemaLockWriter.Write(SchemaLockSample.Create() with {
+      Layers = [new("bar", SchemaLockSample.Aaa), new("foo-baz", SchemaLockSample.Bbb)],
+    });
+    var empty = SchemaLockWriter.Write(SchemaLockSample.Create() with { Layers = [] });
+
+    var parsed = SchemaLockParser.Parse(withLayers);
+
+    Assert.Equal(withLayers, SchemaLockWriter.Write(parsed));
+    Assert.Equal([new("bar", SchemaLockSample.Aaa), new("foo-baz", SchemaLockSample.Bbb)], parsed.Layers);
+    Assert.Equal([], SchemaLockParser.Parse(empty).Layers);
+    Assert.Null(SchemaLockParser.Parse(_Valid).Layers);
+  }
+
+  // The layers section of a lock with one layer, `bar`, replaced by each of these (`{A}` is a valid checksum).
+  [Theory]
+  [InlineData("  Bar: {A}\n", "not a layer name")]
+  [InlineData("  bar: abc\n", "checksum")]
+  [InlineData("  foo: {A}\n  bar: {A}\n", "out of order")]
+  [InlineData("  bar: [{A}]\n", "bar")]
+  public void Parse_BadLayersSection_Throws(string section, string expected) {
+    var text = SchemaLockWriter.Write(SchemaLockSample.Create() with {
+      Layers = [new("bar", SchemaLockSample.Aaa)],
+    });
+    var edited = text.Replace(
+      $"  bar: {SchemaLockSample.Aaa}\n",
+      section.Replace("{A}", SchemaLockSample.Aaa, StringComparison.Ordinal),
+      StringComparison.Ordinal);
+
+    var exception = Assert.Throws<SeedFormatException>(() => SchemaLockParser.Parse(edited));
+
+    Assert.Contains(expected, exception.Message, StringComparison.Ordinal);
+  }
+
+  [Fact]
   public void Parse_ReadsEveryColumnProperty() {
     var parsed = SchemaLockParser.Parse(_Valid);
 

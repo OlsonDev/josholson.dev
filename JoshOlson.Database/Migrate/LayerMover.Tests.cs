@@ -121,6 +121,78 @@ public sealed class LayerMoverTests : IAsyncLifetime {
     return await MigrateAsync();
   }
 
+  private async Task<List<LockedLayer>?> RecordedLayersAsync()
+    => SchemaLockParser.Parse(await File.ReadAllTextAsync(LockFile, _cancellationToken)).Layers;
+
+  private async Task<LockedLayer> ChecksumOfAsync(string layer)
+    => new(layer, LayerChecksum.Of(await File.ReadAllBytesAsync(Layer(layer), _cancellationToken)));
+
+  [Fact]
+  public async Task MigrateAsync_LayersTheLockSaysNothingAbout_AreTakenToBeTheToolsAndRecorded() {
+    _ = await MigrateWithLayersAtVersionOneAsync();
+
+    Assert.Equal([await ChecksumOfAsync("base"), await ChecksumOfAsync("child")], await RecordedLayersAsync());
+  }
+
+  [Fact]
+  public async Task MigrateAsync_MovedLayers_AreRecordedAsTheyWereWritten() {
+    _ = await MigrateWithLayersAtVersionOneAsync();
+    await WriteAsync(Migration("V002__note.sql"), "ALTER TABLE foo.bar ADD COLUMN note TEXT NOT NULL DEFAULT 'x';\n");
+
+    _ = await MigrateAsync();
+
+    Assert.Equal([await ChecksumOfAsync("base"), await ChecksumOfAsync("child")], await RecordedLayersAsync());
+  }
+
+  [Fact]
+  public async Task MigrateAsync_LayerEditedSinceTheToolWroteIt_IsMovedLikeTheRestButNotRecorded() {
+    _ = await MigrateWithLayersAtVersionOneAsync();
+    var recorded = await ChecksumOfAsync("base");
+    await WriteAsync(
+      Layer("child"),
+      """
+      description: Child
+      extends: base
+      tables:
+        foo.bar:
+          insert:
+            - { bar_id: 1001, name: Three }
+            - { bar_id: 1002, name: Four }
+          update:
+            - { bar_id: 1, name: Uno }
+
+      """);
+    await WriteAsync(Migration("V002__note.sql"), "ALTER TABLE foo.bar ADD COLUMN note TEXT NOT NULL DEFAULT 'x';\n");
+
+    _ = await MigrateAsync();
+
+    Assert.Contains("{ bar_id: 1002, name: Four, note: x }", await File.ReadAllTextAsync(Layer("child"), _cancellationToken), StringComparison.Ordinal);
+    Assert.Equal([await ChecksumOfAsync("base")], await RecordedLayersAsync());
+    Assert.NotEqual(recorded, await ChecksumOfAsync("base"));
+  }
+
+  [Fact]
+  public async Task MigrateAsync_LayerAddedAfterTheLockRecordedTheOthers_IsMovedButNotRecorded() {
+    _ = await MigrateWithLayersAtVersionOneAsync();
+    await WriteAsync(
+      Layer("extra"),
+      """
+      description: Extra
+      extends: base
+      tables:
+        foo.bar:
+          insert:
+            - { bar_id: 1001, name: Extra }
+
+      """);
+    await WriteAsync(Migration("V002__note.sql"), "ALTER TABLE foo.bar ADD COLUMN note TEXT NOT NULL DEFAULT 'x';\n");
+
+    var result = await MigrateAsync();
+
+    Assert.Contains(("extra", true), result.Layers);
+    Assert.Equal([await ChecksumOfAsync("base"), await ChecksumOfAsync("child")], await RecordedLayersAsync());
+  }
+
   [Fact]
   public async Task MigrateAsync_NothingPending_LeavesTheLayersAlone() {
     var result = await MigrateWithLayersAtVersionOneAsync();

@@ -100,6 +100,29 @@ public class SchemaLockWriterTests {
   }
 
   [Fact]
+  public void Write_LayersTheLockSaysNothingAbout_LeavesTheSectionOut() {
+    var text = SchemaLockWriter.Write(SchemaLockSample.Create());
+
+    Assert.DoesNotContain("layers", text, StringComparison.Ordinal);
+  }
+
+  [Fact]
+  public void Write_LayersTheToolWrote_AreListedByName() {
+    var text = SchemaLockWriter.Write(SchemaLockSample.Create() with {
+      Layers = [new("bar", SchemaLockSample.Aaa), new("foo-baz", SchemaLockSample.Bbb)],
+    });
+
+    Assert.Contains($"layers:\n  bar: {SchemaLockSample.Aaa}\n  foo-baz: {SchemaLockSample.Bbb}\nschemas:", text, StringComparison.Ordinal);
+  }
+
+  [Fact]
+  public void Write_NoLayerIsTheTools_WritesAnEmptyMapSoTheLockStillSaysSo() {
+    var text = SchemaLockWriter.Write(SchemaLockSample.Create() with { Layers = [] });
+
+    Assert.Contains("layers: {}\n", text, StringComparison.Ordinal);
+  }
+
+  [Fact]
   public void Write_ACheckExpression_KeepsItsQuotesAndComparisonsReadable() {
     var text = SchemaLockWriter.Write(SchemaLockSample.Create());
 

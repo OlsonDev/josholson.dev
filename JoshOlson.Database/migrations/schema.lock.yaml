@@ -36,6 +36,9 @@ migrations:
   - version: 12
     file: V012__blog.sql
     checksum: 4c14effeb9fbb03c83f290a10947d3518b72e14a5e2f83ada4fe41055c7748be
+layers:
+  minimal: 3e93954f1677b07eb9fbfc22582ef5c0044b621a8aa1e88cf5ad78ba3d6e6df9
+  more-tags: 742bb6b292c6d849403f88021d3dde49581975cf4bedd522182aff97eb542fd9
 domains:
   color.hex:
     type: text

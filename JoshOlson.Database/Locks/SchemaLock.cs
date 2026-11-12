@@ -13,6 +13,12 @@ public sealed record SchemaLock {
     => Migrations.Select(migration => migration.Version).DefaultIfEmpty().Max();
 
   public required List<LockedMigration> Migrations { get; init; }
+
+  // The layer files the tool wrote (see `LockedLayer`), by name. Null means the lock says nothing about layers, which is a
+  // lock from before they were recorded or a repository with none, and every layer file is then taken to be the tool's.
+  // Empty means there are layers and every one is somebody's own.
+  public List<LockedLayer>? Layers { get; init; }
+
   public required List<SchemaComment> Schemas { get; init; }
   public required List<Domain> Domains { get; init; }
   public required List<Table> Tables { get; init; }

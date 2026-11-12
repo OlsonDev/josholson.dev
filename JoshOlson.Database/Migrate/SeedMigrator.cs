@@ -42,25 +42,23 @@ public static class SeedMigrator {
     var onDisk = await MigrationFiles.LoadAsync(options.MigrationsDirectory, cancellationToken);
     var existingText = File.Exists(path) ? await File.ReadAllTextAsync(path, cancellationToken) : null;
     var existing = existingText is null ? null : SchemaLockParser.Parse(existingText);
-    var previousVersion = existing?.Version;
+    var previous = existing;
     if (options.Relock) {
       existing = null;
     }
+    // Which layer files are the tool's own, by what the lock recorded last time (even when it is being started over).
+    var generated = HasLayers(options) ? await GeneratedLayers.FindAsync(options.SeedsDirectory, previous, cancellationToken) : [];
 
     var problems = new List<string>();
     var check = existing?.Check(onDisk);
     if (check is not null) {
       problems.AddRange(check.Problems.Select(problem => problem.Message));
     }
-    if (problems.Count > 0) {
-      throw new SeedFormatException($"seeds:migrate did not write {LockFileName}:\n- {string.Join("\n- ", problems)}");
-    }
+    ThrowIfAny(problems);
 
     var (catalog, applied) = await InspectAsync(owner, options, cancellationToken);
     problems.AddRange(MigrationHistory.Check(onDisk, applied));
-    if (problems.Count > 0) {
-      throw new SeedFormatException($"seeds:migrate did not write {LockFileName}:\n- {string.Join("\n- ", problems)}");
-    }
+    ThrowIfAny(problems);
 
     var schemaLock = SchemaLockBuilder.Build(existing, onDisk, catalog);
     var moved = new List<MovedLayer>();
@@ -73,10 +71,9 @@ public static class SeedMigrator {
     } else {
       problems.AddRange(await CheckLayersAsync(options, schemaLock, cancellationToken));
     }
-    if (problems.Count > 0) {
-      throw new SeedFormatException($"seeds:migrate did not write {LockFileName}:\n- {string.Join("\n- ", problems)}");
-    }
+    ThrowIfAny(problems);
     var layers = await WriteLayersAsync(options, moved, cancellationToken);
+    schemaLock = schemaLock with { Layers = await RecordLayersAsync(options, moved, generated, cancellationToken) };
 
     var text = SchemaLockWriter.Write(schemaLock);
     var changed = !string.Equals(text, existingText, StringComparison.Ordinal);
@@ -85,7 +82,7 @@ public static class SeedMigrator {
     }
     return new() {
       Path = path,
-      PreviousVersion = previousVersion,
+      PreviousVersion = previous?.Version,
       Version = onDisk.Max(migration => migration.Version),
       Changed = changed,
       Layers = layers,
@@ -129,6 +126,36 @@ public static class SeedMigrator {
       layers.Add((layer.Layer.Name, rewritten));
     }
     return layers;
+  }
+
+  private static void ThrowIfAny(List<string> problems) {
+    if (problems.Count > 0) {
+      throw new SeedFormatException($"seeds:migrate did not write {LockFileName}:\n- {string.Join("\n- ", problems)}");
+    }
+  }
+
+  // What the lock says about the layer files once this run is done: only the tool's own, each as it is now (a moved
+  // layer as it was just written, any other as it is on disk), by name. Null when there are no layers at all. A layer
+  // somebody wrote, or edited since the tool wrote it, is left out, so it stays theirs.
+  private static async Task<List<LockedLayer>?> RecordLayersAsync(
+    MigrateOptions options,
+    List<MovedLayer> moved,
+    HashSet<string> generated,
+    CancellationToken cancellationToken
+  ) {
+    if (!HasLayers(options)) {
+      return null;
+    }
+    var recorded = new List<LockedLayer>(generated.Count);
+    foreach (var path in LayerLoader.Files(options.SeedsDirectory)) {
+      var name = Path.GetFileNameWithoutExtension(path);
+      if (!generated.Contains(name)) {
+        continue;
+      }
+      var text = moved.Find(layer => string.Equals(layer.Layer.Name, name, StringComparison.Ordinal))?.Yaml;
+      recorded.Add(new(name, text is null ? LayerChecksum.Of(await File.ReadAllBytesAsync(path, cancellationToken)) : LayerChecksum.OfText(text)));
+    }
+    return recorded;
   }
 
   private static bool HasLayers(MigrateOptions options)
