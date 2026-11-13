@@ -12,12 +12,10 @@ public sealed class LayerBaseRefusalTests : IDisposable {
   public void Dispose()
     => _repository.Dispose();
 
+  // Main has the note migration and has locked it: the base is the branch's own starting point.
   [Fact]
   public async Task MigrateAsync_AMigrationTheBaseHasLocked_ThatWasEdited_IsRefusedAndNothingIsWritten() {
-    _ = await _repository.MigrateWithLayersAtVersionOneAsync();
-    await _repository.WriteNoteMigrationAsync();
-    _ = await _repository.MigrateAsync();
-    var main = await _repository.SnapshotNowAsync();
+    var main = (await _repository.StartAtAsync(FooScenarios.VersionTwo)).AsSnapshot();
     var lockBefore = await _repository.ReadLockAsync();
     var baseBefore = await _repository.ReadLayerAsync("base");
     await _repository.WriteNoteMigrationAsync("y");
@@ -33,10 +31,7 @@ public sealed class LayerBaseRefusalTests : IDisposable {
 
   [Fact]
   public async Task MigrateAsync_AMigrationTheBaseHasThatTheBranchLacks_SaysHowToBringItIn() {
-    _ = await _repository.MigrateWithLayersAtVersionOneAsync();
-    await _repository.WriteNoteMigrationAsync();
-    _ = await _repository.MigrateAsync();
-    var main = await _repository.SnapshotNowAsync();
+    var main = (await _repository.StartAtAsync(FooScenarios.VersionTwo)).AsSnapshot();
     File.Delete(_repository.Migration(FooSchema.NoteFile));
     _repository.UseBase(main);
 
@@ -48,14 +43,13 @@ public sealed class LayerBaseRefusalTests : IDisposable {
 
   [Fact]
   public async Task MigrateAsync_ALayerTheBranchWroteThatTheNewSchemaBreaks_IsAHardErrorNamingIt() {
-    var main = await _repository.BranchWithAMigrationAsync();
+    _ = await _repository.BranchFromVersionOneAsync();
     await _repository.WriteLayerAsync("extra", FooSchema.ExtraLayer("x"));
     var lockBefore = await _repository.ReadLockAsync();
     // The column is renamed in the edit, so the branch's own layer names one that is no longer there.
     await _repository.WriteMigrationAsync(
       FooSchema.NoteFile,
       "ALTER TABLE foo.bar ADD COLUMN memo TEXT NOT NULL DEFAULT 'x';\n");
-    _repository.UseBase(main);
 
     var exception = await Assert.ThrowsAsync<SeedFormatException>(_repository.MigrateAsync);
 

@@ -3,7 +3,8 @@ using Xunit;
 
 namespace JoshOlson.Database.Migrate;
 
-// What a migration does to layers that move cleanly, seen from the files (see `FakeSeedRepository`).
+// What a migration does to layers that move cleanly, seen from the files (see `FakeSeedRepository`). Each test starts
+// with the layers at version 1 (`FooScenarios`) and is one run.
 public sealed class LayerMoverTests : IDisposable {
   private readonly FakeSeedRepository _repository;
 
@@ -13,20 +14,12 @@ public sealed class LayerMoverTests : IDisposable {
   public void Dispose()
     => _repository.Dispose();
 
+  // The run is the one that made `FooScenarios.VersionTwo`, so the test makes none of its own.
   [Fact]
-  public async Task MigrateAsync_NothingPending_LeavesTheLayersAlone() {
-    var result = await _repository.MigrateWithLayersAtVersionOneAsync();
+  public async Task MigrateAsync_ANotNullColumnWithADefault_IsNamedInEveryInsertAndTheLayersAreRecordedAsWritten() {
+    var moved = await _repository.StartAtAsync(FooScenarios.VersionTwo);
 
-    Assert.Empty(result.Layers);
-    Assert.Equal(1, SchemaLockParser.Parse(await _repository.ReadLockAsync()).Version);
-  }
-
-  [Fact]
-  public async Task MigrateAsync_ANotNullColumnWithADefault_IsNamedInEveryInsert() {
-    _ = await _repository.MigrateWithLayersAtVersionOneAsync();
-    await _repository.WriteNoteMigrationAsync();
-
-    var result = await _repository.MigrateAsync();
+    var result = moved.Result;
 
     Assert.Equal([("base", true), ("child", true)], result.Layers);
     Assert.Equal(2, result.Version);
@@ -55,11 +48,14 @@ public sealed class LayerMoverTests : IDisposable {
       """,
       await _repository.ReadLayerAsync("child"));
     Assert.Equal(2, SchemaLockParser.Parse(await _repository.ReadLockAsync()).Version);
+    Assert.Equal(
+      [await _repository.ChecksumOfAsync("base"), await _repository.ChecksumOfAsync("child")],
+      await _repository.RecordedLayersAsync());
   }
 
   [Fact]
   public async Task MigrateAsync_AMigrationThatChangesData_ChangesTheLayers() {
-    _ = await _repository.MigrateWithLayersAtVersionOneAsync();
+    _ = await _repository.StartAtAsync(FooScenarios.VersionOneWithLayers);
     await _repository.WriteMigrationAsync("V002__upper.sql", "UPDATE foo.bar SET name = upper(name);\n");
 
     _ = await _repository.MigrateAsync();
@@ -71,8 +67,8 @@ public sealed class LayerMoverTests : IDisposable {
   }
 
   [Fact]
-  public async Task MigrateAsync_AMigrationThatLeavesALayerAsItWas_DoesNotRewriteTheFile() {
-    _ = await _repository.MigrateWithLayersAtVersionOneAsync();
+  public async Task MigrateAsync_AMigrationThatLeavesALayerAsItWas_DoesNotRewriteTheFileAndLocksTheNewSchema() {
+    _ = await _repository.StartAtAsync(FooScenarios.VersionOneWithLayers);
     var before = await _repository.ReadLayerAsync("base");
     await _repository.WriteMigrationAsync(
       "V002__baz.sql",
@@ -83,5 +79,8 @@ public sealed class LayerMoverTests : IDisposable {
     Assert.Equal([("base", false), ("child", false)], result.Layers);
     Assert.Equal(before, await _repository.ReadLayerAsync("base"));
     Assert.Equal(2, result.Version);
+    // The new schema is read from a template built from the new migration: no dev database is involved.
+    var schemaLock = SchemaLockParser.Parse(await _repository.ReadLockAsync());
+    Assert.Contains(schemaLock.Tables, table => table.Name is "foo.baz");
   }
 }

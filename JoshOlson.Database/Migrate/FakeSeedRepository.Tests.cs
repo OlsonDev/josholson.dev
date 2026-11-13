@@ -100,22 +100,12 @@ internal sealed class FakeSeedRepository : IDisposable {
     await WriteLayerAsync("child", FooSchema.ChildLayer());
   }
 
-  // The lock is made first, which the layers are read against; then the layers are written and the run is repeated, which
-  // finds them and records them.
-  public async Task<MigrateResult> MigrateWithLayersAtVersionOneAsync() {
-    await WriteBarMigrationAsync();
-    _ = await MigrateAsync();
-    await WriteLayersAsync();
-    return await MigrateAsync();
-  }
-
-  // Main has the layers at version 1; the branch adds V002 and moves forward from the working tree (no base is needed for
-  // that). Returns main's snapshot, taken before the branch's migration.
-  public async Task<SeedSnapshot> BranchWithAMigrationAsync() {
-    _ = await MigrateWithLayersAtVersionOneAsync();
-    var main = await SnapshotNowAsync();
-    await WriteNoteMigrationAsync();
-    _ = await MigrateAsync();
+  // Main has the layers at version 1; the branch has added the note migration and moved forward from the working tree
+  // (`FooScenarios.VersionTwo`). Main is the base from here on, and its snapshot is returned.
+  public async Task<SeedSnapshot> BranchFromVersionOneAsync() {
+    var main = (await FooScenarios.VersionOneWithLayers.WaitAsync(_cancellationToken)).AsSnapshot();
+    _ = await StartAtAsync(FooScenarios.VersionTwo);
+    UseBase(main);
     return main;
   }
 

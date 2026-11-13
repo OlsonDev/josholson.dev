@@ -15,7 +15,7 @@ public sealed class LayerMoverFailureTests : IDisposable {
 
   [Fact]
   public async Task MigrateAsync_AMigrationThatFailsOnALayersRows_NamesTheLayerAndWritesNothing() {
-    _ = await _repository.MigrateWithLayersAtVersionOneAsync();
+    _ = await _repository.StartAtAsync(FooScenarios.VersionOneWithLayers);
     var lockBefore = await _repository.ReadLockAsync();
     var baseBefore = await _repository.ReadLayerAsync("base");
     await _repository.WriteMigrationAsync(
@@ -32,8 +32,7 @@ public sealed class LayerMoverFailureTests : IDisposable {
 
   [Fact]
   public async Task MigrateAsync_RowThatPointsAtReferenceDataTheOldSchemaCouldNotHave_IsMovedAndCheckedAtTheNewestVersion() {
-    await _repository.WriteKindMigrationAsync();
-    _ = await _repository.MigrateAsync();
+    _ = await _repository.StartAtAsync(FooScenarios.KindVersionOne);
     await _repository.WriteLayerAsync("base", FooSchema.KindLayer(1));
     await _repository.WriteKindNoteMigrationAsync();
 
@@ -45,8 +44,7 @@ public sealed class LayerMoverFailureTests : IDisposable {
 
   [Fact]
   public async Task MigrateAsync_RowThatPointsAtReferenceDataTheNewestVersionDoesNotHave_NamesTheLayerAndTheSkippedRepeatable() {
-    await _repository.WriteKindMigrationAsync();
-    _ = await _repository.MigrateAsync();
+    _ = await _repository.StartAtAsync(FooScenarios.KindVersionOne);
     await _repository.WriteLayerAsync("base", FooSchema.KindLayer(2));
     await _repository.WriteKindNoteMigrationAsync();
 
