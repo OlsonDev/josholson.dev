@@ -7,93 +7,51 @@ using Xunit;
 
 namespace JoshOlson.Database.Seeding;
 
-// Each test works in a database of its own (a clone of the real schema template), because `setval` is not rolled back.
-public sealed class SequencePositionerTests : IAsyncLifetime {
+public sealed class SequencePositionerTests {
   private readonly CancellationToken _cancellationToken = TestContext.Current.CancellationToken;
-  private ScratchDatabase _database = null!;
-  private NpgsqlConnection _connection = null!;
-  private SeedSchema _schema = null!;
-  private LayerTree _tree = null!;
+  private readonly SeedSchema _schema = SeedTestServer.Schema;
 
-  public async ValueTask InitializeAsync() {
-    _database = await ScratchDatabase.CreateAsync(_cancellationToken);
-    _connection = await _database.OpenAsync(_cancellationToken);
-    _schema = SeedTestServer.Schema;
-    _tree = new([
-      LayerParser.Parse(
-        "foo",
-        $$"""
-        description: Root
-        tables:
-          tag.tag:
-            insert:
-              - {{FixtureSeeds.TagRow(1, "Corge")}}
-              - {{FixtureSeeds.TagRow(2, "Grault")}}
-        """,
-        _schema),
-      LayerParser.Parse(
-        "bar",
-        $$"""
-        description: Child
-        extends: foo
-        tables:
-          tag.tag:
-            insert:
-              - {{FixtureSeeds.TagRow(1001, "Garply")}}
-              - {{FixtureSeeds.TagRow(1002, "Waldo")}}
-        """,
-        _schema),
-    ]);
-    await using var transaction = await _connection.BeginTransactionAsync(_cancellationToken);
-    _ = await SeedApplier.ApplyAsync(transaction, _tree, _schema, "bar", SampleLayers.Anchor, _cancellationToken);
-    await transaction.CommitAsync(_cancellationToken);
-  }
-
-  public async ValueTask DisposeAsync() {
-    await _connection.DisposeAsync();
-    await _database.DisposeAsync();
-  }
-
-  private async Task<int> NextTagIdAsync()
-    => await _connection.QuerySingleAsync<int>(
-      FixtureSeeds.InsertTagReturningId("Plugh"),
+  // Where a table's identity sequence is, read without spending a value: null until it has been moved or used.
+  private async Task<long?> LastValueAsync(NpgsqlConnection connection, string table, string column)
+    => await connection.QuerySingleAsync<long?>(
+      "SELECT pg_sequence_last_value(pg_get_serial_sequence(@table, @column)::regclass);",
+      new { table, column },
       _cancellationToken);
+
+  private async Task<long?> LastTagIdAsync(NpgsqlConnection connection)
+    => await LastValueAsync(connection, "tag.tag", "tag_id");
 
   // Every identity column in a table that is seed data, which is how many sequences `ChainAsync` moves.
   private int IdentityColumns()
     => _schema.InsertOrder().Where(table => !table.Table.Ignored).Sum(table => table.Table.Columns.Count(
       column => column.GeneratedAs is GeneratedAs.IdentityAlways or GeneratedAs.IdentityByDefault));
 
-  [Fact]
-  public async Task ChainAsync_LayerAtDepthOne_NextGeneratedIdStartsTheDepthTwoBlock() {
-    // Depth 2 is 2001 to 3000.
-    var moved = await SequencePositioner.ChainAsync(_connection, _tree, _schema, "bar", editing: false, _cancellationToken);
-
-    Assert.Equal(IdentityColumns(), moved);
-    Assert.Equal(2001, await NextTagIdAsync());
-  }
-
-  [Fact]
-  public async Task ChainAsync_Editing_NextGeneratedIdStartsTheLayersOwnBlock() {
-    // Depth 1 is 1001 to 2000.
-    _ = await SequencePositioner.ChainAsync(_connection, _tree, _schema, "bar", editing: true, _cancellationToken);
-
-    // The layer's own rows end at 1002, so a row made while editing it goes right after them, in its block.
-    Assert.Equal(1003, await NextTagIdAsync());
-  }
-
-  [Fact]
-  public async Task ChainAsync_ChainWithIdsPastTheBlock_FollowsTheLargestId() {
-    await _connection.ExecuteAsync(
-      FixtureSeeds.InsertTagWithId(2500, "Thud"),
+  private async Task<int> RootAsync(NpgsqlConnection connection)
+    => await SequencePositioner.RootAsync(
+      connection,
+      FixtureSeeds.Tree,
+      _schema,
+      FixtureSeeds.Child,
       _cancellationToken);
-    var tree = new LayerTree([
-      _tree.Get("foo"),
+
+  private async Task<int> ChainAsync(NpgsqlConnection connection, bool editing)
+    => await SequencePositioner.ChainAsync(
+      connection,
+      FixtureSeeds.Tree,
+      _schema,
+      FixtureSeeds.Child,
+      editing,
+      _cancellationToken);
+
+  // The fixture root and a child of it with a row far past the depth-1 block.
+  private LayerTree ChainPastItsBlock()
+    => new([
+      FixtureSeeds.Tree.Get(FixtureSeeds.Root),
       LayerParser.Parse(
-        "bar",
+        "foo",
         $$"""
         description: Child
-        extends: foo
+        extends: {{FixtureSeeds.Root}}
         tables:
           tag.tag:
             insert:
@@ -102,57 +60,56 @@ public sealed class SequencePositionerTests : IAsyncLifetime {
         _schema),
     ]);
 
-    _ = await SequencePositioner.ChainAsync(_connection, tree, _schema, "bar", editing: false, _cancellationToken);
-
-    Assert.Equal(2501, await NextTagIdAsync());
-  }
-
+  // One database (a clone of the real schema template) with the two fixture layers applied carries every step:
+  // `setval` is not rolled back, but a sequence only moves forward, so the steps go in the order that does. The root's
+  // rows end at 3 and the child's, in the depth-1 block (1001 to 2000), at 1002.
+  // 1. `RootAsync` follows the root alone, and leaves a table with no rows where it was.
+  // 2. `ChainAsync` while editing the child stays in the child's own block, right after its rows.
+  // 3. `ChainAsync` moves every sequence to the start of the depth-2 block, a table with no rows too, but not a table
+  //    that is `@seed ignore`.
+  // 4. `RootAsync` again finds the sequence past the root's IDs and leaves it.
+  // 5. A chain with an ID past its block is followed to that ID, and the next generated ID comes right after it.
   [Fact]
-  public async Task RootAsync_ExplicitIds_NextGeneratedIdFollowsTheRootAlone() {
-    var moved = await SequencePositioner.RootAsync(_connection, _tree, _schema, "bar", _cancellationToken);
+  public async Task RootAsyncAndChainAsync_OneDatabaseStepByStep_MoveEachSequenceOnlyForwardToWhereTheNextIdBelongs() {
+    await using var database = await ScratchDatabase.CreateAsync(_cancellationToken);
+    await using var connection = await database.OpenAsync(_cancellationToken);
+    await using (var transaction = await connection.BeginTransactionAsync(_cancellationToken)) {
+      _ = await SeedApplier.ApplyAsync(
+        transaction,
+        FixtureSeeds.Tree,
+        _schema,
+        FixtureSeeds.Child,
+        SampleLayers.Anchor,
+        _cancellationToken);
+      await transaction.CommitAsync(_cancellationToken);
+    }
 
-    Assert.Equal(1, moved);
-    Assert.Equal(3, await NextTagIdAsync());
-  }
+    Assert.Equal(1, await RootAsync(connection));
+    Assert.Equal(3, await LastTagIdAsync(connection));
+    Assert.Null(await LastValueAsync(connection, "tag.alias", "alias_id"));
 
-  [Fact]
-  public async Task ChainAsync_SequenceAlreadyPastTheIds_LeavesItWhereItIs() {
-    _ = await SequencePositioner.ChainAsync(_connection, _tree, _schema, "bar", editing: false, _cancellationToken);
+    _ = await ChainAsync(connection, editing: true);
+    Assert.Equal(1002, await LastTagIdAsync(connection));
 
-    var moved = await SequencePositioner.RootAsync(_connection, _tree, _schema, "bar", _cancellationToken);
-
-    Assert.Equal(0, moved);
-    Assert.Equal(2001, await NextTagIdAsync());
-  }
-
-  [Fact]
-  public async Task ChainAsync_TableWithNoRows_StartsItsSequenceAtTheNextBlockToo() {
-    _ = await SequencePositioner.ChainAsync(_connection, _tree, _schema, "bar", editing: false, _cancellationToken);
-
-    var last = await _connection.QuerySingleAsync<long?>(
-      "SELECT pg_sequence_last_value(pg_get_serial_sequence('tag.alias', 'alias_id')::regclass);",
-      _cancellationToken);
-    Assert.Equal(2000, last);
-  }
-
-  [Fact]
-  public async Task ChainAsync_IgnoredTable_KeepsItsSequenceWhereItWas() {
-    _ = await SequencePositioner.ChainAsync(_connection, _tree, _schema, "bar", editing: false, _cancellationToken);
-
-    var untouched = await _connection.QuerySingleAsync<long?>(
-      "SELECT pg_sequence_last_value(pg_get_serial_sequence('auth.session', 'session_id')::regclass);",
-      _cancellationToken);
+    Assert.Equal(IdentityColumns(), await ChainAsync(connection, editing: false));
+    Assert.Equal(2000, await LastTagIdAsync(connection));
+    Assert.Equal(2000, await LastValueAsync(connection, "tag.alias", "alias_id"));
     Assert.True(_schema.Find("auth.session")!.Table.Ignored);
-    Assert.Null(untouched);
-  }
+    Assert.Null(await LastValueAsync(connection, "auth.session", "session_id"));
 
-  [Fact]
-  public async Task RootAsync_TableWithNoRows_LeavesItsSequenceAlone() {
-    _ = await SequencePositioner.RootAsync(_connection, _tree, _schema, "bar", _cancellationToken);
+    Assert.Equal(0, await RootAsync(connection));
+    Assert.Equal(2000, await LastTagIdAsync(connection));
 
-    var untouched = await _connection.QuerySingleAsync<long?>(
-      "SELECT pg_sequence_last_value(pg_get_serial_sequence('tag.alias', 'alias_id')::regclass);",
+    await connection.ExecuteAsync(FixtureSeeds.InsertTagWithId(2500, "Thud"), _cancellationToken);
+    _ = await SequencePositioner.ChainAsync(
+      connection,
+      ChainPastItsBlock(),
+      _schema,
+      "foo",
+      editing: false,
       _cancellationToken);
-    Assert.Null(untouched);
+    Assert.Equal(2500, await LastTagIdAsync(connection));
+    var next = await connection.QuerySingleAsync<int>(FixtureSeeds.InsertTagReturningId("Plugh"), _cancellationToken);
+    Assert.Equal(2501, next);
   }
 }
