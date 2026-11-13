@@ -1,6 +1,5 @@
 using JoshOlson.Database.Layers;
 using JoshOlson.Shared.Data;
-using NodaTime;
 using Npgsql;
 using Xunit;
 
@@ -9,16 +8,14 @@ namespace JoshOlson.Database.Baking;
 // Each test builds a database of its own from the real layers, changes it the way the app would, and exports it.
 public sealed class SeedToolExportTests : IAsyncLifetime {
   private readonly CancellationToken _cancellationToken = TestContext.Current.CancellationToken;
-  private readonly ServerDatabases _databases = new();
+  private readonly ServerDatabases _databases = SeedTestServer.Databases;
   private readonly List<string> _created = [];
   private NpgsqlConnection _owner = null!;
   private SeedTool _tool = null!;
 
   public async ValueTask InitializeAsync() {
-    var paths = SeedPaths.ForRepository();
-    _tool = await SeedTool.OpenAsync(paths, _databases, new ComposeTools(paths.Root), SystemClock.Instance, _cancellationToken);
-    _owner = new(DatabaseEnvironment.OwnerConnectionString("postgres"));
-    await _owner.OpenAsync(_cancellationToken);
+    _tool = await SeedTestServer.RealTool;
+    _owner = await SeedTestServer.OpenMaintenanceAsync(_cancellationToken);
   }
 
   public async ValueTask DisposeAsync() {
@@ -35,8 +32,7 @@ public sealed class SeedToolExportTests : IAsyncLifetime {
   }
 
   private async Task RunAsync(string database, string sql) {
-    await using var connection = new NpgsqlConnection(DatabaseEnvironment.OwnerConnectionString(database));
-    await connection.OpenAsync(_cancellationToken);
+    await using var connection = await DatabaseEnvironment.OpenOwnerAsync(database, _cancellationToken);
     await connection.ExecuteAsync(sql, _cancellationToken);
   }
 
@@ -57,13 +53,13 @@ public sealed class SeedToolExportTests : IAsyncLifetime {
     var export = await ExportAsync(database);
 
     Assert.Equal(
-      """
+      $$"""
       description: Foo bar
       extends: minimal
       tables:
         tag.tag:
           insert:
-            - { tag_id: 1001, name: Zed, slug: zed, description: ~, color: ~ }
+            - {{FixtureSeeds.TagRow(1001, "Zed")}}
           update:
             - { tag_id: 1, name: Databases }
           delete:
@@ -106,13 +102,13 @@ public sealed class SeedToolExportTests : IAsyncLifetime {
     var export = await ExportAsync(scratch.Name, name: "root-layer", description: "Root export");
 
     Assert.Equal(
-      """
+      $$"""
       description: Root export
       tables:
         tag.tag:
           insert:
-            - { tag_id: 1, name: Foo, slug: foo, description: ~, color: ~ }
-            - { tag_id: 2, name: Bar, slug: bar, description: ~, color: ~ }
+            - {{FixtureSeeds.TagRow(1, "Foo")}}
+            - {{FixtureSeeds.TagRow(2, "Bar")}}
 
       """,
       export.Yaml);
@@ -128,7 +124,7 @@ public sealed class SeedToolExportTests : IAsyncLifetime {
 
     Assert.Equal(SeedLayers.MoreTags, export.Layer.Extends);
     Assert.Contains("{ tag_id: 1001, color: ~ }", export.Yaml, StringComparison.Ordinal);
-    Assert.Contains("{ tag_id: 2001, name: Zed, slug: zed, description: ~, color: red-200 }", export.Yaml, StringComparison.Ordinal);
+    Assert.Contains(FixtureSeeds.TagRow(2001, "Zed", "red-200"), export.Yaml, StringComparison.Ordinal);
   }
 
   [Fact]
@@ -143,7 +139,7 @@ public sealed class SeedToolExportTests : IAsyncLifetime {
   [Fact]
   public async Task ExportAsync_InsertOutsideTheBlockOfItsDepth_NamesTheLayerTableAndId() {
     var database = await DatabaseFromAsync(SeedLayers.Minimal);
-    await RunAsync(database, "INSERT INTO tag.tag (tag_id, name, slug) OVERRIDING SYSTEM VALUE VALUES (5000, 'Zed', 'zed');");
+    await RunAsync(database, FixtureSeeds.InsertTagWithId(5000, "Zed"));
 
     var exception = await Assert.ThrowsAsync<SeedFormatException>(() => ExportAsync(database));
 
@@ -153,7 +149,7 @@ public sealed class SeedToolExportTests : IAsyncLifetime {
   [Fact]
   public async Task ExportAsync_NameOfALayerThatExists_NeedsOverwrite() {
     var database = await DatabaseFromAsync(SeedLayers.Minimal);
-    await RunAsync(database, "INSERT INTO tag.tag (name, slug) VALUES ('Zed', 'zed');");
+    await RunAsync(database, FixtureSeeds.InsertTag("Zed"));
 
     var exception = await Assert.ThrowsAsync<SeedFormatException>(() => ExportAsync(database, name: SeedLayers.MoreTags));
 
@@ -163,7 +159,7 @@ public sealed class SeedToolExportTests : IAsyncLifetime {
   [Fact]
   public async Task ExportAsync_OverwritingTheLayerItExtends_IsACycle() {
     var database = await DatabaseFromAsync(SeedLayers.Minimal);
-    await RunAsync(database, "INSERT INTO tag.tag (name, slug) VALUES ('Zed', 'zed');");
+    await RunAsync(database, FixtureSeeds.InsertTag("Zed"));
 
     var exception = await Assert.ThrowsAsync<SeedFormatException>(
       () => ExportAsync(database, name: SeedLayers.Minimal, overwrite: true));
@@ -194,12 +190,12 @@ public sealed class SeedToolExportTests : IAsyncLifetime {
   [Fact]
   public async Task ExportAsync_DatabaseWithNoHydrationRow_IsARootWithTimesMeasuredFromNow() {
     await using var scratch = await ScratchDatabase.CreateAsync(_cancellationToken);
-    await RunAsync(scratch.Name, "INSERT INTO tag.tag (tag_id, name, slug) OVERRIDING SYSTEM VALUE VALUES (1, 'Foo', 'foo');");
+    await RunAsync(scratch.Name, FixtureSeeds.InsertTagWithId(1, "Foo"));
 
     var export = await ExportAsync(scratch.Name);
 
     Assert.Null(export.Layer.Extends);
-    Assert.Contains("{ tag_id: 1, name: Foo, slug: foo, description: ~, color: ~ }", export.Yaml, StringComparison.Ordinal);
+    Assert.Contains(FixtureSeeds.TagRow(1, "Foo"), export.Yaml, StringComparison.Ordinal);
   }
 
   private async Task<string> EditingDatabaseFromAsync(string layer) {
@@ -211,7 +207,7 @@ public sealed class SeedToolExportTests : IAsyncLifetime {
   [Fact]
   public async Task ExportAsync_BuiltForEditingAndNoName_ReplacesTheLayerKeepingItsDescription() {
     var database = await EditingDatabaseFromAsync(SeedLayers.MoreTags);
-    await RunAsync(database, "INSERT INTO tag.tag (tag_id, name, slug) OVERRIDING SYSTEM VALUE VALUES (1020, 'Zed', 'zed');");
+    await RunAsync(database, FixtureSeeds.InsertTagWithId(1020, "Zed"));
 
     var export = await ExportAsync(database, name: null, description: null);
 
@@ -219,14 +215,14 @@ public sealed class SeedToolExportTests : IAsyncLifetime {
     Assert.Equal(SeedLayers.Minimal, export.Layer.Extends);
     Assert.Equal(_tool.Tree.Get(SeedLayers.MoreTags).Description, export.Layer.Description);
     Assert.True(export.Replaces);
-    Assert.Contains("{ tag_id: 1020, name: Zed, slug: zed, description: ~, color: ~ }", export.Yaml, StringComparison.Ordinal);
+    Assert.Contains(FixtureSeeds.TagRow(1020, "Zed"), export.Yaml, StringComparison.Ordinal);
     Assert.Contains("{ tag_id: 1001,", export.Yaml, StringComparison.Ordinal);
   }
 
   [Fact]
   public async Task ExportAsync_BuiltForEditingAndAnotherName_IsASiblingOfTheLayer() {
     var database = await EditingDatabaseFromAsync(SeedLayers.MoreTags);
-    await RunAsync(database, "INSERT INTO tag.tag (tag_id, name, slug) OVERRIDING SYSTEM VALUE VALUES (1020, 'Zed', 'zed');");
+    await RunAsync(database, FixtureSeeds.InsertTagWithId(1020, "Zed"));
 
     var export = await ExportAsync(database);
 
@@ -238,7 +234,7 @@ public sealed class SeedToolExportTests : IAsyncLifetime {
   [Fact]
   public async Task ExportAsync_BuiltForEditingAndAnotherName_NeedsADescription() {
     var database = await EditingDatabaseFromAsync(SeedLayers.MoreTags);
-    await RunAsync(database, "INSERT INTO tag.tag (tag_id, name, slug) OVERRIDING SYSTEM VALUE VALUES (1020, 'Zed', 'zed');");
+    await RunAsync(database, FixtureSeeds.InsertTagWithId(1020, "Zed"));
 
     var exception = await Assert.ThrowsAsync<SeedFormatException>(() => ExportAsync(database, description: null));
 
@@ -248,7 +244,7 @@ public sealed class SeedToolExportTests : IAsyncLifetime {
   [Fact]
   public async Task ExportAsync_NotBuiltForEditingAndNoName_AsksForOne() {
     var database = await DatabaseFromAsync(SeedLayers.Minimal);
-    await RunAsync(database, "INSERT INTO tag.tag (name, slug) VALUES ('Zed', 'zed');");
+    await RunAsync(database, FixtureSeeds.InsertTag("Zed"));
 
     var exception = await Assert.ThrowsAsync<SeedFormatException>(() => ExportAsync(database, name: null));
 
@@ -291,13 +287,12 @@ public sealed class SeedToolExportTests : IAsyncLifetime {
   [Fact]
   public async Task RecordExportAsync_MakesTheDatabaseTheLayerItExported() {
     var database = await DatabaseFromAsync(SeedLayers.Minimal);
-    await RunAsync(database, "INSERT INTO tag.tag (name, slug) VALUES ('Zed', 'zed');");
+    await RunAsync(database, FixtureSeeds.InsertTag("Zed"));
     var export = await ExportAsync(database);
 
     await _tool.RecordExportAsync(database, export, _cancellationToken);
 
-    await using var connection = new NpgsqlConnection(DatabaseEnvironment.OwnerConnectionString(database));
-    await connection.OpenAsync(_cancellationToken);
+    await using var connection = await DatabaseEnvironment.OpenOwnerAsync(database, _cancellationToken);
     var layer = await connection.QuerySingleAsync<string>("SELECT layer FROM seed.hydration;", _cancellationToken);
     var editing = await connection.QuerySingleAsync<bool>("SELECT editing FROM seed.hydration;", _cancellationToken);
     Assert.Equal("foo-bar", layer);
@@ -307,13 +302,12 @@ public sealed class SeedToolExportTests : IAsyncLifetime {
   [Fact]
   public async Task RecordExportAsync_DatabaseWithNoRecord_GetsOneWithTheAnchorTheTimesWereMeasuredFrom() {
     await using var scratch = await ScratchDatabase.CreateAsync(_cancellationToken);
-    await RunAsync(scratch.Name, "INSERT INTO tag.tag (tag_id, name, slug) OVERRIDING SYSTEM VALUE VALUES (1, 'Foo', 'foo');");
+    await RunAsync(scratch.Name, FixtureSeeds.InsertTagWithId(1, "Foo"));
     var export = await ExportAsync(scratch.Name);
 
     await _tool.RecordExportAsync(scratch.Name, export, _cancellationToken);
 
-    await using var connection = new NpgsqlConnection(DatabaseEnvironment.OwnerConnectionString(scratch.Name));
-    await connection.OpenAsync(_cancellationToken);
+    await using var connection = await DatabaseEnvironment.OpenOwnerAsync(scratch.Name, _cancellationToken);
     var anchor = await connection.QuerySingleAsync<DateTime>("SELECT anchor_utc FROM seed.hydration;", _cancellationToken);
     Assert.Equal(export.Anchor.ToDateTimeUtc(), anchor);
   }

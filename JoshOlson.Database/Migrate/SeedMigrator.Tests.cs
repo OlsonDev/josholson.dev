@@ -1,62 +1,39 @@
-using JoshOlson.Database.Baking;
 using JoshOlson.Database.Layers;
 using JoshOlson.Database.Locks;
-using JoshOlson.Shared.IO;
-using NodaTime;
-using Npgsql;
 using Xunit;
 
 namespace JoshOlson.Database.Migrate;
 
 // Reads the schema from the template for a copy of the repository's migrations, which is the real template while the
-// files are the same and one built for the test when they are not (and dropped when it ends). Each test copies the real
-// migrations into a directory of its own, so the real lock is never touched.
+// files are the same and one built for the test when they are not (and dropped when it ends). Each test works in a
+// `SeedWorkspace` with the real migrations and no lock or layers, so the real lock is never touched.
 public sealed class SeedMigratorTests : IAsyncLifetime {
   private readonly CancellationToken _cancellationToken = TestContext.Current.CancellationToken;
-  private readonly string _directory = TempDirectory.Create("seed-migrator");
-  private readonly ServerDatabases _databases = new();
+  private readonly SeedWorkspace _workspace = SeedWorkspace.CopyOfRepository("seed-migrator", withLock: false, withLayers: false);
   private readonly MigrateOptions _options;
-  private readonly SchemaTemplate _template;
-  private readonly string _realTemplate;
 
-  public SeedMigratorTests() {
-    var migrations = Path.Combine(_directory, "migrations");
-    _ = Directory.CreateDirectory(migrations);
-    foreach (var file in Directory.EnumerateFiles(SeedPaths.ForRepository().Migrations, "*.sql")) {
-      File.Copy(file, Path.Combine(migrations, Path.GetFileName(file)));
-    }
-    var paths = SeedPaths.ForRepository();
-    _template = new(SchemaTemplateOptions.ForRepository(paths) with { MigrationsDirectory = migrations }, new(paths.Root), _databases);
-    _options = new() {
-      MigrationsDirectory = migrations,
-      SeedsDirectory = Path.Combine(_directory, "seeds"),
-      Template = _template,
-      Databases = _databases,
-      Clock = SystemClock.Instance,
-    };
-    _realTemplate = new SchemaTemplate(SchemaTemplateOptions.ForRepository(paths), new(paths.Root), _databases).NameAsync(_cancellationToken).GetAwaiter().GetResult();
-  }
+  public SeedMigratorTests()
+    => _options = _workspace.MigrateOptions;
 
   public ValueTask InitializeAsync()
     => ValueTask.CompletedTask;
 
   // A test that changed a migration made a template of its own, which goes, so only the real one is left.
   public async ValueTask DisposeAsync() {
-    await using var owner = new NpgsqlConnection(DatabaseEnvironment.OwnerConnectionString("postgres"));
-    await owner.OpenAsync(CancellationToken.None);
-    var name = await _template.NameAsync(CancellationToken.None);
-    if (!string.Equals(name, _realTemplate, StringComparison.Ordinal)) {
-      await _databases.DropAsync(owner, name, CancellationToken.None);
+    await using var owner = await SeedTestServer.OpenMaintenanceAsync(CancellationToken.None);
+    var name = await _workspace.Template.NameAsync(CancellationToken.None);
+    var real = await SeedTestServer.RealTemplate.NameAsync(CancellationToken.None);
+    if (!string.Equals(name, real, StringComparison.Ordinal)) {
+      await SeedTestServer.Databases.DropAsync(owner, name, CancellationToken.None);
     }
-    Directory.Delete(_directory, recursive: true);
+    _workspace.Dispose();
   }
 
   private async Task<MigrateResult> MigrateAsync(
     bool relock = false,
     Func<SeedSchema, CancellationToken, Task<List<string>>>? check = null
   ) {
-    await using var owner = new NpgsqlConnection(DatabaseEnvironment.OwnerConnectionString("postgres"));
-    await owner.OpenAsync(_cancellationToken);
+    await using var owner = await SeedTestServer.OpenMaintenanceAsync(_cancellationToken);
     return await SeedMigrator.MigrateAsync(
       owner,
       _options with { Relock = relock, LayerCheck = check },
@@ -137,8 +114,8 @@ public sealed class SeedMigratorTests : IAsyncLifetime {
 
   [Fact]
   public async Task MigrateAsync_NewMigration_IsReadFromATemplateBuiltFromItAndNoDevelopmentDatabaseIsInvolved() {
-    await File.WriteAllTextAsync(
-      Path.Combine(_options.MigrationsDirectory, "V999__probe.sql"),
+    await _workspace.WriteMigrationAsync(
+      "V999__probe.sql",
       "CREATE SCHEMA zz_probe;\nCREATE TABLE zz_probe.foo (bar INT NOT NULL);\n",
       _cancellationToken);
 
@@ -150,7 +127,6 @@ public sealed class SeedMigratorTests : IAsyncLifetime {
   }
 
   private async Task WriteLayerAsync() {
-    _ = Directory.CreateDirectory(_options.SeedsDirectory);
     const string Layer = """
       description: A layer
       tables:
@@ -158,7 +134,7 @@ public sealed class SeedMigratorTests : IAsyncLifetime {
           upsert:
             - { bar_id: 1 }
       """;
-    await File.WriteAllTextAsync(Path.Combine(_options.SeedsDirectory, "foo.yaml"), Layer, _cancellationToken);
+    await _workspace.WriteLayerAsync("foo", Layer, _cancellationToken);
   }
 
   [Fact]
@@ -168,7 +144,7 @@ public sealed class SeedMigratorTests : IAsyncLifetime {
     var exception = await Assert.ThrowsAsync<SeedFormatException>(() => MigrateAsync());
 
     Assert.Contains("1 layer(s)", exception.Message, StringComparison.Ordinal);
-    Assert.False(File.Exists(SeedPaths.LockFileIn(_options.MigrationsDirectory)));
+    Assert.False(File.Exists(_workspace.LockFile));
   }
 
   [Fact]
@@ -179,7 +155,7 @@ public sealed class SeedMigratorTests : IAsyncLifetime {
       () => MigrateAsync(check: (_, _) => Task.FromResult<List<string>>(["foo: tag.tag has no column bar"])));
 
     Assert.Contains("foo: tag.tag has no column bar", exception.Message, StringComparison.Ordinal);
-    Assert.False(File.Exists(SeedPaths.LockFileIn(_options.MigrationsDirectory)));
+    Assert.False(File.Exists(_workspace.LockFile));
   }
 
   [Fact]

@@ -18,7 +18,7 @@ public sealed class LayerMoverTests : IDisposable {
     var result = await _repository.MigrateWithLayersAtVersionOneAsync();
 
     Assert.Empty(result.Layers);
-    Assert.Equal(1, SchemaLockParser.Parse(await _repository.ReadAsync(_repository.LockFile)).Version);
+    Assert.Equal(1, SchemaLockParser.Parse(await _repository.ReadLockAsync()).Version);
   }
 
   [Fact]
@@ -40,7 +40,7 @@ public sealed class LayerMoverTests : IDisposable {
             - { bar_id: 2, name: Two, note: x }
 
       """,
-      await _repository.ReadAsync(_repository.Layer("base")));
+      await _repository.ReadLayerAsync("base"));
     Assert.Equal(
       """
       description: Child
@@ -53,19 +53,19 @@ public sealed class LayerMoverTests : IDisposable {
             - { bar_id: 1, name: Uno }
 
       """,
-      await _repository.ReadAsync(_repository.Layer("child")));
-    Assert.Equal(2, SchemaLockParser.Parse(await _repository.ReadAsync(_repository.LockFile)).Version);
+      await _repository.ReadLayerAsync("child"));
+    Assert.Equal(2, SchemaLockParser.Parse(await _repository.ReadLockAsync()).Version);
   }
 
   [Fact]
   public async Task MigrateAsync_AMigrationThatChangesData_ChangesTheLayers() {
     _ = await _repository.MigrateWithLayersAtVersionOneAsync();
-    await _repository.WriteAsync(_repository.Migration("V002__upper.sql"), "UPDATE foo.bar SET name = upper(name);\n");
+    await _repository.WriteMigrationAsync("V002__upper.sql", "UPDATE foo.bar SET name = upper(name);\n");
 
     _ = await _repository.MigrateAsync();
 
-    Assert.Contains("{ bar_id: 1, name: ONE }", await _repository.ReadAsync(_repository.Layer("base")), StringComparison.Ordinal);
-    var child = await _repository.ReadAsync(_repository.Layer("child"));
+    Assert.Contains("{ bar_id: 1, name: ONE }", await _repository.ReadLayerAsync("base"), StringComparison.Ordinal);
+    var child = await _repository.ReadLayerAsync("child");
     Assert.Contains("{ bar_id: 1001, name: THREE }", child, StringComparison.Ordinal);
     Assert.Contains("{ bar_id: 1, name: UNO }", child, StringComparison.Ordinal);
   }
@@ -73,15 +73,15 @@ public sealed class LayerMoverTests : IDisposable {
   [Fact]
   public async Task MigrateAsync_AMigrationThatLeavesALayerAsItWas_DoesNotRewriteTheFile() {
     _ = await _repository.MigrateWithLayersAtVersionOneAsync();
-    var before = await _repository.ReadAsync(_repository.Layer("base"));
-    await _repository.WriteAsync(
-      _repository.Migration("V002__baz.sql"),
+    var before = await _repository.ReadLayerAsync("base");
+    await _repository.WriteMigrationAsync(
+      "V002__baz.sql",
       "CREATE TABLE foo.baz (baz_id INT NOT NULL, CONSTRAINT pk_baz PRIMARY KEY (baz_id));\n");
 
     var result = await _repository.MigrateAsync();
 
     Assert.Equal([("base", false), ("child", false)], result.Layers);
-    Assert.Equal(before, await _repository.ReadAsync(_repository.Layer("base")));
+    Assert.Equal(before, await _repository.ReadLayerAsync("base"));
     Assert.Equal(2, result.Version);
   }
 }

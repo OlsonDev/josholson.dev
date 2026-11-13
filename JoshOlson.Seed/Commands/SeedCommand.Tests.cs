@@ -3,8 +3,6 @@ using JoshOlson.Database.Baking;
 using JoshOlson.Database.Layers;
 using JoshOlson.Shared.Data;
 using Microsoft.Extensions.DependencyInjection;
-using NodaTime;
-using Npgsql;
 using Xunit;
 
 namespace JoshOlson.Seed.Commands;
@@ -13,22 +11,18 @@ namespace JoshOlson.Seed.Commands;
 public sealed class SeedCommandTests : IAsyncLifetime {
   private readonly CancellationToken _cancellationToken = TestContext.Current.CancellationToken;
   private readonly string _development = $"seed_seedcmd_{Guid.NewGuid():N}";
-  private readonly ServerDatabases _databases = new();
+  private readonly ServerDatabases _databases = SeedTestServer.Databases;
 
   public ValueTask InitializeAsync()
     => ValueTask.CompletedTask;
 
   public async ValueTask DisposeAsync() {
-    await using var owner = new NpgsqlConnection(DatabaseEnvironment.OwnerConnectionString("postgres"));
-    await owner.OpenAsync(CancellationToken.None);
+    await using var owner = await SeedTestServer.OpenMaintenanceAsync(CancellationToken.None);
     await _databases.DropAsync(owner, _development, CancellationToken.None);
   }
 
   private Action<IServiceCollection> Configure()
-    => services => {
-      var paths = SeedPaths.ForRepository();
-      _ = services.AddSingleton(new SeedToolFactory(paths, _databases, new(paths.Root), SystemClock.Instance, _development));
-    };
+    => services => services.AddSingleton(SeedAppRunner.FactoryFor(SeedTestServer.Paths, _development));
 
   [Fact]
   public async Task Execute_Layer_RebuildsTheDevelopmentDatabaseFromIt() {
@@ -36,8 +30,7 @@ public sealed class SeedCommandTests : IAsyncLifetime {
 
     Assert.True(exitCode is 0, output);
     Assert.Contains($"Rebuilt {_development} from {SeedLayers.Minimal}: 3 row(s).", output, StringComparison.Ordinal);
-    await using var rebuilt = new NpgsqlConnection(DatabaseEnvironment.OwnerConnectionString(_development));
-    await rebuilt.OpenAsync(_cancellationToken);
+    await using var rebuilt = await DatabaseEnvironment.OpenOwnerAsync(_development, _cancellationToken);
     Assert.Equal(3, await rebuilt.QuerySingleAsync<long>("SELECT count(*) FROM tag.tag;", _cancellationToken));
   }
 

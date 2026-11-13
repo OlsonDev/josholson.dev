@@ -17,20 +17,7 @@ public sealed class LayerBaseOwnershipTests : IDisposable {
   public async Task MigrateAsync_ALayerThatIsExactlyTheBasesCopy_IsTheToolsOwnAgainAndRecorded() {
     _ = await _repository.MigrateWithLayersAtVersionOneAsync();
     // The author edits `child` (the lock no longer vouches for it), and the edit is later merged into the base.
-    await _repository.WriteAsync(
-      _repository.Layer("child"),
-      """
-      description: Child
-      extends: base
-      tables:
-        foo.bar:
-          insert:
-            - { bar_id: 1001, name: Three }
-            - { bar_id: 1002, name: Four }
-          update:
-            - { bar_id: 1, name: Uno }
-
-      """);
+    await _repository.WriteLayerAsync("child", FooSchema.ChildLayer(extraInserts: FooSchema.Insert(1002, "Four")));
     var main = await _repository.SnapshotNowAsync();
     _repository.UseBase(main);
 
@@ -66,7 +53,7 @@ public sealed class LayerBaseOwnershipTests : IDisposable {
     _ = await _repository.MigrateWithLayersAtVersionOneAsync();
     await _repository.WriteNoteMigrationAsync();
     _ = await _repository.MigrateAsync();
-    await _repository.WriteAsync(_repository.Migration("V002__note.sql"), FakeSeedRepository.NoteDefaultingToY);
+    await _repository.WriteNoteMigrationAsync("y");
     _repository.UseBase(snapshot: null, warnings: ["There is no origin/main, so there is no base to derive the seeds from."]);
 
     var exception = await Assert.ThrowsAsync<SeedFormatException>(_repository.MigrateAsync);

@@ -2,7 +2,6 @@ using JoshOlson.Database.Baking;
 using JoshOlson.Database.Layers;
 using JoshOlson.Database.Schema;
 using JoshOlson.Shared.Data;
-using NodaTime;
 using Npgsql;
 using Xunit;
 
@@ -10,7 +9,6 @@ namespace JoshOlson.Database.Seeding;
 
 // Each test works in a database of its own (a clone of the real schema template), because `setval` is not rolled back.
 public sealed class SequencePositionerTests : IAsyncLifetime {
-  private static readonly Instant _Anchor = Instant.FromUtc(2026, 1, 1, 12, 0);
   private readonly CancellationToken _cancellationToken = TestContext.Current.CancellationToken;
   private ScratchDatabase _database = null!;
   private NpgsqlConnection _connection = null!;
@@ -20,34 +18,34 @@ public sealed class SequencePositionerTests : IAsyncLifetime {
   public async ValueTask InitializeAsync() {
     _database = await ScratchDatabase.CreateAsync(_cancellationToken);
     _connection = await _database.OpenAsync(_cancellationToken);
-    _schema = await ScratchDatabase.LoadSchemaAsync(_cancellationToken);
+    _schema = SeedTestServer.Schema;
     _tree = new([
       LayerParser.Parse(
         "foo",
-        """
+        $$"""
         description: Root
         tables:
           tag.tag:
             insert:
-              - { tag_id: 1, name: Corge, slug: corge, description: ~, color: ~ }
-              - { tag_id: 2, name: Grault, slug: grault, description: ~, color: ~ }
+              - {{FixtureSeeds.TagRow(1, "Corge")}}
+              - {{FixtureSeeds.TagRow(2, "Grault")}}
         """,
         _schema),
       LayerParser.Parse(
         "bar",
-        """
+        $$"""
         description: Child
         extends: foo
         tables:
           tag.tag:
             insert:
-              - { tag_id: 1001, name: Garply, slug: garply, description: ~, color: ~ }
-              - { tag_id: 1002, name: Waldo, slug: waldo, description: ~, color: ~ }
+              - {{FixtureSeeds.TagRow(1001, "Garply")}}
+              - {{FixtureSeeds.TagRow(1002, "Waldo")}}
         """,
         _schema),
     ]);
     await using var transaction = await _connection.BeginTransactionAsync(_cancellationToken);
-    _ = await SeedApplier.ApplyAsync(transaction, _tree, _schema, "bar", _Anchor, _cancellationToken);
+    _ = await SeedApplier.ApplyAsync(transaction, _tree, _schema, "bar", SampleLayers.Anchor, _cancellationToken);
     await transaction.CommitAsync(_cancellationToken);
   }
 
@@ -58,7 +56,7 @@ public sealed class SequencePositionerTests : IAsyncLifetime {
 
   private async Task<int> NextTagIdAsync()
     => await _connection.QuerySingleAsync<int>(
-      "INSERT INTO tag.tag (name, slug) VALUES ('Plugh', 'plugh') RETURNING tag_id;",
+      FixtureSeeds.InsertTagReturningId("Plugh"),
       _cancellationToken);
 
   // Every identity column in a table that is seed data, which is how many sequences `ChainAsync` moves.
@@ -87,19 +85,19 @@ public sealed class SequencePositionerTests : IAsyncLifetime {
   [Fact]
   public async Task ChainAsync_ChainWithIdsPastTheBlock_FollowsTheLargestId() {
     await _connection.ExecuteAsync(
-      "INSERT INTO tag.tag (tag_id, name, slug) OVERRIDING SYSTEM VALUE VALUES (2500, 'Thud', 'thud');",
+      FixtureSeeds.InsertTagWithId(2500, "Thud"),
       _cancellationToken);
     var tree = new LayerTree([
       _tree.Get("foo"),
       LayerParser.Parse(
         "bar",
-        """
+        $$"""
         description: Child
         extends: foo
         tables:
           tag.tag:
             insert:
-              - { tag_id: 2500, name: Thud, slug: thud, description: ~, color: ~ }
+              - {{FixtureSeeds.TagRow(2500, "Thud")}}
         """,
         _schema),
     ]);

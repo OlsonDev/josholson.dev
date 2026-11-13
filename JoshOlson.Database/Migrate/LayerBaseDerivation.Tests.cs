@@ -18,16 +18,16 @@ public sealed class LayerBaseDerivationTests : IDisposable {
   [Fact]
   public async Task MigrateAsync_AnUnmergedMigrationEditedAgain_RegeneratesTheLayersFromTheBase() {
     var main = await _repository.BranchWithAMigrationAsync();
-    await _repository.WriteAsync(_repository.Migration("V002__note.sql"), FakeSeedRepository.NoteDefaultingToY);
+    await _repository.WriteNoteMigrationAsync("y");
     _repository.UseBase(main);
 
     var result = await _repository.MigrateAsync();
 
     Assert.Equal(main.Description, result.Base);
     Assert.Equal([("base", true), ("child", true)], result.Layers);
-    Assert.Contains("note: y", await _repository.ReadAsync(_repository.Layer("base")), StringComparison.Ordinal);
+    Assert.Contains("note: y", await _repository.ReadLayerAsync("base"), StringComparison.Ordinal);
     var onDisk = await MigrationFiles.LoadAsync(_repository.Options.MigrationsDirectory, TestContext.Current.CancellationToken);
-    Assert.True(SchemaLockParser.Parse(await _repository.ReadAsync(_repository.LockFile)).Check(onDisk).IsConsistent);
+    Assert.True(SchemaLockParser.Parse(await _repository.ReadLockAsync()).Check(onDisk).IsConsistent);
     Assert.Equal(
       [await _repository.ChecksumOfAsync("base"), await _repository.ChecksumOfAsync("child")],
       await _repository.RecordedLayersAsync());
@@ -36,16 +36,16 @@ public sealed class LayerBaseDerivationTests : IDisposable {
   [Fact]
   public async Task MigrateAsync_ALayerTheBranchWrote_IsKeptAsItIsAndNotRecorded() {
     var main = await _repository.BranchWithAMigrationAsync();
-    await _repository.WriteAuthoredLayerAsync("x");
-    var before = await _repository.ReadAsync(_repository.Layer("extra"));
-    await _repository.WriteAsync(_repository.Migration("V002__note.sql"), FakeSeedRepository.NoteDefaultingToY);
+    await _repository.WriteLayerAsync("extra", FooSchema.ExtraLayer("x"));
+    var before = await _repository.ReadLayerAsync("extra");
+    await _repository.WriteNoteMigrationAsync("y");
     _repository.UseBase(main);
 
     var result = await _repository.MigrateAsync();
 
     Assert.Equal(["extra"], result.Kept);
     Assert.DoesNotContain(result.Layers, layer => layer.Layer is "extra");
-    Assert.Equal(before, await _repository.ReadAsync(_repository.Layer("extra")));
+    Assert.Equal(before, await _repository.ReadLayerAsync("extra"));
     Assert.Equal(
       [await _repository.ChecksumOfAsync("base"), await _repository.ChecksumOfAsync("child")],
       await _repository.RecordedLayersAsync());
@@ -54,28 +54,15 @@ public sealed class LayerBaseDerivationTests : IDisposable {
   [Fact]
   public async Task MigrateAsync_ABaseLayerTheBranchEdited_IsKeptWhileTheOthersAreRegenerated() {
     var main = await _repository.BranchWithAMigrationAsync();
-    await _repository.WriteAsync(
-      _repository.Layer("child"),
-      """
-      description: Child
-      extends: base
-      tables:
-        foo.bar:
-          insert:
-            - { bar_id: 1001, name: Three, note: x }
-            - { bar_id: 1002, name: Four, note: x }
-          update:
-            - { bar_id: 1, name: Uno }
-
-      """);
-    var edited = await _repository.ReadAsync(_repository.Layer("child"));
-    await _repository.WriteAsync(_repository.Migration("V002__note.sql"), FakeSeedRepository.NoteDefaultingToY);
+    await _repository.WriteLayerAsync("child", FooSchema.ChildLayer("x", FooSchema.Insert(1002, "Four", "x")));
+    var edited = await _repository.ReadLayerAsync("child");
+    await _repository.WriteNoteMigrationAsync("y");
     _repository.UseBase(main);
 
     var result = await _repository.MigrateAsync();
 
     Assert.Equal(["child"], result.Kept);
-    Assert.Equal(edited, await _repository.ReadAsync(_repository.Layer("child")));
-    Assert.Contains("note: y", await _repository.ReadAsync(_repository.Layer("base")), StringComparison.Ordinal);
+    Assert.Equal(edited, await _repository.ReadLayerAsync("child"));
+    Assert.Contains("note: y", await _repository.ReadLayerAsync("base"), StringComparison.Ordinal);
   }
 }

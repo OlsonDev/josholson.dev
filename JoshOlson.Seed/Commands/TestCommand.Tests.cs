@@ -2,7 +2,6 @@ using JoshOlson.Database;
 using JoshOlson.Database.Baking;
 using JoshOlson.Database.Layers;
 using JoshOlson.Shared.Data;
-using Npgsql;
 using Xunit;
 
 namespace JoshOlson.Seed.Commands;
@@ -10,14 +9,13 @@ namespace JoshOlson.Seed.Commands;
 public sealed class TestCommandTests : IAsyncLifetime {
   private readonly CancellationToken _cancellationToken = TestContext.Current.CancellationToken;
   private readonly string _id = Guid.NewGuid().ToString("N");
-  private readonly ServerDatabases _databases = new();
+  private readonly ServerDatabases _databases = SeedTestServer.Databases;
 
   public ValueTask InitializeAsync()
     => ValueTask.CompletedTask;
 
   public async ValueTask DisposeAsync() {
-    await using var owner = new NpgsqlConnection(DatabaseEnvironment.OwnerConnectionString("postgres"));
-    await owner.OpenAsync(CancellationToken.None);
+    await using var owner = await SeedTestServer.OpenMaintenanceAsync(CancellationToken.None);
     await _databases.DropAsync(owner, SeedDatabaseNames.Test(_id), CancellationToken.None);
   }
 
@@ -27,8 +25,7 @@ public sealed class TestCommandTests : IAsyncLifetime {
 
     Assert.True(exitCode is 0, output);
     Assert.Contains(SeedDatabaseNames.Test(_id), output, StringComparison.Ordinal);
-    await using var clone = new NpgsqlConnection(DatabaseEnvironment.OwnerConnectionString(SeedDatabaseNames.Test(_id)));
-    await clone.OpenAsync(_cancellationToken);
+    await using var clone = await DatabaseEnvironment.OpenOwnerAsync(SeedDatabaseNames.Test(_id), _cancellationToken);
     Assert.Equal(22, await clone.QuerySingleAsync<long>("SELECT count(*) FROM tag.tag;", _cancellationToken));
   }
 

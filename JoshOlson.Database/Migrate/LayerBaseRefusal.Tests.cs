@@ -18,17 +18,17 @@ public sealed class LayerBaseRefusalTests : IDisposable {
     await _repository.WriteNoteMigrationAsync();
     _ = await _repository.MigrateAsync();
     var main = await _repository.SnapshotNowAsync();
-    var lockBefore = await _repository.ReadAsync(_repository.LockFile);
-    var baseBefore = await _repository.ReadAsync(_repository.Layer("base"));
-    await _repository.WriteAsync(_repository.Migration("V002__note.sql"), FakeSeedRepository.NoteDefaultingToY);
+    var lockBefore = await _repository.ReadLockAsync();
+    var baseBefore = await _repository.ReadLayerAsync("base");
+    await _repository.WriteNoteMigrationAsync("y");
     _repository.UseBase(main);
 
     var exception = await Assert.ThrowsAsync<SeedFormatException>(_repository.MigrateAsync);
 
     Assert.Contains($"{main.Description} has locked migrations your branch does not agree with", exception.Message, StringComparison.Ordinal);
     Assert.Contains("V002__note.sql", exception.Message, StringComparison.Ordinal);
-    Assert.Equal(lockBefore, await _repository.ReadAsync(_repository.LockFile));
-    Assert.Equal(baseBefore, await _repository.ReadAsync(_repository.Layer("base")));
+    Assert.Equal(lockBefore, await _repository.ReadLockAsync());
+    Assert.Equal(baseBefore, await _repository.ReadLayerAsync("base"));
   }
 
   [Fact]
@@ -37,7 +37,7 @@ public sealed class LayerBaseRefusalTests : IDisposable {
     await _repository.WriteNoteMigrationAsync();
     _ = await _repository.MigrateAsync();
     var main = await _repository.SnapshotNowAsync();
-    File.Delete(_repository.Migration("V002__note.sql"));
+    File.Delete(_repository.Migration(FooSchema.NoteFile));
     _repository.UseBase(main);
 
     var exception = await Assert.ThrowsAsync<SeedFormatException>(_repository.MigrateAsync);
@@ -49,16 +49,18 @@ public sealed class LayerBaseRefusalTests : IDisposable {
   [Fact]
   public async Task MigrateAsync_ALayerTheBranchWroteThatTheNewSchemaBreaks_IsAHardErrorNamingIt() {
     var main = await _repository.BranchWithAMigrationAsync();
-    await _repository.WriteAuthoredLayerAsync("x");
-    var lockBefore = await _repository.ReadAsync(_repository.LockFile);
+    await _repository.WriteLayerAsync("extra", FooSchema.ExtraLayer("x"));
+    var lockBefore = await _repository.ReadLockAsync();
     // The column is renamed in the edit, so the branch's own layer names one that is no longer there.
-    await _repository.WriteAsync(_repository.Migration("V002__note.sql"), "ALTER TABLE foo.bar ADD COLUMN memo TEXT NOT NULL DEFAULT 'x';\n");
+    await _repository.WriteMigrationAsync(
+      FooSchema.NoteFile,
+      "ALTER TABLE foo.bar ADD COLUMN memo TEXT NOT NULL DEFAULT 'x';\n");
     _repository.UseBase(main);
 
     var exception = await Assert.ThrowsAsync<SeedFormatException>(_repository.MigrateAsync);
 
     Assert.Contains("extra:", exception.Message, StringComparison.Ordinal);
     Assert.Contains("your own file", exception.Message, StringComparison.Ordinal);
-    Assert.Equal(lockBefore, await _repository.ReadAsync(_repository.LockFile));
+    Assert.Equal(lockBefore, await _repository.ReadLockAsync());
   }
 }

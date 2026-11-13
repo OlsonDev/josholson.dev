@@ -1,7 +1,6 @@
 using JoshOlson.Database.Layers;
 using JoshOlson.Shared.Data;
 using NodaTime;
-using Npgsql;
 using Xunit;
 
 namespace JoshOlson.Database.Baking;
@@ -11,29 +10,12 @@ namespace JoshOlson.Database.Baking;
 // database itself is never touched: the rebuild test points the tool at a database of its own.
 public sealed class SeedToolTests {
   private readonly CancellationToken _cancellationToken = TestContext.Current.CancellationToken;
-  private readonly ServerDatabases _databases = new();
-
-  private async Task<SeedTool> OpenToolAsync() {
-    var paths = SeedPaths.ForRepository();
-    return await SeedTool.OpenAsync(paths, _databases, new ComposeTools(paths.Root), SystemClock.Instance, _cancellationToken);
-  }
-
-  private async Task<NpgsqlConnection> OpenOwnerAsync() {
-    var owner = new NpgsqlConnection(DatabaseEnvironment.OwnerConnectionString());
-    await owner.OpenAsync(_cancellationToken);
-    return owner;
-  }
-
-  private static async Task<NpgsqlConnection> OpenAsync(string database, CancellationToken cancellationToken) {
-    var connection = new NpgsqlConnection(DatabaseEnvironment.OwnerConnectionString(database));
-    await connection.OpenAsync(cancellationToken);
-    return connection;
-  }
+  private readonly ServerDatabases _databases = SeedTestServer.Databases;
 
   [Fact]
   public async Task BakeAsync_RealLayers_BuildsEachTemplateOnce() {
-    var tool = await OpenToolAsync();
-    await using var owner = await OpenOwnerAsync();
+    var tool = await SeedTestServer.RealTool;
+    await using var owner = await DatabaseEnvironment.OpenOwnerAsync(_cancellationToken);
 
     var first = await tool.BakeAsync(owner, _cancellationToken);
     var second = await tool.BakeAsync(owner, _cancellationToken);
@@ -45,19 +27,19 @@ public sealed class SeedToolTests {
 
   [Fact]
   public async Task CreateTestDatabaseAsync_ChildLayer_HasTheChainsRowsTheAnchorAndTheApiRolesGrants() {
-    var tool = await OpenToolAsync();
-    await using var owner = await OpenOwnerAsync();
+    var tool = await SeedTestServer.RealTool;
+    await using var owner = await DatabaseEnvironment.OpenOwnerAsync(_cancellationToken);
     var id = Guid.NewGuid().ToString("N");
     var name = SeedDatabaseNames.Test(id);
     try {
       var created = await tool.CreateTestDatabaseAsync(owner, id, SeedLayers.MoreTags, _cancellationToken);
 
-      await using var clone = await OpenAsync(name, _cancellationToken);
+      await using var clone = await DatabaseEnvironment.OpenOwnerAsync(name, _cancellationToken);
       var tags = await clone.QuerySingleAsync<long>("SELECT count(*) FROM tag.tag;", _cancellationToken);
       var color = await clone.QuerySingleAsync<string>("SELECT color FROM tag.tag WHERE slug = 'database';", _cancellationToken);
       var anchors = await clone.QuerySingleAsync<long>("SELECT count(*) FROM seed.hydration;", _cancellationToken);
       var nextId = await clone.QuerySingleAsync<int>(
-        "INSERT INTO tag.tag (name, slug) VALUES ('Foo', 'foo') RETURNING tag_id;",
+        FixtureSeeds.InsertTagReturningId("Foo"),
         _cancellationToken);
       var apiCanConnect = await clone.QuerySingleAsync<bool>(
         "SELECT has_database_privilege('josholson_api', current_database(), 'CONNECT');",
@@ -83,20 +65,20 @@ public sealed class SeedToolTests {
 
   [Fact]
   public async Task CreateTestDatabaseAsync_RootLayer_HasOnlyTheRootsRowsAndHandsOutIdsFromTheNextBlock() {
-    var tool = await OpenToolAsync();
-    await using var owner = await OpenOwnerAsync();
+    var tool = await SeedTestServer.RealTool;
+    await using var owner = await DatabaseEnvironment.OpenOwnerAsync(_cancellationToken);
     var id = Guid.NewGuid().ToString("N");
     var name = SeedDatabaseNames.Test(id);
     try {
       _ = await tool.CreateTestDatabaseAsync(owner, id, SeedLayers.Minimal, _cancellationToken);
 
-      await using var clone = await OpenAsync(name, _cancellationToken);
+      await using var clone = await DatabaseEnvironment.OpenOwnerAsync(name, _cancellationToken);
       Assert.Equal(3, await clone.QuerySingleAsync<long>("SELECT count(*) FROM tag.tag;", _cancellationToken));
       // A tag made in this database is where an export of a child of `minimal` expects its new rows.
       Assert.Equal(
         1001,
         await clone.QuerySingleAsync<int>(
-          "INSERT INTO tag.tag (name, slug) VALUES ('Foo', 'foo') RETURNING tag_id;",
+          FixtureSeeds.InsertTagReturningId("Foo"),
           _cancellationToken));
     } finally {
       await _databases.DropAsync(owner, name, CancellationToken.None);
@@ -105,8 +87,8 @@ public sealed class SeedToolTests {
 
   [Fact]
   public async Task CreateTestDatabaseAsync_IdInUse_Throws() {
-    var tool = await OpenToolAsync();
-    await using var owner = await OpenOwnerAsync();
+    var tool = await SeedTestServer.RealTool;
+    await using var owner = await DatabaseEnvironment.OpenOwnerAsync(_cancellationToken);
     var id = Guid.NewGuid().ToString("N");
     var name = SeedDatabaseNames.Test(id);
     try {
@@ -123,8 +105,8 @@ public sealed class SeedToolTests {
 
   [Fact]
   public async Task CreateTestDatabaseAsync_UnknownLayer_Throws() {
-    var tool = await OpenToolAsync();
-    await using var owner = await OpenOwnerAsync();
+    var tool = await SeedTestServer.RealTool;
+    await using var owner = await DatabaseEnvironment.OpenOwnerAsync(_cancellationToken);
 
     _ = await Assert.ThrowsAsync<SeedFormatException>(
       () => tool.CreateTestDatabaseAsync(owner, Guid.NewGuid().ToString("N"), "no-such-layer", _cancellationToken));
@@ -133,18 +115,18 @@ public sealed class SeedToolTests {
   [Fact]
   public async Task SeedDevelopmentAsync_ADatabaseOfItsOwn_IsDroppedAndRebuiltFromTheLayerAtNow() {
     var development = $"seed_tooltest_{Guid.NewGuid():N}";
-    var tool = (await OpenToolAsync()).WithDevelopment(development);
-    await using var owner = await OpenOwnerAsync();
+    var tool = (await SeedTestServer.RealTool).WithDevelopment(development);
+    await using var owner = await DatabaseEnvironment.OpenOwnerAsync(_cancellationToken);
     try {
       _ = await tool.SeedDevelopmentAsync(owner, SeedLayers.Minimal, editing: false, _cancellationToken);
-      await using (var first = await OpenAsync(development, _cancellationToken)) {
-        await first.ExecuteAsync("INSERT INTO tag.tag (name, slug) VALUES ('Foo', 'foo');", _cancellationToken);
+      await using (var first = await DatabaseEnvironment.OpenOwnerAsync(development, _cancellationToken)) {
+        await first.ExecuteAsync(FixtureSeeds.InsertTag("Foo"), _cancellationToken);
       }
-      var before = SystemClock.Instance.GetCurrentInstant();
+      var before = SeedTestServer.Clock.GetCurrentInstant();
 
       var rows = await tool.SeedDevelopmentAsync(owner, SeedLayers.MoreTags, editing: false, _cancellationToken);
 
-      await using var rebuilt = await OpenAsync(development, _cancellationToken);
+      await using var rebuilt = await DatabaseEnvironment.OpenOwnerAsync(development, _cancellationToken);
       var tags = await rebuilt.QuerySingleAsync<long>("SELECT count(*) FROM tag.tag;", _cancellationToken);
       var anchor = Instant.FromDateTimeUtc(
         await rebuilt.QuerySingleAsync<DateTime>("SELECT anchor_utc FROM seed.hydration;", _cancellationToken));
@@ -160,16 +142,16 @@ public sealed class SeedToolTests {
   [InlineData("postgres")]
   [InlineData("template1")]
   public async Task SeedDevelopmentAsync_AServerDatabase_ThrowsBeforeDroppingAnything(string development) {
-    var tool = (await OpenToolAsync()).WithDevelopment(development);
-    await using var owner = await OpenOwnerAsync();
+    var tool = (await SeedTestServer.RealTool).WithDevelopment(development);
+    await using var owner = await DatabaseEnvironment.OpenOwnerAsync(_cancellationToken);
 
     _ = await Assert.ThrowsAsync<SeedFormatException>(() => tool.SeedDevelopmentAsync(owner, SeedLayers.Minimal, editing: false, _cancellationToken));
   }
 
   [Fact]
   public async Task CleanAsync_StaleDatabasesUnderThePrefix_AreDropped() {
-    var tool = await OpenToolAsync();
-    await using var owner = await OpenOwnerAsync();
+    var tool = await SeedTestServer.RealTool;
+    await using var owner = await DatabaseEnvironment.OpenOwnerAsync(_cancellationToken);
     var prefix = $"seed_cleantest_{Guid.NewGuid():N}_";
     var names = new[] { prefix + "foo", prefix + "bar_building" };
     try {
@@ -192,8 +174,8 @@ public sealed class SeedToolTests {
 
   [Fact]
   public async Task CleanAsync_TheCurrentSchemaTemplate_IsKeptUnlessEverythingIsAsked() {
-    var tool = await OpenToolAsync();
-    await using var owner = await OpenOwnerAsync();
+    var tool = await SeedTestServer.RealTool;
+    await using var owner = await DatabaseEnvironment.OpenOwnerAsync(_cancellationToken);
     var baked = await tool.BakeAsync(owner, _cancellationToken);
     var current = baked[0].Name;
 
@@ -205,16 +187,16 @@ public sealed class SeedToolTests {
 
   [Fact]
   public async Task CleanAsync_NotASeedPrefix_Throws() {
-    var tool = await OpenToolAsync();
-    await using var owner = await OpenOwnerAsync();
+    var tool = await SeedTestServer.RealTool;
+    await using var owner = await DatabaseEnvironment.OpenOwnerAsync(_cancellationToken);
 
     _ = await Assert.ThrowsAsync<SeedFormatException>(() => tool.CleanAsync(owner, everything: true, "josholson", _cancellationToken));
   }
 
   [Fact]
   public async Task CheckAsync_RealLayers_AllApply() {
-    var tool = await OpenToolAsync();
-    await using var owner = await OpenOwnerAsync();
+    var tool = await SeedTestServer.RealTool;
+    await using var owner = await DatabaseEnvironment.OpenOwnerAsync(_cancellationToken);
 
     Assert.Empty(await tool.CheckAsync(owner, _cancellationToken));
   }

@@ -55,20 +55,15 @@ public class SchemaCatalogTests {
 
   private readonly CancellationToken _cancellationToken = TestContext.Current.CancellationToken;
 
-  private static string ConnectionString()
-    => DatabaseEnvironment.OwnerConnectionString();
-
   private async Task<CatalogSchema> ReadAsync(CatalogOptions? options = null) {
-    await using var connection = new NpgsqlConnection(ConnectionString());
-    await connection.OpenAsync(_cancellationToken);
+    await using var connection = await DatabaseEnvironment.OpenOwnerAsync(_cancellationToken);
     return await SchemaCatalog.ReadAsync(connection, options ?? new(), _cancellationToken);
   }
 
   // Runs `ddl` (with {schema} filled in) in a schema of its own, passes the schema's name on, and drops it afterwards.
   private async Task<T> InScratchSchemaAsync<T>(string ddl, Func<string, Task<T>> body) {
     var schema = $"catalog_test_{Guid.NewGuid():N}";
-    await using var connection = new NpgsqlConnection(ConnectionString());
-    await connection.OpenAsync(_cancellationToken);
+    await using var connection = await DatabaseEnvironment.OpenOwnerAsync(_cancellationToken);
     try {
       await using var create = new NpgsqlCommand(ddl.Replace("{schema}", schema, StringComparison.Ordinal), connection);
       await create.ExecuteNonQueryAsync(_cancellationToken);
@@ -371,8 +366,7 @@ public class SchemaCatalogTests {
 
   [Fact]
   public async Task ReadAsync_DoesNotLeaveTheSearchPathChanged() {
-    await using var connection = new NpgsqlConnection(ConnectionString());
-    await connection.OpenAsync(_cancellationToken);
+    await using var connection = await DatabaseEnvironment.OpenOwnerAsync(_cancellationToken);
     await using var show = new NpgsqlCommand("SHOW search_path", connection);
     var before = (string?)await show.ExecuteScalarAsync(_cancellationToken);
 

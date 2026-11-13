@@ -1,4 +1,3 @@
-using JoshOlson.Database.Layers;
 using Npgsql;
 
 namespace JoshOlson.Database.Baking;
@@ -19,22 +18,15 @@ internal sealed class ScratchDatabase : IAsyncDisposable {
     => _clone.Name;
 
   public static async Task<ScratchDatabase> CreateAsync(CancellationToken cancellationToken) {
-    var paths = SeedPaths.ForRepository();
-    var databases = new ServerDatabases();
-    var template = new SchemaTemplate(SchemaTemplateOptions.ForRepository(paths), new(paths.Root), databases);
     var owner = await DatabaseEnvironment.OpenOwnerAsync(cancellationToken);
     try {
-      var (templateName, _) = await template.EnsureAsync(owner, cancellationToken);
-      return new(owner, await databases.CloneScratchAsync(owner, templateName, "scratch", cancellationToken));
+      var (templateName, _) = await SeedTestServer.RealTemplate.EnsureAsync(owner, cancellationToken);
+      return new(owner, await SeedTestServer.Databases.CloneScratchAsync(owner, templateName, "scratch", cancellationToken));
     } catch {
       await owner.DisposeAsync();
       throw;
     }
   }
-
-  // The repository's lock as the layer parser reads it.
-  public static async Task<SeedSchema> LoadSchemaAsync(CancellationToken cancellationToken)
-    => await SeedSchema.LoadAsync(SeedPaths.ForRepository(), cancellationToken);
 
   public async Task<NpgsqlConnection> OpenAsync(CancellationToken cancellationToken)
     => await _clone.OpenAsync(cancellationToken);

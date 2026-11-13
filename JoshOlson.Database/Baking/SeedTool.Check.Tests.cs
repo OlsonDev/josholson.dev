@@ -1,5 +1,4 @@
 using JoshOlson.Database.Layers;
-using NodaTime;
 using Npgsql;
 using Xunit;
 
@@ -8,33 +7,26 @@ namespace JoshOlson.Database.Baking;
 // Each test works on a copy of the real seeds, so a layer can be broken without touching the real one.
 public sealed class SeedToolCheckTests : IAsyncLifetime {
   private readonly CancellationToken _cancellationToken = TestContext.Current.CancellationToken;
-  private readonly SeedRepositoryCopy _copy = new("seed-check");
+  private readonly SeedWorkspace _workspace = SeedWorkspace.CopyOfRepository("seed-check");
   private NpgsqlConnection _owner = null!;
 
-  public async ValueTask InitializeAsync() {
-    _owner = new(DatabaseEnvironment.OwnerConnectionString("postgres"));
-    await _owner.OpenAsync(_cancellationToken);
-  }
+  public async ValueTask InitializeAsync()
+    => _owner = await SeedTestServer.OpenMaintenanceAsync(_cancellationToken);
 
   public async ValueTask DisposeAsync() {
     await _owner.DisposeAsync();
-    _copy.Dispose();
+    _workspace.Dispose();
   }
 
   private async Task<List<string>> CheckAsync() {
-    var tool = await SeedTool.OpenAsync(
-      _copy.Paths,
-      new ServerDatabases(),
-      new ComposeTools(SeedPaths.ForRepository().Root),
-      SystemClock.Instance,
-      _cancellationToken);
-    return await tool.CheckFilesAsync(_owner, _copy.Paths.Seeds, _cancellationToken);
+    var tool = await _workspace.OpenToolAsync(_cancellationToken);
+    return await tool.CheckFilesAsync(_owner, _workspace.Paths.Seeds, _cancellationToken);
   }
 
   private async Task ReplaceInLayerAsync(string layer, string from, string to) {
-    var text = await File.ReadAllTextAsync(_copy.Layer(layer), _cancellationToken);
+    var text = await _workspace.ReadLayerAsync(layer, _cancellationToken);
     Assert.Contains(from, text, StringComparison.Ordinal);
-    await File.WriteAllTextAsync(_copy.Layer(layer), text.Replace(from, to, StringComparison.Ordinal), _cancellationToken);
+    await _workspace.WriteLayerAsync(layer, text.Replace(from, to, StringComparison.Ordinal), _cancellationToken);
   }
 
   [Fact]

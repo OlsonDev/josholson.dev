@@ -1,37 +1,36 @@
 using JoshOlson.Database.Locks;
 using JoshOlson.Database.Migrate;
 using JoshOlson.Shared.Data;
-using JoshOlson.Shared.IO;
 using Npgsql;
 using Xunit;
 
 namespace JoshOlson.Database.Baking;
 
 // `NameAsync` tests need no database. The `EnsureAsync` test builds a real template under a name of its own and drops
-// it when it ends.
+// it when it ends. The workspace has one small migration, and scripts that do nothing in place of the real ones.
 public sealed class SchemaTemplateTests : IDisposable {
   private readonly CancellationToken _cancellationToken = TestContext.Current.CancellationToken;
-  private readonly string _directory = TempDirectory.Create("schema-template");
+  private readonly SeedWorkspace _workspace = SeedWorkspace.Empty("schema-template");
 
   public SchemaTemplateTests() {
-    _ = Directory.CreateDirectory(_directory);
-    File.WriteAllText(Path.Combine(_directory, "V001__foo.sql"), "CREATE TABLE foo (bar INT);\n");
-    File.WriteAllText(Path.Combine(_directory, "provisioning.sql"), "SELECT 1;\n");
-    File.WriteAllText(Path.Combine(_directory, "seed_schema.sql"), "SELECT 4;\n");
+    _workspace.WriteMigration("V001__foo.sql", "CREATE TABLE foo (bar INT);\n");
+    File.WriteAllText(_workspace.Paths.ProvisioningScript, "SELECT 1;\n");
+    File.WriteAllText(_workspace.Paths.SeedSchemaScript, "SELECT 4;\n");
   }
 
   public void Dispose()
-    => Directory.Delete(_directory, recursive: true);
+    => _workspace.Dispose();
 
-  private SchemaTemplate Template(string? migrations = null)
-    => new(
-      new() {
-        MigrationsDirectory = migrations ?? _directory,
-        ProvisioningScript = Path.Combine(_directory, "provisioning.sql"),
-        SeedSchemaScript = Path.Combine(_directory, "seed_schema.sql"),
-      },
-      new(SeedPaths.ForRepository().Root),
-      new());
+  private SchemaTemplate Template()
+    => _workspace.Template;
+
+  // A copy of the real migrations with one extra file, which gives a template name of the test's own: the real template
+  // is neither dropped nor built under it.
+  private async Task<SeedWorkspace> RealMigrationsAndOneMoreAsync() {
+    var workspace = SeedWorkspace.CopyOfRepository("schema-template-real", withLock: false, withLayers: false);
+    await workspace.WriteMigrationAsync("R__unique.sql", $"-- {Guid.NewGuid():N}\n", _cancellationToken);
+    return workspace;
+  }
 
   [Fact]
   public async Task NameAsync_SameFiles_SameName() {
@@ -47,7 +46,7 @@ public sealed class SchemaTemplateTests : IDisposable {
   public async Task NameAsync_ChangedMigration_ChangesTheName() {
     var before = await Template().NameAsync(_cancellationToken);
 
-    await File.WriteAllTextAsync(Path.Combine(_directory, "V001__foo.sql"), "CREATE TABLE foo (baz INT);\n", _cancellationToken);
+    await _workspace.WriteMigrationAsync("V001__foo.sql", "CREATE TABLE foo (baz INT);\n", _cancellationToken);
 
     Assert.NotEqual(before, await Template().NameAsync(_cancellationToken));
   }
@@ -56,9 +55,9 @@ public sealed class SchemaTemplateTests : IDisposable {
   public async Task NameAsync_RepeatableMigrationOrProvisioningChanged_ChangesTheName() {
     var before = await Template().NameAsync(_cancellationToken);
 
-    await File.WriteAllTextAsync(Path.Combine(_directory, "R__qux.sql"), "SELECT 2;\n", _cancellationToken);
+    await _workspace.WriteMigrationAsync("R__qux.sql", "SELECT 2;\n", _cancellationToken);
     var withRepeatable = await Template().NameAsync(_cancellationToken);
-    await File.WriteAllTextAsync(Path.Combine(_directory, "provisioning.sql"), "SELECT 3;\n", _cancellationToken);
+    await File.WriteAllTextAsync(_workspace.Paths.ProvisioningScript, "SELECT 3;\n", _cancellationToken);
 
     Assert.NotEqual(before, withRepeatable);
     Assert.NotEqual(withRepeatable, await Template().NameAsync(_cancellationToken));
@@ -68,7 +67,7 @@ public sealed class SchemaTemplateTests : IDisposable {
   public async Task NameAsync_SeedSchemaScriptChanged_ChangesTheName() {
     var before = await Template().NameAsync(_cancellationToken);
 
-    await File.WriteAllTextAsync(Path.Combine(_directory, "seed_schema.sql"), "SELECT 5;\n", _cancellationToken);
+    await File.WriteAllTextAsync(_workspace.Paths.SeedSchemaScript, "SELECT 5;\n", _cancellationToken);
 
     Assert.NotEqual(before, await Template().NameAsync(_cancellationToken));
   }
@@ -82,20 +81,10 @@ public sealed class SchemaTemplateTests : IDisposable {
 
   [Fact]
   public async Task EnsureAsync_RealMigrations_BuildsAClosedTemplateOnce() {
-    // A copy of the real migrations with one extra file gives a template name of this test's own: the real template is
-    // neither dropped nor built under it.
-    var paths = SeedPaths.ForRepository();
-    var options = SchemaTemplateOptions.ForRepository(paths);
-    var migrations = Path.Combine(_directory, "real-migrations");
-    _ = Directory.CreateDirectory(migrations);
-    foreach (var file in Directory.EnumerateFiles(options.MigrationsDirectory, "*.sql")) {
-      File.Copy(file, Path.Combine(migrations, Path.GetFileName(file)));
-    }
-    await File.WriteAllTextAsync(Path.Combine(migrations, "R__unique.sql"), $"-- {Guid.NewGuid():N}\n", _cancellationToken);
-    var databases = new ServerDatabases();
-    var template = new SchemaTemplate(options with { MigrationsDirectory = migrations }, new(paths.Root), databases);
-    await using var owner = new NpgsqlConnection(DatabaseEnvironment.OwnerConnectionString());
-    await owner.OpenAsync(_cancellationToken);
+    using var workspace = await RealMigrationsAndOneMoreAsync();
+    var databases = SeedTestServer.Databases;
+    var template = workspace.Template;
+    await using var owner = await DatabaseEnvironment.OpenOwnerAsync(_cancellationToken);
     var name = await template.NameAsync(_cancellationToken);
     var clone = $"seed_templatetest_{Guid.NewGuid():N}";
     try {
@@ -112,8 +101,7 @@ public sealed class SchemaTemplateTests : IDisposable {
       Assert.False(await databases.ExistsAsync(owner, SeedDatabaseNames.Building(name), _cancellationToken));
 
       await databases.CloneAsync(owner, name, clone, _cancellationToken);
-      await using var connection = new NpgsqlConnection(DatabaseEnvironment.OwnerConnectionString(clone));
-      await connection.OpenAsync(_cancellationToken);
+      await using var connection = await DatabaseEnvironment.OpenOwnerAsync(clone, _cancellationToken);
       var hydrationColumns = await connection.QuerySingleAsync<long>(
         "SELECT count(*) FROM information_schema.columns WHERE table_schema = 'seed' AND table_name = 'hydration';",
         _cancellationToken);
@@ -134,7 +122,7 @@ public sealed class SchemaTemplateTests : IDisposable {
 
   [Fact]
   public async Task NameAsync_AnotherVersion_AnotherNameThatShowsTheVersion() {
-    await File.WriteAllTextAsync(Path.Combine(_directory, "V002__bar.sql"), "CREATE TABLE bar (baz INT);\n", _cancellationToken);
+    await _workspace.WriteMigrationAsync("V002__bar.sql", "CREATE TABLE bar (baz INT);\n", _cancellationToken);
 
     var one = await Template().NameAsync(1, _cancellationToken);
     var two = await Template().NameAsync(2, _cancellationToken);
@@ -147,10 +135,10 @@ public sealed class SchemaTemplateTests : IDisposable {
 
   [Fact]
   public async Task NameAsync_MigrationAfterTheVersionChanges_DoesNotChangeTheNameForThatVersion() {
-    await File.WriteAllTextAsync(Path.Combine(_directory, "V002__bar.sql"), "CREATE TABLE bar (baz INT);\n", _cancellationToken);
+    await _workspace.WriteMigrationAsync("V002__bar.sql", "CREATE TABLE bar (baz INT);\n", _cancellationToken);
     var before = await Template().NameAsync(1, _cancellationToken);
 
-    await File.WriteAllTextAsync(Path.Combine(_directory, "V002__bar.sql"), "CREATE TABLE bar (qux INT);\n", _cancellationToken);
+    await _workspace.WriteMigrationAsync("V002__bar.sql", "CREATE TABLE bar (qux INT);\n", _cancellationToken);
 
     Assert.Equal(before, await Template().NameAsync(1, _cancellationToken));
   }
@@ -161,20 +149,20 @@ public sealed class SchemaTemplateTests : IDisposable {
 
   // A directory of migrations of this test's own, in the `tools` container's reach through the template: V001 makes a
   // table, V002 a second one, and the repeatable fills the second, so it cannot apply at version 1.
-  private SchemaTemplate FakeTemplate(string repeatable) {
+  private async Task<SchemaTemplate> FakeTemplateAsync(string repeatable) {
     var unique = Guid.NewGuid().ToString("N");
-    File.WriteAllText(Path.Combine(_directory, "V001__foo.sql"), $"-- {unique}\nCREATE TABLE foo (bar INT);\n");
-    File.WriteAllText(Path.Combine(_directory, "V002__bar.sql"), "CREATE TABLE bar (baz INT);\n");
-    File.WriteAllText(Path.Combine(_directory, "R__qux.sql"), repeatable);
+    var foo = $"-- {unique}\nCREATE TABLE foo (bar INT);\n";
+    await _workspace.WriteMigrationAsync("V001__foo.sql", foo, _cancellationToken);
+    await _workspace.WriteMigrationAsync("V002__bar.sql", "CREATE TABLE bar (baz INT);\n", _cancellationToken);
+    await _workspace.WriteMigrationAsync("R__qux.sql", repeatable, _cancellationToken);
     return Template();
   }
 
   [Fact]
   public async Task EnsureAsync_RepeatableThatCannotApplyAtAnOlderVersion_IsSkippedAndNoted() {
-    var template = FakeTemplate("INSERT INTO bar (baz) VALUES (1);\n");
-    var databases = new ServerDatabases();
-    await using var owner = new NpgsqlConnection(DatabaseEnvironment.OwnerConnectionString("postgres"));
-    await owner.OpenAsync(_cancellationToken);
+    var template = await FakeTemplateAsync("INSERT INTO bar (baz) VALUES (1);\n");
+    var databases = SeedTestServer.Databases;
+    await using var owner = await SeedTestServer.OpenMaintenanceAsync(_cancellationToken);
     var old = await template.NameAsync(1, _cancellationToken);
     var newest = await template.NameAsync(2, _cancellationToken);
     try {
@@ -204,8 +192,7 @@ public sealed class SchemaTemplateTests : IDisposable {
     var clone = $"{SeedDatabaseNames.Prefix}history_{Guid.NewGuid():N}";
     await databases.CloneAsync(owner, template, clone, _cancellationToken);
     try {
-      await using var connection = new NpgsqlConnection(DatabaseEnvironment.OwnerConnectionString(clone));
-      await connection.OpenAsync(_cancellationToken);
+      await using var connection = await DatabaseEnvironment.OpenOwnerAsync(clone, _cancellationToken);
       return await connection.QueryAsync<string>(
         "SELECT CASE WHEN success THEN script ELSE 'FAILED ' || script END FROM public.waypoint_schema_history ORDER BY installed_rank;",
         _cancellationToken);
@@ -216,39 +203,29 @@ public sealed class SchemaTemplateTests : IDisposable {
 
   [Fact]
   public async Task EnsureAsync_RepeatableThatFailsAtTheNewestVersion_FailsTheBuildAndLeavesNothing() {
-    var template = FakeTemplate("INSERT INTO nope (baz) VALUES (1);\n");
-    await using var owner = new NpgsqlConnection(DatabaseEnvironment.OwnerConnectionString("postgres"));
-    await owner.OpenAsync(_cancellationToken);
+    var template = await FakeTemplateAsync("INSERT INTO nope (baz) VALUES (1);\n");
+    await using var owner = await SeedTestServer.OpenMaintenanceAsync(_cancellationToken);
     var name = await template.NameAsync(_cancellationToken);
 
     _ = await Assert.ThrowsAsync<InvalidOperationException>(() => template.EnsureAsync(owner, _cancellationToken));
 
-    var databases = new ServerDatabases();
+    var databases = SeedTestServer.Databases;
     Assert.False(await databases.ExistsAsync(owner, name, _cancellationToken));
     Assert.False(await databases.ExistsAsync(owner, SeedDatabaseNames.Building(name), _cancellationToken));
   }
 
   [Fact]
   public async Task EnsureAsync_OldRealVersion_HasOnlyThoseMigrationsAndIsThenMigratedToTheNewest() {
-    var paths = SeedPaths.ForRepository();
-    var options = SchemaTemplateOptions.ForRepository(paths);
-    var migrations = Path.Combine(_directory, "real-migrations");
-    _ = Directory.CreateDirectory(migrations);
-    foreach (var file in Directory.EnumerateFiles(options.MigrationsDirectory, "*.sql")) {
-      File.Copy(file, Path.Combine(migrations, Path.GetFileName(file)));
-    }
-    await File.WriteAllTextAsync(Path.Combine(migrations, "R__unique.sql"), $"-- {Guid.NewGuid():N}\n", _cancellationToken);
-    var databases = new ServerDatabases();
-    var tools = new ComposeTools(paths.Root);
-    var template = new SchemaTemplate(options with { MigrationsDirectory = migrations }, tools, databases);
-    await using var owner = new NpgsqlConnection(DatabaseEnvironment.OwnerConnectionString("postgres"));
-    await owner.OpenAsync(_cancellationToken);
+    using var workspace = await RealMigrationsAndOneMoreAsync();
+    var databases = SeedTestServer.Databases;
+    var tools = SeedTestServer.Tools;
+    var template = workspace.Template;
+    await using var owner = await SeedTestServer.OpenMaintenanceAsync(_cancellationToken);
     var (name, _) = await template.EnsureAsync(owner, 3, _cancellationToken);
     var clone = $"{SeedDatabaseNames.Prefix}versioned_{Guid.NewGuid():N}";
     await databases.CloneAsync(owner, name, clone, _cancellationToken);
     try {
-      await using var connection = new NpgsqlConnection(DatabaseEnvironment.OwnerConnectionString(clone));
-      await connection.OpenAsync(_cancellationToken);
+      await using var connection = await DatabaseEnvironment.OpenOwnerAsync(clone, _cancellationToken);
       var applied = await MigrationHistory.ReadAsync(connection, _cancellationToken);
       var skipped = await template.SkippedAsync(owner, name, _cancellationToken);
       Assert.Equal([1, 2, 3], applied.ConvertAll(migration => migration.Version));
@@ -258,7 +235,7 @@ public sealed class SchemaTemplateTests : IDisposable {
 
       await tools.MigrateAsync(clone, _cancellationToken);
 
-      var onDisk = await MigrationFiles.LoadAsync(paths.Migrations, _cancellationToken);
+      var onDisk = await MigrationFiles.LoadAsync(SeedTestServer.Paths.Migrations, _cancellationToken);
       Assert.Empty(MigrationHistory.Check(onDisk, await MigrationHistory.ReadAsync(connection, _cancellationToken)));
       Assert.True(await connection.QuerySingleAsync<long>("SELECT count(*) FROM blob.mime_type;", _cancellationToken) > 0);
     } finally {

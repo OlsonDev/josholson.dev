@@ -10,13 +10,11 @@ namespace JoshOlson.Seed.Commands;
 public sealed class CleanCommandTests : IAsyncLifetime {
   private readonly CancellationToken _cancellationToken = TestContext.Current.CancellationToken;
   private readonly string _prefix = $"seed_cleancmd_{Guid.NewGuid():N}_";
-  private readonly ServerDatabases _databases = new();
+  private readonly ServerDatabases _databases = SeedTestServer.Databases;
   private NpgsqlConnection _owner = null!;
 
-  public async ValueTask InitializeAsync() {
-    _owner = new(DatabaseEnvironment.OwnerConnectionString("postgres"));
-    await _owner.OpenAsync(_cancellationToken);
-  }
+  public async ValueTask InitializeAsync()
+    => _owner = await SeedTestServer.OpenMaintenanceAsync(_cancellationToken);
 
   public async ValueTask DisposeAsync() {
     await _databases.DropAsync(_owner, _prefix + "foo", CancellationToken.None);

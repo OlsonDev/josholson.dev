@@ -9,7 +9,7 @@ public sealed class ScratchCloneTests {
 
   [Fact]
   public async Task OpenAsync_CloneOfASource_IsNamedForItsPurposeHoldsItsRowsAndIsDroppedOnDisposal() {
-    var databases = new ServerDatabases();
+    var databases = SeedTestServer.Databases;
     var source = $"seed_scratchclone_{Guid.NewGuid():N}";
     await using var owner = await DatabaseEnvironment.OpenOwnerAsync(_cancellationToken);
     await databases.CreateAsync(owner, source, _cancellationToken);

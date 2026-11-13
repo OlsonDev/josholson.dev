@@ -16,34 +16,25 @@ public sealed class LayerMoverFailureTests : IDisposable {
   [Fact]
   public async Task MigrateAsync_AMigrationThatFailsOnALayersRows_NamesTheLayerAndWritesNothing() {
     _ = await _repository.MigrateWithLayersAtVersionOneAsync();
-    var lockBefore = await _repository.ReadAsync(_repository.LockFile);
-    var baseBefore = await _repository.ReadAsync(_repository.Layer("base"));
-    await _repository.WriteAsync(
-      _repository.Migration("V002__check.sql"),
+    var lockBefore = await _repository.ReadLockAsync();
+    var baseBefore = await _repository.ReadLayerAsync("base");
+    await _repository.WriteMigrationAsync(
+      "V002__check.sql",
       "ALTER TABLE foo.bar ADD CONSTRAINT ck_bar_name CHECK (name <> 'Two');\n");
 
     var exception = await Assert.ThrowsAsync<SeedFormatException>(_repository.MigrateAsync);
 
     Assert.Contains("base: the migrations failed on its rows", exception.Message, StringComparison.Ordinal);
     Assert.DoesNotContain("child:", exception.Message, StringComparison.Ordinal);
-    Assert.Equal(lockBefore, await _repository.ReadAsync(_repository.LockFile));
-    Assert.Equal(baseBefore, await _repository.ReadAsync(_repository.Layer("base")));
+    Assert.Equal(lockBefore, await _repository.ReadLockAsync());
+    Assert.Equal(baseBefore, await _repository.ReadLayerAsync("base"));
   }
 
   [Fact]
   public async Task MigrateAsync_RowThatPointsAtReferenceDataTheOldSchemaCouldNotHave_IsMovedAndCheckedAtTheNewestVersion() {
     await _repository.WriteKindMigrationAsync();
     _ = await _repository.MigrateAsync();
-    await _repository.WriteAsync(
-      _repository.Layer("base"),
-      """
-      description: Base
-      tables:
-        foo.bar:
-          insert:
-            - { bar_id: 1, kind_id: 1 }
-
-      """);
+    await _repository.WriteLayerAsync("base", FooSchema.KindLayer(1));
     await _repository.WriteKindNoteMigrationAsync();
 
     var result = await _repository.MigrateAsync();
@@ -56,16 +47,7 @@ public sealed class LayerMoverFailureTests : IDisposable {
   public async Task MigrateAsync_RowThatPointsAtReferenceDataTheNewestVersionDoesNotHave_NamesTheLayerAndTheSkippedRepeatable() {
     await _repository.WriteKindMigrationAsync();
     _ = await _repository.MigrateAsync();
-    await _repository.WriteAsync(
-      _repository.Layer("base"),
-      """
-      description: Base
-      tables:
-        foo.bar:
-          insert:
-            - { bar_id: 1, kind_id: 2 }
-
-      """);
+    await _repository.WriteLayerAsync("base", FooSchema.KindLayer(2));
     await _repository.WriteKindNoteMigrationAsync();
 
     var exception = await Assert.ThrowsAsync<SeedFormatException>(_repository.MigrateAsync);

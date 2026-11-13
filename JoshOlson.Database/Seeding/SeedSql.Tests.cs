@@ -6,7 +6,6 @@ using Xunit;
 namespace JoshOlson.Database.Seeding;
 
 public class SeedSqlTests {
-  private static readonly Instant _Anchor = Instant.FromUtc(2026, 1, 1, 12, 0);
 #pragma warning disable RCS1130 // NpgsqlDbType is a flags enum that Npgsql does not mark [Flags]: Array is OR-ed with the element type.
   private const NpgsqlDbType _SmallintArray = NpgsqlDbType.Array | NpgsqlDbType.Smallint;
 #pragma warning restore RCS1130
@@ -79,7 +78,8 @@ public class SeedSqlTests {
     state.Tables["foo.tag"] = [with(RowKeyComparer.Instance)];
     state.Tables["foo.tag"][[new SeedValue.Integer(1)]] = new() { ["tag_id"] = new SeedValue.Integer(1) };
 
-    var exception = Assert.Throws<SeedFormatException>(() => SeedSql.Build(state, SampleLayers.Schema, _Anchor));
+    var exception = Assert.Throws<SeedFormatException>(
+      () => SeedSql.Build(state, SampleLayers.Schema, SampleLayers.Anchor));
 
     Assert.Equal("foo.tag: a row leaves out price, and a seed names every column.", exception.Message);
   }
@@ -109,7 +109,7 @@ public class SeedSqlTests {
     var parameters = Build(layer).Single().Parameters;
 
     var created = parameters.Single(parameter => parameter.NpgsqlDbType is NpgsqlDbType.TimestampTz && parameter.Value is DateTime { Year: 2026 });
-    Assert.Equal(_Anchor.Minus(Duration.FromHours(1)).Minus(Duration.FromNanoseconds(1000)).ToDateTimeUtc(), created.Value);
+    Assert.Equal(SampleLayers.Anchor.Minus(Duration.FromHours(1)).Minus(Duration.FromNanoseconds(1000)).ToDateTimeUtc(), created.Value);
     var published = parameters.Single(parameter => parameter.Value is DateTime { Year: 2020 });
     Assert.Equal(new DateTime(2020, 2, 3, 4, 5, 6, DateTimeKind.Utc).AddTicks(70), published.Value);
   }
@@ -163,5 +163,5 @@ public class SeedSqlTests {
     => SampleLayers.Layer("base", extends: null, tables);
 
   private static List<SeedStatement> Build(SeedLayer layer)
-    => SeedSql.Build(SampleLayers.Merge(layer), SampleLayers.Schema, _Anchor);
+    => SeedSql.Build(SampleLayers.Merge(layer), SampleLayers.Schema, SampleLayers.Anchor);
 }

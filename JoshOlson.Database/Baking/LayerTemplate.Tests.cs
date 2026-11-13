@@ -1,6 +1,5 @@
 using JoshOlson.Database.Layers;
 using JoshOlson.Shared.IO;
-using NodaTime;
 using Xunit;
 
 namespace JoshOlson.Database.Baking;
@@ -18,8 +17,7 @@ public sealed class LayerTemplateTests : IDisposable {
     => Directory.Delete(_directory, recursive: true);
 
   private async Task<LayerTemplate> OpenAsync() {
-    var paths = SeedPaths.ForRepository();
-    var schema = await ScratchDatabase.LoadSchemaAsync(_cancellationToken);
+    var schema = SeedTestServer.Schema;
     var layers = new List<SeedLayer>();
     foreach (var path in LayerLoader.Files(_directory)) {
       var name = Path.GetFileNameWithoutExtension(path);
@@ -27,10 +25,7 @@ public sealed class LayerTemplateTests : IDisposable {
       layers.Add(LayerParser.Parse(name, yaml, schema));
     }
     var tree = new LayerTree(layers);
-    var tools = new ComposeTools(paths.Root);
-    var databases = new ServerDatabases();
-    var schemaTemplate = new SchemaTemplate(SchemaTemplateOptions.ForRepository(paths), tools, databases);
-    return new(schemaTemplate, databases, tree, schema, _directory, SystemClock.Instance);
+    return new(SeedTestServer.RealTemplate, SeedTestServer.Databases, tree, schema, _directory, SeedTestServer.Clock);
   }
 
   private async Task WriteAsync(string name, string yaml)

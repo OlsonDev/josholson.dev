@@ -1,7 +1,6 @@
 using JoshOlson.Database;
 using JoshOlson.Database.Layers;
 using JoshOlson.Shared.IO;
-using NodaTime;
 using Xunit;
 
 namespace JoshOlson.Seed;
@@ -14,11 +13,11 @@ public sealed class SeedToolFactoryTests : IDisposable {
     => Directory.Delete(_directory, recursive: true);
 
   private static SeedToolFactory Factory(SeedPaths paths)
-    => new(paths, new(), new(paths.Root), SystemClock.Instance, "seed_foo");
+    => SeedAppRunner.FactoryFor(paths, "seed_foo");
 
   [Fact]
   public async Task OpenAsync_RepositoryPaths_LoadsTheRealLayers() {
-    var tool = await Factory(SeedPaths.ForRepository()).OpenAsync(_cancellationToken);
+    var tool = await Factory(SeedTestServer.Paths).OpenAsync(_cancellationToken);
 
     Assert.Contains(SeedLayers.Minimal, tool.Tree.InBakeOrder().Select(layer => layer.Name));
     Assert.Contains(SeedLayers.MoreTags, tool.Tree.InBakeOrder().Select(layer => layer.Name));
@@ -26,7 +25,7 @@ public sealed class SeedToolFactoryTests : IDisposable {
 
   [Fact]
   public async Task OpenAsync_Development_IsTheDatabaseTheFactoryWasGiven() {
-    var tool = await Factory(SeedPaths.ForRepository()).OpenAsync(_cancellationToken);
+    var tool = await Factory(SeedTestServer.Paths).OpenAsync(_cancellationToken);
 
     Assert.Equal("seed_foo", tool.Development);
   }

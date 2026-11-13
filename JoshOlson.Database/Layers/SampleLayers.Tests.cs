@@ -2,6 +2,7 @@ using JoshOlson.Database.Locks;
 using JoshOlson.Database.Schema;
 using JoshOlson.Database.Seeding;
 using JoshOlson.Shared.Extensions;
+using NodaTime;
 
 namespace JoshOlson.Database.Layers;
 
@@ -10,6 +11,9 @@ namespace JoshOlson.Database.Layers;
 // not care about, so a change to the sample schema is a change here and not in every test.
 internal static class SampleLayers {
   public static readonly SeedSchema Schema = new(SchemaLockSample.Create());
+
+  // The instant a test measures a layer's relative times from when it does not care which.
+  public static readonly Instant Anchor = Instant.FromUtc(2026, 1, 1, 12, 0);
 
   // The sample schema and `foo.kind`, the table with a column of every seed type.
   public static readonly SeedSchema SchemaWithKind = new(SchemaLockSample.WithKind());

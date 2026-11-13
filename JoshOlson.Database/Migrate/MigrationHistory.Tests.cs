@@ -1,5 +1,4 @@
 using JoshOlson.Database.Locks;
-using Npgsql;
 using Xunit;
 
 namespace JoshOlson.Database.Migrate;
@@ -67,8 +66,7 @@ public class MigrationHistoryTests {
 
   [Fact]
   public async Task ReadAsync_DevDatabase_ListsTheVersionedMigrationsInOrder() {
-    await using var connection = new NpgsqlConnection(DatabaseEnvironment.OwnerConnectionString());
-    await connection.OpenAsync(_cancellationToken);
+    await using var connection = await DatabaseEnvironment.OpenOwnerAsync(_cancellationToken);
 
     var applied = await MigrationHistory.ReadAsync(connection, _cancellationToken);
 

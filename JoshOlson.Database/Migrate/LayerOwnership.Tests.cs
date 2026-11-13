@@ -37,27 +37,14 @@ public sealed class LayerOwnershipTests : IDisposable {
   public async Task MigrateAsync_LayerEditedSinceTheToolWroteIt_IsMovedLikeTheRestButNotRecorded() {
     _ = await _repository.MigrateWithLayersAtVersionOneAsync();
     var recorded = await _repository.ChecksumOfAsync("base");
-    await _repository.WriteAsync(
-      _repository.Layer("child"),
-      """
-      description: Child
-      extends: base
-      tables:
-        foo.bar:
-          insert:
-            - { bar_id: 1001, name: Three }
-            - { bar_id: 1002, name: Four }
-          update:
-            - { bar_id: 1, name: Uno }
-
-      """);
+    await _repository.WriteLayerAsync("child", FooSchema.ChildLayer(extraInserts: FooSchema.Insert(1002, "Four")));
     await _repository.WriteNoteMigrationAsync();
 
     _ = await _repository.MigrateAsync();
 
     Assert.Contains(
       "{ bar_id: 1002, name: Four, note: x }",
-      await _repository.ReadAsync(_repository.Layer("child")),
+      await _repository.ReadLayerAsync("child"),
       StringComparison.Ordinal);
     Assert.Equal([await _repository.ChecksumOfAsync("base")], await _repository.RecordedLayersAsync());
     Assert.NotEqual(recorded, await _repository.ChecksumOfAsync("base"));
@@ -66,17 +53,7 @@ public sealed class LayerOwnershipTests : IDisposable {
   [Fact]
   public async Task MigrateAsync_LayerAddedAfterTheLockRecordedTheOthers_IsMovedButNotRecorded() {
     _ = await _repository.MigrateWithLayersAtVersionOneAsync();
-    await _repository.WriteAsync(
-      _repository.Layer("extra"),
-      """
-      description: Extra
-      extends: base
-      tables:
-        foo.bar:
-          insert:
-            - { bar_id: 1001, name: Extra }
-
-      """);
+    await _repository.WriteLayerAsync("extra", FooSchema.ExtraLayer());
     await _repository.WriteNoteMigrationAsync();
 
     var result = await _repository.MigrateAsync();

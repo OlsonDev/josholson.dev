@@ -13,15 +13,13 @@ public sealed class ServerDatabasesTests : IAsyncLifetime {
   private readonly CancellationToken _cancellationToken = TestContext.Current.CancellationToken;
   private readonly string _source = $"seed_serverdb_{Guid.NewGuid():N}";
   private readonly string _target = $"seed_serverdb_{Guid.NewGuid():N}";
-  private readonly ServerDatabases _databases = new();
+  private readonly ServerDatabases _databases = SeedTestServer.Databases;
   private NpgsqlConnection _owner = null!;
 
   public async ValueTask InitializeAsync() {
-    _owner = new(DatabaseEnvironment.OwnerConnectionString());
-    await _owner.OpenAsync(_cancellationToken);
+    _owner = await DatabaseEnvironment.OpenOwnerAsync(_cancellationToken);
     await _databases.CreateAsync(_owner, _source, _cancellationToken);
-    await using var source = new NpgsqlConnection(DatabaseEnvironment.OwnerConnectionString(_source));
-    await source.OpenAsync(_cancellationToken);
+    await using var source = await DatabaseEnvironment.OpenOwnerAsync(_source, _cancellationToken);
     await source.ExecuteAsync("CREATE TABLE foo (bar INT); INSERT INTO foo (bar) VALUES (42);", _cancellationToken);
   }
 
@@ -51,8 +49,7 @@ public sealed class ServerDatabasesTests : IAsyncLifetime {
 
   [Fact]
   public async Task DropAsync_SomebodyConnected_DropsItAnyway() {
-    await using var holder = new NpgsqlConnection(DatabaseEnvironment.OwnerConnectionString(_source));
-    await holder.OpenAsync(_cancellationToken);
+    await using var holder = await DatabaseEnvironment.OpenOwnerAsync(_source, _cancellationToken);
 
     await _databases.DropAsync(_owner, _source, _cancellationToken);
 
@@ -95,8 +92,8 @@ public sealed class ServerDatabasesTests : IAsyncLifetime {
   public async Task CloseAsync_Database_RefusesConnections() {
     await _databases.CloseAsync(_owner, _source, _cancellationToken);
 
-    await using var connection = new NpgsqlConnection(DatabaseEnvironment.OwnerConnectionString(_source));
-    var exception = await Assert.ThrowsAsync<PostgresException>(() => connection.OpenAsync(_cancellationToken));
+    var exception = await Assert.ThrowsAsync<PostgresException>(
+      () => DatabaseEnvironment.OpenOwnerAsync(_source, _cancellationToken));
     Assert.Equal(_NotAcceptingConnections, exception.SqlState);
   }
 
@@ -104,8 +101,7 @@ public sealed class ServerDatabasesTests : IAsyncLifetime {
   public async Task RenameAsync_Database_KeepsItsRowsUnderTheNewName() {
     await _databases.RenameAsync(_owner, _source, _target, _cancellationToken);
 
-    await using var renamed = new NpgsqlConnection(DatabaseEnvironment.OwnerConnectionString(_target));
-    await renamed.OpenAsync(_cancellationToken);
+    await using var renamed = await DatabaseEnvironment.OpenOwnerAsync(_target, _cancellationToken);
     Assert.Equal(42, await renamed.QuerySingleAsync<int>("SELECT bar FROM foo;", _cancellationToken));
     Assert.False(await _databases.ExistsAsync(_owner, _source, _cancellationToken));
   }
@@ -114,15 +110,13 @@ public sealed class ServerDatabasesTests : IAsyncLifetime {
   public async Task CloneAsync_Source_CopiesItsRows() {
     await _databases.CloneAsync(_owner, _source, _target, _cancellationToken);
 
-    await using var clone = new NpgsqlConnection(DatabaseEnvironment.OwnerConnectionString(_target));
-    await clone.OpenAsync(_cancellationToken);
+    await using var clone = await DatabaseEnvironment.OpenOwnerAsync(_target, _cancellationToken);
     Assert.Equal(42, await clone.QuerySingleAsync<int>("SELECT bar FROM foo;", _cancellationToken));
   }
 
   [Fact]
   public async Task CloneAsync_SourceStaysInUse_GivesUpAfterTheAttempts() {
-    await using var holder = new NpgsqlConnection(DatabaseEnvironment.OwnerConnectionString(_source));
-    await holder.OpenAsync(_cancellationToken);
+    await using var holder = await DatabaseEnvironment.OpenOwnerAsync(_source, _cancellationToken);
     // Postgres itself waits five seconds inside each attempt to clone a source somebody is connected to, so one attempt is all
     // this needs to see the error given up on; the test below has the retrying.
     var databases = new ServerDatabases {
@@ -138,8 +132,7 @@ public sealed class ServerDatabasesTests : IAsyncLifetime {
 
   [Fact]
   public async Task CloneAsync_SourceFreedWhileWaiting_Succeeds() {
-    var holder = new NpgsqlConnection(DatabaseEnvironment.OwnerConnectionString(_source));
-    await holder.OpenAsync(_cancellationToken);
+    var holder = await DatabaseEnvironment.OpenOwnerAsync(_source, _cancellationToken);
     var databases = new ServerDatabases {
       Attempts = 200,
       Delay = TimeSpan.FromMilliseconds(25),
@@ -176,8 +169,8 @@ public sealed class ServerDatabasesTests : IAsyncLifetime {
     Assert.Equal([SeedDatabaseNames.Building(_target)], builds);
     Assert.True(await _databases.ExistsAsync(_owner, _target, _cancellationToken));
     Assert.False(await _databases.ExistsAsync(_owner, SeedDatabaseNames.Building(_target), _cancellationToken));
-    await using var connection = new NpgsqlConnection(DatabaseEnvironment.OwnerConnectionString(_target));
-    var exception = await Assert.ThrowsAsync<PostgresException>(() => connection.OpenAsync(_cancellationToken));
+    var exception = await Assert.ThrowsAsync<PostgresException>(
+      () => DatabaseEnvironment.OpenOwnerAsync(_target, _cancellationToken));
     Assert.Equal(_NotAcceptingConnections, exception.SqlState);
   }
 
@@ -192,8 +185,7 @@ public sealed class ServerDatabasesTests : IAsyncLifetime {
         await Task.Delay(300, _cancellationToken);
         await _databases.CloneAsync(connection, _source, building, _cancellationToken);
       };
-    await using var other = new NpgsqlConnection(DatabaseEnvironment.OwnerConnectionString("postgres"));
-    await other.OpenAsync(_cancellationToken);
+    await using var other = await SeedTestServer.OpenMaintenanceAsync(_cancellationToken);
 
     var results = await Task.WhenAll(
       _databases.EnsureTemplateAsync(_owner, _target, BuildThrough(_owner), _cancellationToken),
@@ -228,8 +220,8 @@ public sealed class ServerDatabasesTests : IAsyncLifetime {
       _cancellationToken);
 
     Assert.True(built);
-    await using var template = new NpgsqlConnection(DatabaseEnvironment.OwnerConnectionString(_target));
-    var exception = await Assert.ThrowsAsync<PostgresException>(() => template.OpenAsync(_cancellationToken));
+    var exception = await Assert.ThrowsAsync<PostgresException>(
+      () => DatabaseEnvironment.OpenOwnerAsync(_target, _cancellationToken));
     Assert.Equal(_NotAcceptingConnections, exception.SqlState);
   }
 }

@@ -19,16 +19,16 @@ public sealed class SeedHydratorTests {
 
   [Fact]
   public async Task HydrateAsync_Layer_PutsInItsRowsTheAnchorAndMovesTheSequences() {
-    var schema = await ScratchDatabase.LoadSchemaAsync(_cancellationToken);
+    var schema = SeedTestServer.Schema;
     var tree = new LayerTree([
       LayerParser.Parse(
         "foo",
-        """
+        $$"""
         description: Root
         tables:
           tag.tag:
             insert:
-              - { tag_id: 7, name: Corge, slug: corge, description: ~, color: ~ }
+              - {{FixtureSeeds.TagRow(7, "Corge")}}
         """,
         schema),
     ]);
@@ -40,7 +40,7 @@ public sealed class SeedHydratorTests {
     await using var connection = await database.OpenAsync(_cancellationToken);
     var stored = await connection.QuerySingleAsync<DateTime>("SELECT anchor_utc FROM seed.hydration;", _cancellationToken);
     var next = await connection.QuerySingleAsync<int>(
-      "INSERT INTO tag.tag (name, slug) VALUES ('Grault', 'grault') RETURNING tag_id;",
+      FixtureSeeds.InsertTagReturningId("Grault"),
       _cancellationToken);
     var recorded = await connection.QuerySingleAsync<string>("SELECT layer || ' ' || editing::text FROM seed.hydration;", _cancellationToken);
     Assert.Equal("foo false", recorded);

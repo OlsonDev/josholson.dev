@@ -58,8 +58,8 @@ public sealed class SeedStateReaderTests : IAsyncLifetime {
 
   [Fact]
   public async Task ReadAsync_HydratedLayers_GivesBackTheMergedStateAndTheAnchor() {
-    var schema = await ScratchDatabase.LoadSchemaAsync(_cancellationToken);
-    var tree = await LayerLoader.LoadAsync(SeedPaths.ForRepository().Seeds, schema, _cancellationToken);
+    var schema = SeedTestServer.Schema;
+    var tree = (await SeedTestServer.RealTool).Tree;
     _ = await SeedHydrator.HydrateAsync(_database.Name, tree, schema, SeedLayers.MoreTags, editing: false, _Anchor, _cancellationToken);
     var merged = LayerMerger.Merge(tree.ChainTo(SeedLayers.MoreTags), schema);
     await using var connection = await _database.OpenAsync(_cancellationToken);
@@ -80,7 +80,7 @@ public sealed class SeedStateReaderTests : IAsyncLifetime {
 
   [Fact]
   public async Task ReadAsync_FreshTemplateClone_ReadsEveryRowOfEveryTable() {
-    var schema = await ScratchDatabase.LoadSchemaAsync(_cancellationToken);
+    var schema = SeedTestServer.Schema;
     await using var connection = await _database.OpenAsync(_cancellationToken);
     await connection.ExecuteAsync("INSERT INTO seed.hydration (anchor_utc) VALUES ('2026-01-01 12:00:00+00');", _cancellationToken);
 
@@ -100,7 +100,7 @@ public sealed class SeedStateReaderTests : IAsyncLifetime {
 
   [Fact]
   public async Task ReadAsync_NoHydrationRow_IsRefused() {
-    var schema = await ScratchDatabase.LoadSchemaAsync(_cancellationToken);
+    var schema = SeedTestServer.Schema;
     await using var connection = await _database.OpenAsync(_cancellationToken);
 
     var exception = await Assert.ThrowsAsync<SeedFormatException>(() => SeedStateReader.ReadAsync(connection, schema, _cancellationToken));

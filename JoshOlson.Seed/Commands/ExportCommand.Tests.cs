@@ -2,8 +2,6 @@ using JoshOlson.Database;
 using JoshOlson.Database.Baking;
 using JoshOlson.Database.Layers;
 using JoshOlson.Shared.Data;
-using Microsoft.Extensions.DependencyInjection;
-using NodaTime;
 using Npgsql;
 using Xunit;
 
@@ -14,55 +12,39 @@ namespace JoshOlson.Seed.Commands;
 // written to. Only `ComposeTools` keeps the real root, for the compose files.
 public sealed class ExportCommandTests : IAsyncLifetime {
   private readonly CancellationToken _cancellationToken = TestContext.Current.CancellationToken;
-  private readonly SeedRepositoryCopy _copy;
-  private readonly ServerDatabases _databases = new();
+  private readonly SeedWorkspace _workspace = SeedWorkspace.CopyOfRepository("export-command");
+  private readonly ServerDatabases _databases = SeedTestServer.Databases;
   private readonly List<string> _created = [];
-  private readonly SeedPaths _paths;
-  private readonly SeedToolFactory _factory;
   private NpgsqlConnection _owner = null!;
 
-  public ExportCommandTests() {
-    _copy = new("export-command");
-    _paths = _copy.Paths;
-    _factory = new(_paths, _databases, new(SeedPaths.ForRepository().Root), SystemClock.Instance, DatabaseEnvironment.DevelopmentDatabase());
-  }
-
-  public async ValueTask InitializeAsync() {
-    _owner = new(DatabaseEnvironment.OwnerConnectionString("postgres"));
-    await _owner.OpenAsync(_cancellationToken);
-  }
+  public async ValueTask InitializeAsync()
+    => _owner = await SeedTestServer.OpenMaintenanceAsync(_cancellationToken);
 
   public async ValueTask DisposeAsync() {
     foreach (var name in _created) {
       await _databases.DropAsync(_owner, name, CancellationToken.None);
     }
     await _owner.DisposeAsync();
-    _copy.Dispose();
+    _workspace.Dispose();
   }
 
   private async Task<string> DatabaseFromAsync(string layer) {
-    var tool = await _factory.OpenAsync(_cancellationToken);
+    var tool = await _workspace.OpenToolAsync(_cancellationToken);
     var name = await tool.CreateTestDatabaseAsync(_owner, Guid.NewGuid().ToString("N"), layer, _cancellationToken);
     _created.Add(name);
     return name;
   }
 
   private async Task RunSqlAsync(string database, string sql) {
-    await using var connection = new NpgsqlConnection(DatabaseEnvironment.OwnerConnectionString(database));
-    await connection.OpenAsync(_cancellationToken);
+    await using var connection = await DatabaseEnvironment.OpenOwnerAsync(database, _cancellationToken);
     await connection.ExecuteAsync(sql, _cancellationToken);
   }
 
   private async Task<(int ExitCode, string Output)> RunAsync(params string[] arguments)
-    => await SeedAppRunner.RunAsync(
-      services => {
-        _ = services.AddSingleton(_paths);
-        _ = services.AddSingleton(_factory);
-      },
-      arguments);
+    => await SeedAppRunner.RunAsync(_workspace, arguments);
 
   private string LayerFile(string name)
-    => Path.Combine(_paths.Seeds, name + ".yaml");
+    => _workspace.Layer(name);
 
   // A real layer's text with its description line replaced, which is all a copy exported from its database should differ by.
   private static string WithDescription(string yaml, string description)
@@ -79,13 +61,13 @@ public sealed class ExportCommandTests : IAsyncLifetime {
     Assert.Contains("tag.tag", output, StringComparison.Ordinal);
     Assert.Contains("Wrote", output, StringComparison.Ordinal);
     Assert.Equal(
-      """
+      $$"""
       description: Foo bar
       extends: minimal
       tables:
         tag.tag:
           insert:
-            - { tag_id: 1001, name: Zed, slug: zed, description: ~, color: ~ }
+            - {{FixtureSeeds.TagRow(1001, "Zed")}}
           update:
             - { tag_id: 1, name: Databases }
 
@@ -96,7 +78,7 @@ public sealed class ExportCommandTests : IAsyncLifetime {
   [Fact]
   public async Task Execute_NoParent_ExtendsTheLayerTheDatabaseWasBuiltFrom() {
     var database = await DatabaseFromAsync(SeedLayers.Minimal);
-    await RunSqlAsync(database, "INSERT INTO tag.tag (name, slug) VALUES ('Zed', 'zed');");
+    await RunSqlAsync(database, FixtureSeeds.InsertTag("Zed"));
 
     var (exitCode, output) = await RunAsync("export", "--name", "foo-bar", "--description", "Foo bar", "--database", database);
 
@@ -135,9 +117,9 @@ public sealed class ExportCommandTests : IAsyncLifetime {
   [Fact]
   public async Task Execute_NameOfALayerThatExists_IsRefusedUnlessOverwriteIsGiven() {
     var first = await DatabaseFromAsync(SeedLayers.Minimal);
-    await RunSqlAsync(first, "INSERT INTO tag.tag (name, slug) VALUES ('Zed', 'zed');");
+    await RunSqlAsync(first, FixtureSeeds.InsertTag("Zed"));
     var second = await DatabaseFromAsync(SeedLayers.Minimal);
-    await RunSqlAsync(second, "INSERT INTO tag.tag (name, slug) VALUES ('Quux', 'quux');");
+    await RunSqlAsync(second, FixtureSeeds.InsertTag("Quux"));
     _ = await RunAsync("export", "--name", "foo-bar", "--description", "Foo bar", "--database", first);
 
     var (refusedCode, refused) = await RunAsync("export", "--name", "foo-bar", "--description", "Foo bar", "--database", second);
@@ -152,9 +134,9 @@ public sealed class ExportCommandTests : IAsyncLifetime {
   [Fact]
   public async Task Execute_ExportedAgain_ReplacesTheLayerItMadeAndKeepsItsDescription() {
     var database = await DatabaseFromAsync(SeedLayers.Minimal);
-    await RunSqlAsync(database, "INSERT INTO tag.tag (name, slug) VALUES ('Zed', 'zed');");
+    await RunSqlAsync(database, FixtureSeeds.InsertTag("Zed"));
     _ = await RunAsync("export", "--name", "foo-bar", "--description", "Foo bar", "--database", database);
-    await RunSqlAsync(database, "INSERT INTO tag.tag (name, slug) VALUES ('Quux', 'quux');");
+    await RunSqlAsync(database, FixtureSeeds.InsertTag("Quux"));
 
     var (exitCode, output) = await RunAsync("export", "--database", database);
 
@@ -169,7 +151,7 @@ public sealed class ExportCommandTests : IAsyncLifetime {
   [Fact]
   public async Task Execute_BuiltAsAParentNotForEditing_NeedsAName() {
     var database = await DatabaseFromAsync(SeedLayers.Minimal);
-    await RunSqlAsync(database, "INSERT INTO tag.tag (name, slug) VALUES ('Zed', 'zed');");
+    await RunSqlAsync(database, FixtureSeeds.InsertTag("Zed"));
 
     var (exitCode, output) = await RunAsync("export", "--description", "Foo bar", "--database", database);
 
