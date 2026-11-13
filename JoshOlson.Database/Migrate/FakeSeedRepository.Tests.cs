@@ -61,9 +61,21 @@ internal sealed class FakeSeedRepository : IDisposable {
   public async Task<string> ReadLockAsync()
     => await Workspace.ReadLockAsync(_cancellationToken);
 
-  public async Task<MigrateResult> MigrateAsync() {
+  // Starts the test where a scenario ends: its files are written into this repository's own directory, so the test can
+  // change them. Returns the scenario, for the result of its last run or to use it as the base (`AsSnapshot`).
+  public async Task<FooScenario> StartAtAsync(Task<FooScenario> scenario) {
+    var start = await scenario.WaitAsync(_cancellationToken);
+    await Workspace.StampAsync(start.Files, _cancellationToken);
+    return start;
+  }
+
+  public async Task<MigrateResult> MigrateAsync()
+    => await MigrateAsync(Options);
+
+  // A run with options of the test's own, made from `Options` with `with`.
+  public async Task<MigrateResult> MigrateAsync(MigrateOptions options) {
     await using var owner = await SeedTestServer.OpenMaintenanceAsync(_cancellationToken);
-    return await SeedMigrator.MigrateAsync(owner, Options, _cancellationToken);
+    return await SeedMigrator.MigrateAsync(owner, options, _cancellationToken);
   }
 
   public async Task WriteBarMigrationAsync()
