@@ -1,13 +1,14 @@
-using JoshOlson.Database.Locks;
-using JoshOlson.Database.Migrate;
 using JoshOlson.Shared.Data;
 using Npgsql;
 using Xunit;
 
 namespace JoshOlson.Database.Baking;
 
-// `NameAsync` tests need no database. The `EnsureAsync` test builds a real template under a name of its own and drops
-// it when it ends. The workspace has one small migration, and scripts that do nothing in place of the real ones.
+// `NameAsync` tests need no database. The workspace has one small migration, and scripts that do nothing in place of
+// the real ones. Only a test that asserts a template was built, or that a failed build leaves nothing, puts a GUID in
+// a migration so the template is new every run, and drops what it built. The test of a skipped repeatable builds from
+// fixed files, so its two templates are built by the first run and stay on the server until `seed:clean`. The
+// templates for the real migrations are `SchemaTemplateRealTests`.
 public sealed class SchemaTemplateTests : IDisposable {
   private readonly CancellationToken _cancellationToken = TestContext.Current.CancellationToken;
   private readonly SeedWorkspace _workspace = SeedWorkspace.Empty("schema-template");
@@ -23,14 +24,6 @@ public sealed class SchemaTemplateTests : IDisposable {
 
   private SchemaTemplate Template()
     => _workspace.Template;
-
-  // A copy of the real migrations with one extra file, which gives a template name of the test's own: the real template
-  // is neither dropped nor built under it.
-  private async Task<SeedWorkspace> RealMigrationsAndOneMoreAsync() {
-    var workspace = SeedWorkspace.CopyOfRepository("schema-template-real", withLock: false, withLayers: false);
-    await workspace.WriteMigrationAsync("R__unique.sql", $"-- {Guid.NewGuid():N}\n", _cancellationToken);
-    return workspace;
-  }
 
   [Fact]
   public async Task NameAsync_SameFiles_SameName() {
@@ -80,13 +73,15 @@ public sealed class SchemaTemplateTests : IDisposable {
     => _ = Assert.Throws<SeedFormatException>(() => SeedDatabaseNames.Quote(name));
 
   [Fact]
-  public async Task EnsureAsync_RealMigrations_BuildsAClosedTemplateOnce() {
-    using var workspace = await RealMigrationsAndOneMoreAsync();
+  public async Task EnsureAsync_NewMigration_BuildsAClosedTemplateOnce() {
+    await _workspace.WriteMigrationAsync(
+      "V001__foo.sql",
+      $"-- {Guid.NewGuid():N}\nCREATE TABLE foo (bar INT);\n",
+      _cancellationToken);
     var databases = SeedTestServer.Databases;
-    var template = workspace.Template;
+    var template = Template();
     await using var owner = await DatabaseEnvironment.OpenOwnerAsync(_cancellationToken);
     var name = await template.NameAsync(_cancellationToken);
-    var clone = $"seed_templatetest_{Guid.NewGuid():N}";
     try {
       var first = await template.EnsureAsync(owner, _cancellationToken);
       var second = await template.EnsureAsync(owner, _cancellationToken);
@@ -99,23 +94,7 @@ public sealed class SchemaTemplateTests : IDisposable {
       Assert.Equal((name, false), second);
       Assert.False(allowConnections);
       Assert.False(await databases.ExistsAsync(owner, SeedDatabaseNames.Building(name), _cancellationToken));
-
-      await databases.CloneAsync(owner, name, clone, _cancellationToken);
-      await using var connection = await DatabaseEnvironment.OpenOwnerAsync(clone, _cancellationToken);
-      var hydrationColumns = await connection.QuerySingleAsync<long>(
-        "SELECT count(*) FROM information_schema.columns WHERE table_schema = 'seed' AND table_name = 'hydration';",
-        _cancellationToken);
-      var apiSeesSeedSchema = await connection.QuerySingleAsync<bool>(
-        "SELECT has_schema_privilege('josholson_api', 'seed', 'USAGE');",
-        _cancellationToken);
-      var apiSeesTags = await connection.QuerySingleAsync<bool>(
-        "SELECT has_table_privilege('josholson_api', 'tag.tag', 'SELECT');",
-        _cancellationToken);
-      Assert.Equal(4, hydrationColumns);
-      Assert.False(apiSeesSeedSchema);
-      Assert.True(apiSeesTags);
     } finally {
-      await databases.DropAsync(owner, clone, CancellationToken.None);
       await databases.DropAsync(owner, name, CancellationToken.None);
     }
   }
@@ -147,43 +126,41 @@ public sealed class SchemaTemplateTests : IDisposable {
   public async Task NameAsync_VersionBelowEveryMigration_IsRefused()
     => _ = await Assert.ThrowsAsync<SeedFormatException>(() => Template().NameAsync(0, _cancellationToken));
 
-  // A directory of migrations of this test's own, in the `tools` container's reach through the template: V001 makes a
-  // table, V002 a second one, and the repeatable fills the second, so it cannot apply at version 1.
-  private async Task<SchemaTemplate> FakeTemplateAsync(string repeatable) {
-    var unique = Guid.NewGuid().ToString("N");
-    var foo = $"-- {unique}\nCREATE TABLE foo (bar INT);\n";
-    await _workspace.WriteMigrationAsync("V001__foo.sql", foo, _cancellationToken);
+  // The workspace's migration and two more, in the `tools` container's reach through the template: V001 makes a
+  // table, V002 a second one, and then the repeatable. The files are the same on every run unless `marker` is given,
+  // a comment for V001 that makes the templates new.
+  private async Task<SchemaTemplate> FakeTemplateAsync(string repeatable, string? marker = null) {
+    if (marker is not null) {
+      var foo = $"-- {marker}\nCREATE TABLE foo (bar INT);\n";
+      await _workspace.WriteMigrationAsync("V001__foo.sql", foo, _cancellationToken);
+    }
     await _workspace.WriteMigrationAsync("V002__bar.sql", "CREATE TABLE bar (baz INT);\n", _cancellationToken);
     await _workspace.WriteMigrationAsync("R__qux.sql", repeatable, _cancellationToken);
     return Template();
   }
 
+  // The repeatable fills the second table, so it cannot apply at version 1. Nothing here is about the building, so
+  // the two templates are the same on every run and are left on the server.
   [Fact]
   public async Task EnsureAsync_RepeatableThatCannotApplyAtAnOlderVersion_IsSkippedAndNoted() {
     var template = await FakeTemplateAsync("INSERT INTO bar (baz) VALUES (1);\n");
     var databases = SeedTestServer.Databases;
     await using var owner = await SeedTestServer.OpenMaintenanceAsync(_cancellationToken);
-    var old = await template.NameAsync(1, _cancellationToken);
-    var newest = await template.NameAsync(2, _cancellationToken);
-    try {
-      _ = await template.EnsureAsync(owner, 1, _cancellationToken);
-      _ = await template.EnsureAsync(owner, _cancellationToken);
-      var historyAtOne = await HistoryOfAsync(databases, owner, old);
-      var historyAtTwo = await HistoryOfAsync(databases, owner, newest);
+    var (old, _) = await template.EnsureAsync(owner, 1, _cancellationToken);
+    var (newest, _) = await template.EnsureAsync(owner, _cancellationToken);
+    var historyAtOne = await HistoryOfAsync(databases, owner, old);
+    var historyAtTwo = await HistoryOfAsync(databases, owner, newest);
 
-      var skippedAtOne = await template.SkippedAsync(owner, old, _cancellationToken);
-      var skippedAtTwo = await template.SkippedAsync(owner, newest, _cancellationToken);
-      var skipped = Assert.Single(skippedAtOne);
-      Assert.Equal("R__qux.sql", skipped.File);
-      Assert.Contains("relation \"bar\" does not exist", skipped.Error, StringComparison.Ordinal);
-      Assert.Empty(skippedAtTwo);
-      // A skipped repeatable leaves nothing in Waypoint's history, not even a failed row; one that applied is there.
-      Assert.Equal(["V001__foo.sql"], historyAtOne);
-      Assert.Equal(["V001__foo.sql", "V002__bar.sql", "R__qux.sql"], historyAtTwo);
-    } finally {
-      await databases.DropAsync(owner, old, CancellationToken.None);
-      await databases.DropAsync(owner, newest, CancellationToken.None);
-    }
+    var skippedAtOne = await template.SkippedAsync(owner, old, _cancellationToken);
+    var skippedAtTwo = await template.SkippedAsync(owner, newest, _cancellationToken);
+
+    var skipped = Assert.Single(skippedAtOne);
+    Assert.Equal("R__qux.sql", skipped.File);
+    Assert.Contains("relation \"bar\" does not exist", skipped.Error, StringComparison.Ordinal);
+    Assert.Empty(skippedAtTwo);
+    // A skipped repeatable leaves nothing in Waypoint's history, not even a failed row; one that applied is there.
+    Assert.Equal(["V001__foo.sql"], historyAtOne);
+    Assert.Equal(["V001__foo.sql", "V002__bar.sql", "R__qux.sql"], historyAtTwo);
   }
 
   // The scripts Waypoint recorded for a template's clone, with whether each succeeded folded in: a failed one is listed
@@ -203,7 +180,7 @@ public sealed class SchemaTemplateTests : IDisposable {
 
   [Fact]
   public async Task EnsureAsync_RepeatableThatFailsAtTheNewestVersion_FailsTheBuildAndLeavesNothing() {
-    var template = await FakeTemplateAsync("INSERT INTO nope (baz) VALUES (1);\n");
+    var template = await FakeTemplateAsync("INSERT INTO nope (baz) VALUES (1);\n", Guid.NewGuid().ToString("N"));
     await using var owner = await SeedTestServer.OpenMaintenanceAsync(_cancellationToken);
     var name = await template.NameAsync(_cancellationToken);
 
@@ -212,35 +189,5 @@ public sealed class SchemaTemplateTests : IDisposable {
     var databases = SeedTestServer.Databases;
     Assert.False(await databases.ExistsAsync(owner, name, _cancellationToken));
     Assert.False(await databases.ExistsAsync(owner, SeedDatabaseNames.Building(name), _cancellationToken));
-  }
-
-  [Fact]
-  public async Task EnsureAsync_OldRealVersion_HasOnlyThoseMigrationsAndIsThenMigratedToTheNewest() {
-    using var workspace = await RealMigrationsAndOneMoreAsync();
-    var databases = SeedTestServer.Databases;
-    var tools = SeedTestServer.Tools;
-    var template = workspace.Template;
-    await using var owner = await SeedTestServer.OpenMaintenanceAsync(_cancellationToken);
-    var (name, _) = await template.EnsureAsync(owner, 3, _cancellationToken);
-    var clone = $"{SeedDatabaseNames.Prefix}versioned_{Guid.NewGuid():N}";
-    await databases.CloneAsync(owner, name, clone, _cancellationToken);
-    try {
-      await using var connection = await DatabaseEnvironment.OpenOwnerAsync(clone, _cancellationToken);
-      var applied = await MigrationHistory.ReadAsync(connection, _cancellationToken);
-      var skipped = await template.SkippedAsync(owner, name, _cancellationToken);
-      Assert.Equal([1, 2, 3], applied.ConvertAll(migration => migration.Version));
-      Assert.False(await connection.QuerySingleAsync<bool>("SELECT to_regclass('blob.mime_type') IS NOT NULL;", _cancellationToken));
-      Assert.True(await connection.QuerySingleAsync<bool>("SELECT to_regclass('seed.hydration') IS NOT NULL;", _cancellationToken));
-      Assert.Equal(["R__blob_reference_data.sql"], skipped.ConvertAll(repeatable => repeatable.File));
-
-      await tools.MigrateAsync(clone, _cancellationToken);
-
-      var onDisk = await MigrationFiles.LoadAsync(SeedTestServer.Paths.Migrations, _cancellationToken);
-      Assert.Empty(MigrationHistory.Check(onDisk, await MigrationHistory.ReadAsync(connection, _cancellationToken)));
-      Assert.True(await connection.QuerySingleAsync<long>("SELECT count(*) FROM blob.mime_type;", _cancellationToken) > 0);
-    } finally {
-      await databases.DropAsync(owner, clone, CancellationToken.None);
-      await databases.DropAsync(owner, name, CancellationToken.None);
-    }
   }
 }
