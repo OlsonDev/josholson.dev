@@ -118,4 +118,8 @@ public sealed class LayerLoaderTests : IDisposable {
 
     Assert.Equal(["foo.yaml"], LayerLoader.Files(_directory).Select(Path.GetFileName));
   }
+
+  [Fact]
+  public void PathOf_Name_IsItsYamlFileInTheDirectory()
+    => Assert.Equal(Path.Combine("/foo", "bar.yaml"), LayerLoader.PathOf("/foo", "bar"));
 }

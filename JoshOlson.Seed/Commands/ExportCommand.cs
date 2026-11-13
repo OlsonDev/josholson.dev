@@ -64,7 +64,7 @@ public sealed class ExportCommand : AsyncCommand<ExportCommand.Settings> {
         change.Deletes.Count.ToInvariantString());
     }
     _console.Write(table);
-    var path = Path.Combine(_paths.Seeds, export.Layer.Name + ".yaml");
+    var path = _paths.Layer(export.Layer.Name);
     await File.WriteAllTextAsync(path, export.Yaml, cancellationToken);
     await tool.RecordExportAsync(database, export, cancellationToken);
     _console.MarkupLineInterpolated($"[green]{(export.Replaces ? "Replaced" : "Wrote")}[/] {path}");

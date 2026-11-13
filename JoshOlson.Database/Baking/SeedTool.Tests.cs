@@ -13,8 +13,10 @@ public sealed class SeedToolTests {
   private readonly CancellationToken _cancellationToken = TestContext.Current.CancellationToken;
   private readonly ServerDatabases _databases = new();
 
-  private async Task<SeedTool> OpenToolAsync()
-    => await SeedTool.OpenAsync(SeedPaths.ForRepository(), SystemClock.Instance, _cancellationToken);
+  private async Task<SeedTool> OpenToolAsync() {
+    var paths = SeedPaths.ForRepository();
+    return await SeedTool.OpenAsync(paths, _databases, new ComposeTools(paths.Root), SystemClock.Instance, _cancellationToken);
+  }
 
   private async Task<NpgsqlConnection> OpenOwnerAsync() {
     var owner = new NpgsqlConnection(DatabaseEnvironment.OwnerConnectionString());

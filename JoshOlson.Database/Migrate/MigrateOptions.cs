@@ -41,4 +41,14 @@ public sealed record MigrateOptions {
   // and applies each layer to a clone (`SeedTool.CheckAsync`); without one, a seeds directory with layers is
   // refused.
   public Func<SeedSchema, CancellationToken, Task<List<string>>>? LayerCheck { get; init; }
+
+  // The required ones for a repository laid out as `SeedPaths` says; the caller adds the rest with `with`.
+  public static MigrateOptions For(SeedPaths paths, SchemaTemplate template, ServerDatabases databases, IClock clock)
+    => new() {
+      MigrationsDirectory = paths.Migrations,
+      SeedsDirectory = paths.Seeds,
+      Template = template,
+      Databases = databases,
+      Clock = clock,
+    };
 }

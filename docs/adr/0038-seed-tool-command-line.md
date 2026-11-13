@@ -31,5 +31,5 @@ The seed tool ([ADR 0033 (a scoped database per test)](0033-scoped-databases-per
 
 - Another project in the solution, with its own `Program.cs` test hand-off to keep in step with the API's.
 - Every seed command is a class that takes what it needs in its constructor, so adding one means a class, a test, and one line in `SeedApp.Configure`.
-- `SeedTool.OpenAsync` has overloads that take the shared `ServerDatabases` and `ComposeTools`; the older ones build their own and remain for the library's tests.
+- `SeedTool.OpenAsync` takes the shared `ServerDatabases` and `ComposeTools`. The overloads that built their own were kept for the library's tests at first and are gone now: the tests pass them too.
 - `seeds:check` and `seeds:export` are commands in this project like the rest.

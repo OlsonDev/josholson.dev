@@ -55,7 +55,7 @@ internal sealed class FakeSeedRepository : IDisposable {
   }
 
   public string LockFile
-    => Path.Combine(Options.MigrationsDirectory, SeedMigrator.LockFileName);
+    => SeedPaths.LockFileIn(Options.MigrationsDirectory);
 
   public string Migration(string file)
     => Path.Combine(Options.MigrationsDirectory, file);

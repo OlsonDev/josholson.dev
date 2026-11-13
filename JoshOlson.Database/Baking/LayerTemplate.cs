@@ -62,7 +62,7 @@ public sealed class LayerTemplate {
     hash.AppendData(Encoding.UTF8.GetBytes(schemaName + "\n"));
     foreach (var link in _tree.ChainTo(layer)) {
       hash.AppendData(Encoding.UTF8.GetBytes(link.Name + "\n"));
-      hash.AppendData(await File.ReadAllBytesAsync(Path.Combine(_seedsDirectory, link.Name + ".yaml"), cancellationToken));
+      hash.AppendData(await File.ReadAllBytesAsync(LayerLoader.PathOf(_seedsDirectory, link.Name), cancellationToken));
     }
     return SeedDatabaseNames.Layer(Convert.ToHexStringLower(hash.GetHashAndReset())[..16]);
   }

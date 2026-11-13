@@ -2,7 +2,6 @@ using JoshOlson.Database.Layers;
 using JoshOlson.Database.Seeding;
 using JoshOlson.Shared.Data;
 using NodaTime;
-using Npgsql;
 
 namespace JoshOlson.Database.Baking;
 
@@ -27,22 +26,13 @@ public static class SeedHydrator {
     Instant anchor,
     CancellationToken cancellationToken
   ) {
-    await using var connection = new NpgsqlConnection(DatabaseEnvironment.OwnerConnectionString(database));
-    await connection.OpenAsync(cancellationToken);
+    await using var connection = await DatabaseEnvironment.OpenOwnerAsync(database, cancellationToken);
     int rows;
     await using (var transaction = await connection.BeginTransactionAsync(cancellationToken)) {
       rows = await SeedApplier.ApplyAsync(transaction, tree, schema, layer, anchor, cancellationToken);
       await transaction.CommitAsync(cancellationToken);
     }
-    // A `DateTime` in UTC, because this connection has no NodaTime plugin to write an `Instant` with.
-    await connection.ExecuteAsync(
-      "INSERT INTO seed.hydration (layer, editing, anchor_utc) VALUES (@layer, @editing, @anchor);",
-      new {
-        layer,
-        editing,
-        anchor = anchor.ToDateTimeUtc(),
-      },
-      cancellationToken);
+    await SeedHydration.RecordAsync(connection, layer, editing, anchor, cancellationToken);
     _ = await SequencePositioner.ChainAsync(connection, tree, schema, layer, editing, cancellationToken);
     return rows;
   }
@@ -61,21 +51,14 @@ public static class SeedHydrator {
     Instant anchor,
     CancellationToken cancellationToken
   ) {
-    await using var connection = new NpgsqlConnection(DatabaseEnvironment.OwnerConnectionString(database));
-    await connection.OpenAsync(cancellationToken);
+    await using var connection = await DatabaseEnvironment.OpenOwnerAsync(database, cancellationToken);
     int rows;
     await using (var transaction = await connection.BeginTransactionAsync(cancellationToken)) {
       await connection.ExecuteAsync("SET LOCAL session_replication_role = replica;", cancellationToken);
       rows = await SeedApplier.ApplyAsync(transaction, tree, schema, layer, anchor, cancellationToken);
       await transaction.CommitAsync(cancellationToken);
     }
-    await connection.ExecuteAsync(
-      "INSERT INTO seed.hydration (layer, editing, anchor_utc) VALUES (@layer, FALSE, @anchor);",
-      new {
-        layer,
-        anchor = anchor.ToDateTimeUtc(),
-      },
-      cancellationToken);
+    await SeedHydration.RecordAsync(connection, layer, editing: false, anchor, cancellationToken);
     _ = await SequencePositioner.RootAsync(connection, tree, schema, layer, cancellationToken);
     return rows;
   }

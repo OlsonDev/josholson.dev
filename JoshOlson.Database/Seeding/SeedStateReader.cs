@@ -2,6 +2,7 @@ using System.Data;
 using System.Globalization;
 using System.Net;
 using System.Net.Sockets;
+using JoshOlson.Database.Baking;
 using JoshOlson.Database.Layers;
 using JoshOlson.Database.Schema;
 using NodaTime;
@@ -31,7 +32,7 @@ public static class SeedStateReader {
   ) {
     await using var transaction = await connection.BeginTransactionAsync(IsolationLevel.RepeatableRead, cancellationToken);
     await ExecuteAsync(connection, transaction, "SET LOCAL TIME ZONE 'UTC'; SET LOCAL DateStyle = 'ISO, YMD'; SET LOCAL bytea_output = 'hex';", cancellationToken);
-    var (anchor, layer, editing) = await ReadHydrationAsync(connection, transaction, anchorIfUnrecorded, cancellationToken);
+    var (anchor, layer, editing) = await SeedHydration.ReadAsync(connection, anchorIfUnrecorded, cancellationToken);
     var state = new SeedState();
     foreach (var table in schema.InsertOrder().Where(table => !table.Table.Ignored)) {
       state.Tables[table.Table.Name] = await ReadTableAsync(connection, transaction, table, anchor, cancellationToken);
@@ -43,24 +44,6 @@ public static class SeedStateReader {
   private static async Task ExecuteAsync(NpgsqlConnection connection, NpgsqlTransaction transaction, string sql, CancellationToken cancellationToken) {
     await using var command = new NpgsqlCommand(sql, connection, transaction);
     _ = await command.ExecuteNonQueryAsync(cancellationToken);
-  }
-
-  private static async Task<(Instant Anchor, string? Layer, bool Editing)> ReadHydrationAsync(
-    NpgsqlConnection connection,
-    NpgsqlTransaction transaction,
-    Instant? anchorIfUnrecorded,
-    CancellationToken cancellationToken
-  ) {
-    await using var command = new NpgsqlCommand("SELECT anchor_utc, layer, editing FROM seed.hydration;", connection, transaction);
-    await using var reader = await command.ExecuteReaderAsync(cancellationToken);
-    return await reader.ReadAsync(cancellationToken)
-      ? (
-        Instant.FromDateTimeUtc(DateTime.SpecifyKind(reader.GetDateTime(0), DateTimeKind.Utc)),
-        await reader.IsDBNullAsync(1, cancellationToken) ? null : reader.GetString(1),
-        reader.GetBoolean(2))
-      : anchorIfUnrecorded is { } fallback
-        ? (fallback, null, false)
-        : throw new SeedFormatException("The database has no seed.hydration row, so it was not built by the seed tool and has no anchor to measure relative times from.");
   }
 
   private static async Task<SortedDictionary<SeedValue[], Dictionary<string, SeedValue?>>> ReadTableAsync(

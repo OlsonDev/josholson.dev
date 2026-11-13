@@ -12,10 +12,10 @@ public sealed class OwnerConnections : IDisposable, IAsyncDisposable {
   private NpgsqlConnection? _development;
 
   public async Task<NpgsqlConnection> MaintenanceAsync(CancellationToken cancellationToken)
-    => _maintenance ??= await OpenAsync(DatabaseEnvironment.OwnerConnectionString("postgres"), cancellationToken);
+    => _maintenance ??= await DatabaseEnvironment.OpenOwnerAsync("postgres", cancellationToken);
 
   public async Task<NpgsqlConnection> DevelopmentAsync(CancellationToken cancellationToken)
-    => _development ??= await OpenAsync(DatabaseEnvironment.OwnerConnectionString(), cancellationToken);
+    => _development ??= await DatabaseEnvironment.OpenOwnerAsync(cancellationToken);
 
   public void Dispose() {
     _maintenance?.Dispose();
@@ -29,16 +29,5 @@ public sealed class OwnerConnections : IDisposable, IAsyncDisposable {
     if (_development is not null) {
       await _development.DisposeAsync();
     }
-  }
-
-  private static async Task<NpgsqlConnection> OpenAsync(string connectionString, CancellationToken cancellationToken) {
-    var connection = new NpgsqlConnection(connectionString);
-    try {
-      await connection.OpenAsync(cancellationToken);
-    } catch {
-      await connection.DisposeAsync();
-      throw;
-    }
-    return connection;
   }
 }

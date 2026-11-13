@@ -31,7 +31,7 @@ internal sealed class MigrationRun {
   }
 
   public async Task<MigrateResult> RunAsync() {
-    var path = Path.Combine(_options.MigrationsDirectory, SeedMigrator.LockFileName);
+    var path = SeedPaths.LockFileIn(_options.MigrationsDirectory);
     var onDisk = await MigrationFiles.LoadAsync(_options.MigrationsDirectory, _cancellationToken);
     var existingText = File.Exists(path) ? await File.ReadAllTextAsync(path, _cancellationToken) : null;
     var previous = existingText is null ? null : SchemaLockParser.Parse(existingText);
@@ -183,7 +183,7 @@ internal sealed class MigrationRun {
   private async Task<List<(string Layer, bool Rewritten)>> WriteLayersAsync(List<MovedLayer> moved) {
     var layers = new List<(string Layer, bool Rewritten)>(moved.Count);
     foreach (var layer in moved.Where(layer => !layer.Authored)) {
-      var path = Path.Combine(_options.SeedsDirectory, layer.Layer.Name + ".yaml");
+      var path = LayerLoader.PathOf(_options.SeedsDirectory, layer.Layer.Name);
       var rewritten = !File.Exists(path) || !string.Equals(await File.ReadAllTextAsync(path, _cancellationToken), layer.Yaml, StringComparison.Ordinal);
       if (rewritten) {
         await SeedMigrator.WriteAsync(path, layer.Yaml, _cancellationToken);
@@ -227,7 +227,7 @@ internal sealed class MigrationRun {
 
   private void Refuse(List<string> problems) {
     if (problems.Count > 0) {
-      throw new SeedFormatException($"seeds:migrate did not write {SeedMigrator.LockFileName}:\n- {string.Join("\n- ", problems.Concat(_warnings))}");
+      throw new SeedFormatException($"seeds:migrate did not write {SeedPaths.LockFileName}:\n- {string.Join("\n- ", problems.Concat(_warnings))}");
     }
   }
 }

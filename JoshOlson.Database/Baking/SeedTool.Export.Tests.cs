@@ -15,7 +15,8 @@ public sealed class SeedToolExportTests : IAsyncLifetime {
   private SeedTool _tool = null!;
 
   public async ValueTask InitializeAsync() {
-    _tool = await SeedTool.OpenAsync(SeedPaths.ForRepository(), SystemClock.Instance, _cancellationToken);
+    var paths = SeedPaths.ForRepository();
+    _tool = await SeedTool.OpenAsync(paths, _databases, new ComposeTools(paths.Root), SystemClock.Instance, _cancellationToken);
     _owner = new(DatabaseEnvironment.OwnerConnectionString("postgres"));
     await _owner.OpenAsync(_cancellationToken);
   }

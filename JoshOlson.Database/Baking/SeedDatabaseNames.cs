@@ -27,6 +27,11 @@ public static partial class SeedDatabaseNames {
       ? _TestPrefix + id
       : throw new SeedFormatException($"'{id}' is not a test id (lowercase letters and digits, at most 40).");
 
+  // A clone that lives for one piece of work (`ScratchClone`), new every time. The purpose (`check`, `export`, `move`,
+  // `migrate`) is in the name so a listing of databases says what a leftover was for.
+  public static string Scratch(string purpose)
+    => $"{Prefix}{purpose}_{Guid.NewGuid():N}";
+
   // Where a template is built before it is renamed to its real name, so a bake that dies halfway leaves nothing a
   // later bake would mistake for a finished template.
   public static string Building(string name)

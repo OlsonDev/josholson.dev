@@ -1,5 +1,4 @@
 using System.Text;
-using JoshOlson.Database.Baking;
 using JoshOlson.Database.Catalog;
 using JoshOlson.Database.Layers;
 using JoshOlson.Database.Locks;
@@ -9,13 +8,11 @@ using Npgsql;
 namespace JoshOlson.Database.Migrate;
 
 public static class SeedMigrator {
-  public const string LockFileName = "schema.lock.yaml";
-
   // `seeds:check`, the lock's half: the lock has to exist, describe the migrations on disk (none changed, renumbered, or
   // added behind it), and be at the newest one, so the layers are migrated to everything there is. Returns every problem
   // together, empty when the seeds are current.
   public static async Task<List<string>> CheckLockAsync(string migrationsDirectory, CancellationToken cancellationToken) {
-    var path = Path.Combine(migrationsDirectory, LockFileName);
+    var path = SeedPaths.LockFileIn(migrationsDirectory);
     if (!File.Exists(path)) {
       return [$"{path} does not exist. Run mise run seeds:migrate."];
     }
@@ -49,17 +46,11 @@ public static class SeedMigrator {
     CancellationToken cancellationToken
   ) {
     var (template, _) = await options.Template.EnsureAsync(owner, cancellationToken);
-    var clone = $"{SeedDatabaseNames.Prefix}migrate_{Guid.NewGuid():N}";
-    await options.Databases.CloneAsync(owner, template, clone, cancellationToken);
-    try {
-      await using var connection = new NpgsqlConnection(DatabaseEnvironment.OwnerConnectionString(clone));
-      await connection.OpenAsync(cancellationToken);
-      return (
-        await SchemaCatalog.ReadAsync(connection, new(), cancellationToken),
-        await MigrationHistory.ReadAsync(connection, cancellationToken));
-    } finally {
-      await options.Databases.DropAsync(owner, clone, CancellationToken.None);
-    }
+    await using var scratch = await options.Databases.CloneScratchAsync(owner, template, "migrate", cancellationToken);
+    await using var connection = await scratch.OpenAsync(cancellationToken);
+    return (
+      await SchemaCatalog.ReadAsync(connection, new(), cancellationToken),
+      await MigrationHistory.ReadAsync(connection, cancellationToken));
   }
 
   internal static bool HasLayers(MigrateOptions options)

@@ -7,6 +7,10 @@ public static class LayerLoader {
   public static List<string> Files(string directory)
     => [.. Directory.EnumerateFiles(directory, "*.yaml").Order(StringComparer.Ordinal)];
 
+  // The file a layer of this name is, or would be, in the directory.
+  public static string PathOf(string seedsDirectory, string name)
+    => Path.Combine(seedsDirectory, name + ".yaml");
+
   // Reads every layer file into one tree, each value typed by its column in the schema, and refuses an insert whose
   // identity key is outside the block of its layer's depth.
   public static async Task<LayerTree> LoadAsync(string directory, SeedSchema schema, CancellationToken cancellationToken) {

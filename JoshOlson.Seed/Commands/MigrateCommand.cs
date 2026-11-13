@@ -45,12 +45,7 @@ public sealed class MigrateCommand : AsyncCommand<MigrateCommand.Settings> {
 
   public override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken) {
     var owner = await _connections.MaintenanceAsync(cancellationToken);
-    var options = new MigrateOptions {
-      MigrationsDirectory = _paths.Migrations,
-      SeedsDirectory = _paths.Seeds,
-      Template = _factory.OpenSchemaTemplate(),
-      Databases = _factory.Databases,
-      Clock = _factory.Clock,
+    var options = MigrateOptions.For(_paths, _factory.OpenSchemaTemplate(), _factory.Databases, _factory.Clock) with {
       Relock = settings.Relock,
       LayerCheck = CheckLayersAsync,
       Snapshots = _factory.OpenSnapshotSource(),

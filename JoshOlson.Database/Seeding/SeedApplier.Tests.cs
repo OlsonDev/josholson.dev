@@ -1,5 +1,4 @@
 using JoshOlson.Database.Layers;
-using JoshOlson.Database.Locks;
 using JoshOlson.Shared.Data;
 using NodaTime;
 using Npgsql;
@@ -90,8 +89,6 @@ public sealed class SeedApplierTests {
     return connection;
   }
 
-  private async Task<SeedSchema> LoadSchemaAsync() {
-    var lockText = await File.ReadAllTextAsync(SeedPaths.ForRepository().LockFile, _cancellationToken);
-    return new(SchemaLockParser.Parse(lockText));
-  }
+  private async Task<SeedSchema> LoadSchemaAsync()
+    => await SeedSchema.LoadAsync(SeedPaths.ForRepository(), _cancellationToken);
 }

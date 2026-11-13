@@ -18,9 +18,29 @@ public static class DatabaseEnvironment {
     return builder.ToString();
   }
 
+  // An open owner connection to the dev database, which the caller disposes.
+  public static async Task<NpgsqlConnection> OpenOwnerAsync(CancellationToken cancellationToken)
+    => await OpenAsync(OwnerConnectionString(), cancellationToken);
+
+  // The same for another database on the server.
+  public static async Task<NpgsqlConnection> OpenOwnerAsync(string database, CancellationToken cancellationToken)
+    => await OpenAsync(OwnerConnectionString(database), cancellationToken);
+
   // The dev database's name: the one `seed <layer>` rebuilds.
   public static string DevelopmentDatabase()
     => Environment.GetEnvironmentVariable("POSTGRES_DB") ?? "josholson";
+
+  // A connection that cannot be opened is disposed here: the caller never gets it, so it could not.
+  private static async Task<NpgsqlConnection> OpenAsync(string connectionString, CancellationToken cancellationToken) {
+    var connection = new NpgsqlConnection(connectionString);
+    try {
+      await connection.OpenAsync(cancellationToken);
+    } catch {
+      await connection.DisposeAsync();
+      throw;
+    }
+    return connection;
+  }
 
   private static NpgsqlConnectionStringBuilder Builder() {
     var password = Environment.GetEnvironmentVariable("POSTGRES_PASSWORD")

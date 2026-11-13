@@ -168,7 +168,7 @@ public sealed class SeedMigratorTests : IAsyncLifetime {
     var exception = await Assert.ThrowsAsync<SeedFormatException>(() => MigrateAsync());
 
     Assert.Contains("1 layer(s)", exception.Message, StringComparison.Ordinal);
-    Assert.False(File.Exists(Path.Combine(_options.MigrationsDirectory, SeedMigrator.LockFileName)));
+    Assert.False(File.Exists(SeedPaths.LockFileIn(_options.MigrationsDirectory)));
   }
 
   [Fact]
@@ -179,7 +179,7 @@ public sealed class SeedMigratorTests : IAsyncLifetime {
       () => MigrateAsync(check: (_, _) => Task.FromResult<List<string>>(["foo: tag.tag has no column bar"])));
 
     Assert.Contains("foo: tag.tag has no column bar", exception.Message, StringComparison.Ordinal);
-    Assert.False(File.Exists(Path.Combine(_options.MigrationsDirectory, SeedMigrator.LockFileName)));
+    Assert.False(File.Exists(SeedPaths.LockFileIn(_options.MigrationsDirectory)));
   }
 
   [Fact]

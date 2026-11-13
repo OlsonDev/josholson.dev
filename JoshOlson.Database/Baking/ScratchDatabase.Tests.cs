@@ -1,45 +1,46 @@
 using JoshOlson.Database.Layers;
-using JoshOlson.Database.Locks;
 using Npgsql;
 
 namespace JoshOlson.Database.Baking;
 
-// A database of a test's own: a clone of the real schema template (built the first time, then reused by every test that
-// asks), dropped when the test is done. Tests that put rows into one can commit, and leave nothing behind in the dev
-// database.
+// A database of a test's own: a `ScratchClone` of the real schema template (built the first time, then reused by every
+// test that asks) with the owner connection that made it, both gone when the test is done. Tests that put rows into one
+// can commit, and leave nothing behind in the dev database.
 internal sealed class ScratchDatabase : IAsyncDisposable {
-  private ScratchDatabase(string name)
-    => Name = name;
+  private readonly NpgsqlConnection _owner;
+  private readonly ScratchClone _clone;
 
-  public string Name { get; }
+  private ScratchDatabase(NpgsqlConnection owner, ScratchClone clone) {
+    _owner = owner;
+    _clone = clone;
+  }
+
+  public string Name
+    => _clone.Name;
 
   public static async Task<ScratchDatabase> CreateAsync(CancellationToken cancellationToken) {
     var paths = SeedPaths.ForRepository();
     var databases = new ServerDatabases();
     var template = new SchemaTemplate(SchemaTemplateOptions.ForRepository(paths), new(paths.Root), databases);
-    await using var owner = new NpgsqlConnection(DatabaseEnvironment.OwnerConnectionString());
-    await owner.OpenAsync(cancellationToken);
-    var (templateName, _) = await template.EnsureAsync(owner, cancellationToken);
-    var name = $"seed_scratch_{Guid.NewGuid():N}";
-    await databases.CloneAsync(owner, templateName, name, cancellationToken);
-    return new(name);
+    var owner = await DatabaseEnvironment.OpenOwnerAsync(cancellationToken);
+    try {
+      var (templateName, _) = await template.EnsureAsync(owner, cancellationToken);
+      return new(owner, await databases.CloneScratchAsync(owner, templateName, "scratch", cancellationToken));
+    } catch {
+      await owner.DisposeAsync();
+      throw;
+    }
   }
 
   // The repository's lock as the layer parser reads it.
-  public static async Task<SeedSchema> LoadSchemaAsync(CancellationToken cancellationToken) {
-    var lockText = await File.ReadAllTextAsync(SeedPaths.ForRepository().LockFile, cancellationToken);
-    return new(SchemaLockParser.Parse(lockText));
-  }
+  public static async Task<SeedSchema> LoadSchemaAsync(CancellationToken cancellationToken)
+    => await SeedSchema.LoadAsync(SeedPaths.ForRepository(), cancellationToken);
 
-  public async Task<NpgsqlConnection> OpenAsync(CancellationToken cancellationToken) {
-    var connection = new NpgsqlConnection(DatabaseEnvironment.OwnerConnectionString(Name));
-    await connection.OpenAsync(cancellationToken);
-    return connection;
-  }
+  public async Task<NpgsqlConnection> OpenAsync(CancellationToken cancellationToken)
+    => await _clone.OpenAsync(cancellationToken);
 
   public async ValueTask DisposeAsync() {
-    await using var owner = new NpgsqlConnection(DatabaseEnvironment.OwnerConnectionString());
-    await owner.OpenAsync(CancellationToken.None);
-    await new ServerDatabases().DropAsync(owner, Name, CancellationToken.None);
+    await _clone.DisposeAsync();
+    await _owner.DisposeAsync();
   }
 }

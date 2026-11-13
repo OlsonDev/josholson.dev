@@ -96,24 +96,18 @@ public static class LayerMover {
     NodaTime.Instant anchor,
     CancellationToken cancellationToken
   ) {
-    var database = $"{SeedDatabaseNames.Prefix}move_{Guid.NewGuid():N}";
-    await options.Databases.CloneAsync(owner, fromTemplate, database, cancellationToken);
+    await using var scratch = await options.Databases.CloneScratchAsync(owner, fromTemplate, "move", cancellationToken);
+    _ = await SeedHydrator.HydrateForMigrationAsync(scratch.Name, oldTree, oldSchema, layer, anchor, cancellationToken);
     try {
-      _ = await SeedHydrator.HydrateForMigrationAsync(database, oldTree, oldSchema, layer, anchor, cancellationToken);
-      try {
-        await options.Template.MigrateToNewestAsync(database, cancellationToken);
-      } catch (InvalidOperationException exception) {
-        throw new SeedFormatException($"the migrations failed on its rows: {SchemaTemplate.FirstError(exception.Message)}", exception);
-      }
-      await using var connection = new NpgsqlConnection(DatabaseEnvironment.OwnerConnectionString(database));
-      await connection.OpenAsync(cancellationToken);
-      var history = MigrationHistory.Check(onDisk, await MigrationHistory.ReadAsync(connection, cancellationToken));
-      return history.Count is 0
-        ? (await SeedStateReader.ReadAsync(connection, newSchema, cancellationToken)).Rows
-        : throw new SeedFormatException(string.Join(" ", history));
-    } finally {
-      await options.Databases.DropAsync(owner, database, CancellationToken.None);
+      await options.Template.MigrateToNewestAsync(scratch.Name, cancellationToken);
+    } catch (InvalidOperationException exception) {
+      throw new SeedFormatException($"the migrations failed on its rows: {SchemaTemplate.FirstError(exception.Message)}", exception);
     }
+    await using var connection = await scratch.OpenAsync(cancellationToken);
+    var history = MigrationHistory.Check(onDisk, await MigrationHistory.ReadAsync(connection, cancellationToken));
+    return history.Count is 0
+      ? (await SeedStateReader.ReadAsync(connection, newSchema, cancellationToken)).Rows
+      : throw new SeedFormatException(string.Join(" ", history));
   }
 
   // The rows of the newest template, which is what a root layer's state is measured from: it holds the reference data
@@ -126,15 +120,9 @@ public static class LayerMover {
     NodaTime.Instant anchor,
     CancellationToken cancellationToken
   ) {
-    var database = $"{SeedDatabaseNames.Prefix}move_{Guid.NewGuid():N}";
-    await options.Databases.CloneAsync(owner, headTemplate, database, cancellationToken);
-    try {
-      await using var connection = new NpgsqlConnection(DatabaseEnvironment.OwnerConnectionString(database));
-      await connection.OpenAsync(cancellationToken);
-      return (await SeedStateReader.ReadAsync(connection, newSchema, cancellationToken, anchor)).Rows;
-    } finally {
-      await options.Databases.DropAsync(owner, database, CancellationToken.None);
-    }
+    await using var scratch = await options.Databases.CloneScratchAsync(owner, headTemplate, "move", cancellationToken);
+    await using var connection = await scratch.OpenAsync(cancellationToken);
+    return (await SeedStateReader.ReadAsync(connection, newSchema, cancellationToken, anchor)).Rows;
   }
 
   // Each layer again, as the difference between its migrated state and its parent's, and checked in memory: the parent's
@@ -227,14 +215,11 @@ public static class LayerMover {
     var tree = new LayerTree([.. moved.ConvertAll(layer => layer.Layer)]);
     var problems = new List<string>();
     foreach (var layer in moved) {
-      var database = $"{SeedDatabaseNames.Prefix}move_{Guid.NewGuid():N}";
-      await options.Databases.CloneAsync(owner, headTemplate, database, cancellationToken);
+      await using var scratch = await options.Databases.CloneScratchAsync(owner, headTemplate, "move", cancellationToken);
       try {
-        _ = await SeedHydrator.HydrateAsync(database, tree, newSchema, layer.Layer.Name, editing: false, anchor, cancellationToken);
+        _ = await SeedHydrator.HydrateAsync(scratch.Name, tree, newSchema, layer.Layer.Name, editing: false, anchor, cancellationToken);
       } catch (SeedFormatException exception) {
         problems.Add($"{layer.Layer.Name}: does not build at the newest version: {exception.Message}");
-      } finally {
-        await options.Databases.DropAsync(owner, database, CancellationToken.None);
       }
     }
     return problems;

@@ -1,7 +1,5 @@
 using JoshOlson.Database.Layers;
-using JoshOlson.Database.Locks;
 using JoshOlson.Database.Seeding;
-using JoshOlson.Shared.Data;
 using JoshOlson.Shared.Extensions;
 using NodaTime;
 using Npgsql;
@@ -46,32 +44,20 @@ public sealed class SeedTool {
   public SeedTool WithDevelopment(string development)
     => new(_schemaTemplate, _layerTemplate, _databases, Tree, _schema, _clock, development);
 
-  // Reads the lock and the layers under the repository root and sets everything up. The lock has to exist: it types
-  // every value in a layer.
-  public static async Task<SeedTool> OpenAsync(SeedPaths paths, IClock clock, CancellationToken cancellationToken)
-    => await OpenAsync(paths, new ServerDatabases(), new ComposeTools(paths.Root), clock, cancellationToken);
-
-  // The same, for a schema the caller already has: `seeds:migrate` checks the layers against the lock it is about to
-  // write, which is not on disk yet.
-  public static async Task<SeedTool> OpenAsync(SeedPaths paths, SeedSchema schema, IClock clock, CancellationToken cancellationToken)
-    => await OpenAsync(paths, new ServerDatabases(), new ComposeTools(paths.Root), schema, clock, cancellationToken);
-
-  // The same with the database operations and the container tools the caller already has, which is how the command line
-  // shares one of each across a run.
+  // Reads the lock and the layers under the repository root and sets everything up, with the database operations and the
+  // container tools the caller has, which is how the command line shares one of each across a run. The lock has to
+  // exist: it types every value in a layer.
   public static async Task<SeedTool> OpenAsync(
     SeedPaths paths,
     ServerDatabases databases,
     ComposeTools tools,
     IClock clock,
     CancellationToken cancellationToken
-  ) {
-    if (!File.Exists(paths.LockFile)) {
-      throw new SeedFormatException($"{paths.LockFile} does not exist. Run mise run seeds:migrate first.");
-    }
-    var schemaLock = SchemaLockParser.Parse(await File.ReadAllTextAsync(paths.LockFile, cancellationToken));
-    return await OpenAsync(paths, databases, tools, new SeedSchema(schemaLock), clock, cancellationToken);
-  }
+  )
+    => await OpenAsync(paths, databases, tools, await SeedSchema.LoadAsync(paths, cancellationToken), clock, cancellationToken);
 
+  // The same, for a schema the caller already has: `seeds:migrate` checks the layers against the lock it is about to
+  // write, which is not on disk yet.
   public static async Task<SeedTool> OpenAsync(
     SeedPaths paths,
     ServerDatabases databases,
@@ -149,8 +135,7 @@ public sealed class SeedTool {
       throw new SeedFormatException("A layer needs a description, a sentence about what it adds.");
     }
     DatabaseState child;
-    await using (var source = new NpgsqlConnection(DatabaseEnvironment.OwnerConnectionString(database))) {
-      await source.OpenAsync(cancellationToken);
+    await using (var source = await DatabaseEnvironment.OpenOwnerAsync(database, cancellationToken)) {
       child = await SeedStateReader.ReadAsync(source, _schema, cancellationToken, SeedHydrator.Anchor(_clock));
     }
     var recorded = child.Layer is null ? null : Tree.Get(child.Layer);
@@ -229,28 +214,22 @@ public sealed class SeedTool {
 
   private async Task<string?> CheckFileAsync(NpgsqlConnection owner, string seedsDirectory, SeedLayer layer, CancellationToken cancellationToken) {
     var canonical = LayerWriter.Write(layer, _schema);
-    var path = Path.Combine(seedsDirectory, layer.Name + ".yaml");
+    var path = LayerLoader.PathOf(seedsDirectory, layer.Name);
     var onDisk = await File.ReadAllTextAsync(path, cancellationToken);
     if (!string.Equals(onDisk, canonical, StringComparison.Ordinal)) {
       return $"{layer.Name}: {path} is not in canonical form ({FirstDifference(canonical, onDisk)}).";
     }
     try {
       var (template, _) = await _layerTemplate.EnsureAsync(owner, layer.Name, cancellationToken);
-      var scratch = $"{SeedDatabaseNames.Prefix}check_{Guid.NewGuid():N}";
-      await _databases.CloneAsync(owner, template, scratch, cancellationToken);
-      try {
-        DatabaseState state;
-        await using (var connection = new NpgsqlConnection(DatabaseEnvironment.OwnerConnectionString(scratch))) {
-          await connection.OpenAsync(cancellationToken);
-          state = await SeedStateReader.ReadAsync(connection, _schema, cancellationToken);
-        }
-        var again = await DiffAsync(owner, scratch, state, layer.Extends, layer.Name, layer.Description, exists: true, cancellationToken);
-        return string.Equals(again.Yaml, canonical, StringComparison.Ordinal)
-          ? null
-          : $"{layer.Name}: a database built from it exports as something else ({FirstDifference(canonical, again.Yaml)}).";
-      } finally {
-        await _databases.DropAsync(owner, scratch, CancellationToken.None);
+      await using var scratch = await _databases.CloneScratchAsync(owner, template, "check", cancellationToken);
+      DatabaseState state;
+      await using (var connection = await scratch.OpenAsync(cancellationToken)) {
+        state = await SeedStateReader.ReadAsync(connection, _schema, cancellationToken);
       }
+      var again = await DiffAsync(owner, scratch.Name, state, layer.Extends, layer.Name, layer.Description, exists: true, cancellationToken);
+      return string.Equals(again.Yaml, canonical, StringComparison.Ordinal)
+        ? null
+        : $"{layer.Name}: a database built from it exports as something else ({FirstDifference(canonical, again.Yaml)}).";
     } catch (SeedFormatException exception) {
       return $"{layer.Name}: {exception.Message}";
     }
@@ -274,20 +253,8 @@ public sealed class SeedTool {
   // (a database with no record gets one, with the anchor the times were measured from). The sequences need no move: the
   // rows the layer took IDs for came from its own block already.
   public async Task RecordExportAsync(string database, LayerExport export, CancellationToken cancellationToken) {
-    await using var connection = new NpgsqlConnection(DatabaseEnvironment.OwnerConnectionString(database));
-    await connection.OpenAsync(cancellationToken);
-    // A `DateTime` in UTC, because this connection has no NodaTime plugin to write an `Instant` with.
-    await connection.ExecuteAsync(
-      """
-      INSERT INTO seed.hydration (layer, editing, anchor_utc)
-      VALUES (@layer, TRUE, @anchor)
-      ON CONFLICT (hydration_id) DO UPDATE SET layer = excluded.layer, editing = TRUE;
-      """,
-      new {
-        layer = export.Layer.Name,
-        anchor = export.Anchor.ToDateTimeUtc(),
-      },
-      cancellationToken);
+    await using var connection = await DatabaseEnvironment.OpenOwnerAsync(database, cancellationToken);
+    await SeedHydration.RecordExportAsync(connection, export.Layer.Name, export.Anchor, cancellationToken);
   }
 
   // The tree with the new layer in place of the one of its name (if there is one) must still be sound: the layer's own
@@ -329,14 +296,11 @@ public sealed class SeedTool {
     var template = (await _schemaTemplate.EnsureAsync(owner, cancellationToken)).Name;
     var problems = new List<string>();
     foreach (var name in affected) {
-      var scratch = $"{SeedDatabaseNames.Prefix}check_{Guid.NewGuid():N}";
-      await _databases.CloneAsync(owner, template, scratch, cancellationToken);
+      await using var scratch = await _databases.CloneScratchAsync(owner, template, "check", cancellationToken);
       try {
-        _ = await SeedHydrator.HydrateAsync(scratch, tree, _schema, name, editing: false, SeedHydrator.Anchor(_clock), cancellationToken);
+        _ = await SeedHydrator.HydrateAsync(scratch.Name, tree, _schema, name, editing: false, SeedHydrator.Anchor(_clock), cancellationToken);
       } catch (SeedFormatException exception) {
         problems.Add($"{name} does not build: {exception.Message}");
-      } finally {
-        await _databases.DropAsync(owner, scratch, CancellationToken.None);
       }
     }
     if (problems.Count > 0) {
@@ -350,22 +314,12 @@ public sealed class SeedTool {
     var template = parent is null
       ? (await _schemaTemplate.EnsureAsync(owner, cancellationToken)).Name
       : (await _layerTemplate.EnsureAsync(owner, parent, cancellationToken)).Name;
-    var scratch = $"{SeedDatabaseNames.Prefix}export_{Guid.NewGuid():N}";
-    await _databases.CloneAsync(owner, template, scratch, cancellationToken);
-    try {
-      await using var connection = new NpgsqlConnection(DatabaseEnvironment.OwnerConnectionString(scratch));
-      await connection.OpenAsync(cancellationToken);
-      if (parent is null) {
-        // A `DateTime` in UTC, because this connection has no NodaTime plugin to write an `Instant` with.
-        await connection.ExecuteAsync(
-          "INSERT INTO seed.hydration (anchor_utc) VALUES (@anchor);",
-          new { anchor = anchor.ToDateTimeUtc() },
-          cancellationToken);
-      }
-      return (await SeedStateReader.ReadAsync(connection, _schema, cancellationToken)).Rows;
-    } finally {
-      await _databases.DropAsync(owner, scratch, CancellationToken.None);
+    await using var scratch = await _databases.CloneScratchAsync(owner, template, "export", cancellationToken);
+    await using var connection = await scratch.OpenAsync(cancellationToken);
+    if (parent is null) {
+      await SeedHydration.RecordAsync(connection, layer: null, editing: false, anchor, cancellationToken);
     }
+    return (await SeedStateReader.ReadAsync(connection, _schema, cancellationToken)).Rows;
   }
 
   // `seed:test <id> <layer>`: a database of its own for one test, cloned from the layer's template. Returns its name.

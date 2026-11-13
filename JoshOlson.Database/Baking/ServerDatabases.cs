@@ -44,6 +44,18 @@ public sealed class ServerDatabases {
   public async Task CloneAsync(NpgsqlConnection owner, string source, string target, CancellationToken cancellationToken)
     => await CloneQuotedAsync(owner, SeedDatabaseNames.Quote(source), SeedDatabaseNames.Quote(target), cancellationToken);
 
+  // A clone under a new name that says what it is for (`SeedDatabaseNames.Scratch`), dropped when it is disposed.
+  public async Task<ScratchClone> CloneScratchAsync(
+    NpgsqlConnection owner,
+    string source,
+    string purpose,
+    CancellationToken cancellationToken
+  ) {
+    var name = SeedDatabaseNames.Scratch(purpose);
+    await CloneAsync(owner, source, name, cancellationToken);
+    return new(this, owner, name);
+  }
+
   // The one exception to the prefix: the dev database, which `seed <layer>` makes afresh from a template.
   public async Task CloneDevelopmentAsync(
     NpgsqlConnection owner,

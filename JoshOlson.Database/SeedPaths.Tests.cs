@@ -21,4 +21,12 @@ public sealed class SeedPathsTests {
   [Fact]
   public void LockFile_IsBesideTheMigrations()
     => Assert.Equal(Path.Combine("/foo", "JoshOlson.Database", "migrations", "schema.lock.yaml"), new SeedPaths("/foo").LockFile);
+
+  [Fact]
+  public void LockFileIn_Directory_IsTheLockInIt()
+    => Assert.Equal(Path.Combine("/foo", "schema.lock.yaml"), SeedPaths.LockFileIn("/foo"));
+
+  [Fact]
+  public void Layer_Name_IsItsFileInTheSeeds()
+    => Assert.Equal(Path.Combine("/foo", "JoshOlson.Database", "seeds", "bar.yaml"), new SeedPaths("/foo").Layer("bar"));
 }

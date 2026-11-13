@@ -1,3 +1,4 @@
+using JoshOlson.Database.Layers;
 using JoshOlson.Shared.IO;
 
 namespace JoshOlson.Database;
@@ -23,8 +24,18 @@ public sealed class SeedPaths {
   public string ProvisioningScript { get; }
   public string SeedSchemaScript { get; }
 
+  public const string LockFileName = "schema.lock.yaml";
+
   public string LockFile
-    => Path.Combine(Migrations, "schema.lock.yaml");
+    => LockFileIn(Migrations);
+
+  // The lock is beside the migrations, wherever they are: `seeds:migrate` is handed its directories.
+  public static string LockFileIn(string migrationsDirectory)
+    => Path.Combine(migrationsDirectory, LockFileName);
+
+  // The file of the layer with this name, whether or not there is one.
+  public string Layer(string name)
+    => LayerLoader.PathOf(Seeds, name);
 
   // The repository the process runs in (`RepositoryRoot`), found once: the root does not move while a process runs.
   public static SeedPaths ForRepository()

@@ -1,6 +1,5 @@
 using JoshOlson.Database;
 using JoshOlson.Database.Layers;
-using JoshOlson.Database.Locks;
 using JoshOlson.Shared.Extensions;
 using Spectre.Console;
 using Spectre.Console.Cli;
@@ -40,13 +39,9 @@ public sealed class ListCommand : AsyncCommand {
   }
 
   // Layer values are typed by the lock, so the lock has to exist before there is a layer to read.
-  private async Task<LayerTree> LoadTreeAsync(CancellationToken cancellationToken) {
-    if (!File.Exists(_paths.LockFile)) {
-      return LayerLoader.Files(_paths.Seeds).Count > 0
-        ? throw new SeedFormatException($"{_paths.LockFile} does not exist. Run mise run seeds:migrate first.")
-        : new LayerTree([]);
-    }
-    var schemaLock = SchemaLockParser.Parse(await File.ReadAllTextAsync(_paths.LockFile, cancellationToken));
-    return await LayerLoader.LoadAsync(_paths.Seeds, new SeedSchema(schemaLock), cancellationToken);
-  }
+  // With neither a lock nor a layer there is nothing to list, and that is not an error.
+  private async Task<LayerTree> LoadTreeAsync(CancellationToken cancellationToken)
+    => File.Exists(_paths.LockFile) || LayerLoader.Files(_paths.Seeds).Count > 0
+      ? await LayerLoader.LoadAsync(_paths.Seeds, await SeedSchema.LoadAsync(_paths, cancellationToken), cancellationToken)
+      : new LayerTree([]);
 }
