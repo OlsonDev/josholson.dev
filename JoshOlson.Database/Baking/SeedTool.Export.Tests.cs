@@ -1,106 +1,183 @@
-using JoshOlson.Database.Layers;
-using JoshOlson.Shared.Data;
-using Npgsql;
+using NodaTime;
 using Xunit;
 
 namespace JoshOlson.Database.Baking;
 
-// Each test builds a database of its own from the real layers, changes it the way the app would, and exports it.
+// `ExportAsync` reads its database and changes nothing, so each test builds one database from a fixture layer and
+// exports it as often as it has something to say about that state, changing it the way the app would in between. The
+// comment on a test is the states it walks through. Exports of a database built for editing a layer are
+// `SeedToolExportEditingTests`.
 public sealed class SeedToolExportTests : IAsyncLifetime {
+  // A tag made, the first renamed, the third deleted, and a user made an hour and a half after the anchor.
+  private static readonly string _ChangesToTheRoot = $"""
+    {FixtureSeeds.InsertTag("Zed")}
+
+    UPDATE tag.tag AS t SET
+        name  = 'Corge'
+    WHERE t.tag_id = 1;
+
+    DELETE FROM tag.tag AS t
+    WHERE t.tag_id = 3;
+
+    INSERT INTO auth.user (
+        display_name
+      , user_handle
+      , created_utc
+    ) VALUES (
+        'Foo'
+      , decode('00112233445566778899aabbccddeeff', 'hex')
+      , (
+          SELECT h.anchor_utc + INTERVAL '90 minutes'
+          FROM (SELECT) AS _
+          JOIN seed.hydration AS h  ON TRUE
+        )
+    );
+    """;
+
+  // The user as a layer writes it, a child's first row in its block.
+  private const string _UserRow = "{ user_id: 1001, display_name: Foo, "
+    + @"user_handle: \x00112233445566778899aabbccddeeff, is_active: true, created_utc: 1h 30m }";
+
   private readonly CancellationToken _cancellationToken = TestContext.Current.CancellationToken;
-  private readonly ServerDatabases _databases = SeedTestServer.Databases;
-  private readonly List<string> _created = [];
-  private NpgsqlConnection _owner = null!;
-  private SeedTool _tool = null!;
+  private ExportHarness _exports = null!;
 
-  public async ValueTask InitializeAsync() {
-    _tool = await SeedTestServer.RealTool;
-    _owner = await SeedTestServer.OpenMaintenanceAsync(_cancellationToken);
-  }
+  public async ValueTask InitializeAsync()
+    => _exports = await ExportHarness.OpenAsync(_cancellationToken);
 
-  public async ValueTask DisposeAsync() {
-    foreach (var name in _created) {
-      await _databases.DropAsync(_owner, name, CancellationToken.None);
-    }
-    await _owner.DisposeAsync();
-  }
+  public async ValueTask DisposeAsync()
+    => await _exports.DisposeAsync();
 
-  private async Task<string> DatabaseFromAsync(string layer) {
-    var name = await _tool.CreateTestDatabaseAsync(_owner, Guid.NewGuid().ToString("N"), layer, _cancellationToken);
-    _created.Add(name);
-    return name;
-  }
-
-  private async Task RunAsync(string database, string sql) {
+  private async Task<(Instant Anchor, string? Layer, bool Editing)> ReadHydrationAsync(string database) {
     await using var connection = await DatabaseEnvironment.OpenOwnerAsync(database, _cancellationToken);
-    await connection.ExecuteAsync(sql, _cancellationToken);
+    return await SeedHydration.ReadAsync(connection, anchorIfUnrecorded: null, _cancellationToken);
   }
 
-  private async Task<LayerExport> ExportAsync(string database, string? name = "foo-bar", string? description = "Foo bar", bool overwrite = false)
-    => await _tool.ExportAsync(_owner, database, name, description, overwrite, _cancellationToken);
-
+  // 1. Built from the root and unchanged: there is nothing to export.
+  // 2. A tag made, one renamed, one deleted, and a user made an hour and a half after the anchor: a child of the root
+  //    that is exactly those changes, which cannot take the name of another layer, nor of the root itself, and needs
+  //    a name.
+  // 3. Recording the export, which is the one step that writes: the database now stands for the layer it made.
   [Fact]
-  public async Task ExportAsync_ChildOfALayer_IsTheDifferenceFromItsTemplate() {
-    var database = await DatabaseFromAsync(SeedLayers.Minimal);
-    await RunAsync(
-      database,
-      """
-      INSERT INTO tag.tag (name, slug) VALUES ('Zed', 'zed');
-      UPDATE tag.tag SET name = 'Databases' WHERE tag_id = 1;
-      DELETE FROM tag.tag WHERE tag_id = 3;
-      """);
+  public async Task ExportAsync_BuiltFromALayerAndThenChanged_IsAChildThatIsTheDifferenceFromItsTemplate() {
+    var database = await _exports.DatabaseFromAsync(FixtureSeeds.Root);
 
-    var export = await ExportAsync(database);
+    var unchanged = await _exports.RefusalAsync(database);
+    await _exports.RunAsync(database, _ChangesToTheRoot);
+    var export = await _exports.ExportAsync(database);
+    var nameInUse = await _exports.RefusalAsync(database, name: FixtureSeeds.Child);
+    var cycle = await _exports.RefusalAsync(database, name: FixtureSeeds.Root, overwrite: true);
+    var noName = await _exports.RefusalAsync(database, name: null);
+    await _exports.Tool.RecordExportAsync(database, export, _cancellationToken);
+    var (_, layer, editing) = await ReadHydrationAsync(database);
 
+    Assert.Equal(
+      $"There is nothing to export: {database} holds the same rows as the template for {FixtureSeeds.Root}.",
+      unchanged);
     Assert.Equal(
       $$"""
       description: Foo bar
-      extends: minimal
+      extends: {{FixtureSeeds.Root}}
       tables:
+        auth.user:
+          insert:
+            - {{_UserRow}}
         tag.tag:
           insert:
             - {{FixtureSeeds.TagRow(1001, "Zed")}}
           update:
-            - { tag_id: 1, name: Databases }
+            - { tag_id: 1, name: Corge }
           delete:
             - { tag_id: 3 }
 
       """,
       export.Yaml);
     Assert.Equal("foo-bar", export.Layer.Name);
-    Assert.Equal(SeedLayers.Minimal, export.Layer.Extends);
+    Assert.Equal(FixtureSeeds.Root, export.Layer.Extends);
+    Assert.Contains($"already a layer named '{FixtureSeeds.Child}'", nameInUse, StringComparison.Ordinal);
+    Assert.Contains("extend each other in a cycle", cycle, StringComparison.Ordinal);
+    Assert.Contains("Give the new layer a --name", noName, StringComparison.Ordinal);
+    Assert.Equal("foo-bar", layer);
+    Assert.True(editing);
   }
 
+  // Built from the root, with a tag at an ID no layer at depth 1 may take.
   [Fact]
-  public async Task ExportAsync_ARowWithARelativeTime_IsExportedAsTheOffsetFromTheDatabasesAnchor() {
-    var database = await DatabaseFromAsync(SeedLayers.Minimal);
-    await RunAsync(
-      database,
-      """
-      INSERT INTO auth.user (display_name, user_handle, created_utc)
-      VALUES ('Foo', decode('00112233445566778899aabbccddeeff', 'hex'), (SELECT anchor_utc FROM seed.hydration) + interval '90 minutes');
-      """);
+  public async Task ExportAsync_InsertOutsideTheBlockOfItsDepth_NamesTheLayerTableAndId() {
+    var database = await _exports.DatabaseFromAsync(FixtureSeeds.Root);
+    await _exports.RunAsync(database, FixtureSeeds.InsertTagWithId(5000, "Zed"));
 
-    var export = await ExportAsync(database);
+    var refusal = await _exports.RefusalAsync(database);
 
     Assert.Contains(
-      "{ user_id: 1001, display_name: Foo, user_handle: \\x00112233445566778899aabbccddeeff, is_active: true, created_utc: 1h 30m }",
-      export.Yaml,
+      "foo-bar: tag.tag inserts tag_id 5000, outside the 1001..2000 block of a layer at depth 1.",
+      refusal,
       StringComparison.Ordinal);
   }
 
+  // Built from the child, with a tag made and the color the child gave a tag of the root's cleared.
   [Fact]
-  public async Task ExportAsync_FromTheSchemaTemplate_IsARootThatHoldsEverythingTheDatabaseHas() {
-    await using var scratch = await ScratchDatabase.CreateAsync(_cancellationToken);
-    await RunAsync(
-      scratch.Name,
+  public async Task ExportAsync_TheLayerAppliedToItsParent_GivesTheDatabasesRowsBack() {
+    var database = await _exports.DatabaseFromAsync(FixtureSeeds.Child);
+    await _exports.RunAsync(
+      database,
       """
-      INSERT INTO seed.hydration (anchor_utc) VALUES ('2026-01-01 12:00:00+00');
-      INSERT INTO tag.tag (tag_id, name, slug) OVERRIDING SYSTEM VALUE VALUES (1, 'Foo', 'foo'), (2, 'Bar', 'bar');
+      INSERT INTO tag.tag (
+          name
+        , slug
+        , color
+      ) VALUES (
+          'Zed'
+        , 'zed'
+        , 'red-200'
+      );
+
+      UPDATE tag.tag AS t SET
+          color  = NULL
+      WHERE t.tag_id = 2;
       """);
 
-    var export = await ExportAsync(scratch.Name, name: "root-layer", description: "Root export");
+    var export = await _exports.ExportAsync(database);
 
+    Assert.Equal(FixtureSeeds.Child, export.Layer.Extends);
+    Assert.Contains("{ tag_id: 2, color: ~ }", export.Yaml, StringComparison.Ordinal);
+    Assert.Contains(FixtureSeeds.TagRow(2001, "Zed", "red-200"), export.Yaml, StringComparison.Ordinal);
+  }
+
+  // A clone of the schema template, which records no layer.
+  // 1. A tag and no hydration row: a root, with times measured from now.
+  // 2. Recording that export gives the database a row, with the anchor the export measured from.
+  // 3. The row naming a layer that is gone: refused, naming it.
+  // 4. The row naming no layer, and a second tag: a root that holds everything the database has.
+  [Fact]
+  public async Task ExportAsync_DatabaseThatRecordsNoLayer_IsARootThatHoldsEverythingTheDatabaseHas() {
+    await using var scratch = await ScratchDatabase.CreateAsync(_cancellationToken);
+    await _exports.RunAsync(scratch.Name, FixtureSeeds.InsertTagWithId(1, "Foo"));
+
+    var unrecorded = await _exports.ExportAsync(scratch.Name);
+    await _exports.Tool.RecordExportAsync(scratch.Name, unrecorded, _cancellationToken);
+    var recorded = await ReadHydrationAsync(scratch.Name);
+    await _exports.RunAsync(
+      scratch.Name,
+      """
+      UPDATE seed.hydration AS h SET
+          layer  = 'no-such-layer';
+      """);
+    var layerIsGone = await _exports.RefusalAsync(scratch.Name);
+    await _exports.RunAsync(
+      scratch.Name,
+      $"""
+      UPDATE seed.hydration AS h SET
+          layer    = NULL
+        , editing  = FALSE;
+
+      {FixtureSeeds.InsertTagWithId(2, "Bar")}
+      """);
+    var root = await _exports.ExportAsync(scratch.Name, name: "root-layer", description: "Root export");
+
+    Assert.Null(unrecorded.Layer.Extends);
+    Assert.Contains(FixtureSeeds.TagRow(1, "Foo"), unrecorded.Yaml, StringComparison.Ordinal);
+    Assert.Equal((unrecorded.Anchor, "foo-bar", true), recorded);
+    Assert.Contains("There is no layer named 'no-such-layer'", layerIsGone, StringComparison.Ordinal);
     Assert.Equal(
       $$"""
       description: Root export
@@ -111,204 +188,20 @@ public sealed class SeedToolExportTests : IAsyncLifetime {
             - {{FixtureSeeds.TagRow(2, "Bar")}}
 
       """,
-      export.Yaml);
-    Assert.Null(export.Layer.Extends);
-  }
-
-  [Fact]
-  public async Task ExportAsync_TheLayerAppliedToItsParent_GivesTheDatabasesRowsBack() {
-    var database = await DatabaseFromAsync(SeedLayers.MoreTags);
-    await RunAsync(database, "INSERT INTO tag.tag (name, slug, color) VALUES ('Zed', 'zed', 'red-200'); UPDATE tag.tag SET color = NULL WHERE tag_id = 1001;");
-
-    var export = await ExportAsync(database);
-
-    Assert.Equal(SeedLayers.MoreTags, export.Layer.Extends);
-    Assert.Contains("{ tag_id: 1001, color: ~ }", export.Yaml, StringComparison.Ordinal);
-    Assert.Contains(FixtureSeeds.TagRow(2001, "Zed", "red-200"), export.Yaml, StringComparison.Ordinal);
-  }
-
-  [Fact]
-  public async Task ExportAsync_NothingChanged_SaysSo() {
-    var database = await DatabaseFromAsync(SeedLayers.Minimal);
-
-    var exception = await Assert.ThrowsAsync<SeedFormatException>(() => ExportAsync(database));
-
-    Assert.Equal($"There is nothing to export: {database} holds the same rows as the template for minimal.", exception.Message);
-  }
-
-  [Fact]
-  public async Task ExportAsync_InsertOutsideTheBlockOfItsDepth_NamesTheLayerTableAndId() {
-    var database = await DatabaseFromAsync(SeedLayers.Minimal);
-    await RunAsync(database, FixtureSeeds.InsertTagWithId(5000, "Zed"));
-
-    var exception = await Assert.ThrowsAsync<SeedFormatException>(() => ExportAsync(database));
-
-    Assert.Contains("foo-bar: tag.tag inserts tag_id 5000, outside the 1001..2000 block of a layer at depth 1.", exception.Message, StringComparison.Ordinal);
-  }
-
-  [Fact]
-  public async Task ExportAsync_NameOfALayerThatExists_NeedsOverwrite() {
-    var database = await DatabaseFromAsync(SeedLayers.Minimal);
-    await RunAsync(database, FixtureSeeds.InsertTag("Zed"));
-
-    var exception = await Assert.ThrowsAsync<SeedFormatException>(() => ExportAsync(database, name: SeedLayers.MoreTags));
-
-    Assert.Contains("already a layer named 'more-tags'", exception.Message, StringComparison.Ordinal);
-  }
-
-  [Fact]
-  public async Task ExportAsync_OverwritingTheLayerItExtends_IsACycle() {
-    var database = await DatabaseFromAsync(SeedLayers.Minimal);
-    await RunAsync(database, FixtureSeeds.InsertTag("Zed"));
-
-    var exception = await Assert.ThrowsAsync<SeedFormatException>(
-      () => ExportAsync(database, name: SeedLayers.Minimal, overwrite: true));
-
-    Assert.Contains("extend each other in a cycle", exception.Message, StringComparison.Ordinal);
+      root.Yaml);
+    Assert.Null(root.Layer.Extends);
   }
 
   [Theory]
   [InlineData("Foo_Bar", "Foo", "is not a layer name")]
   [InlineData("foo-bar", "  ", "needs a description")]
-  public async Task ExportAsync_BadNameOrDescription_IsRefusedBeforeAnythingIsRead(string name, string description, string expected) {
-    var exception = await Assert.ThrowsAsync<SeedFormatException>(
-      () => ExportAsync("no_such_database", name, description));
-
-    Assert.Contains(expected, exception.Message, StringComparison.Ordinal);
-  }
-
-  [Fact]
-  public async Task ExportAsync_DatabaseThatRecordsALayerThatIsGone_NamesIt() {
-    await using var scratch = await ScratchDatabase.CreateAsync(_cancellationToken);
-    await RunAsync(scratch.Name, "INSERT INTO seed.hydration (layer, anchor_utc) VALUES ('no-such-layer', '2026-01-01 12:00:00+00');");
-
-    var exception = await Assert.ThrowsAsync<SeedFormatException>(() => ExportAsync(scratch.Name));
-
-    Assert.Contains("There is no layer named 'no-such-layer'", exception.Message, StringComparison.Ordinal);
-  }
-
-  [Fact]
-  public async Task ExportAsync_DatabaseWithNoHydrationRow_IsARootWithTimesMeasuredFromNow() {
-    await using var scratch = await ScratchDatabase.CreateAsync(_cancellationToken);
-    await RunAsync(scratch.Name, FixtureSeeds.InsertTagWithId(1, "Foo"));
-
-    var export = await ExportAsync(scratch.Name);
-
-    Assert.Null(export.Layer.Extends);
-    Assert.Contains(FixtureSeeds.TagRow(1, "Foo"), export.Yaml, StringComparison.Ordinal);
-  }
-
-  private async Task<string> EditingDatabaseFromAsync(string layer) {
-    var database = await DatabaseFromAsync(layer);
-    await RunAsync(database, "UPDATE seed.hydration SET editing = TRUE;");
-    return database;
-  }
-
-  [Fact]
-  public async Task ExportAsync_BuiltForEditingAndNoName_ReplacesTheLayerKeepingItsDescription() {
-    var database = await EditingDatabaseFromAsync(SeedLayers.MoreTags);
-    await RunAsync(database, FixtureSeeds.InsertTagWithId(1020, "Zed"));
-
-    var export = await ExportAsync(database, name: null, description: null);
-
-    Assert.Equal(SeedLayers.MoreTags, export.Layer.Name);
-    Assert.Equal(SeedLayers.Minimal, export.Layer.Extends);
-    Assert.Equal(_tool.Tree.Get(SeedLayers.MoreTags).Description, export.Layer.Description);
-    Assert.True(export.Replaces);
-    Assert.Contains(FixtureSeeds.TagRow(1020, "Zed"), export.Yaml, StringComparison.Ordinal);
-    Assert.Contains("{ tag_id: 1001,", export.Yaml, StringComparison.Ordinal);
-  }
-
-  [Fact]
-  public async Task ExportAsync_BuiltForEditingAndAnotherName_IsASiblingOfTheLayer() {
-    var database = await EditingDatabaseFromAsync(SeedLayers.MoreTags);
-    await RunAsync(database, FixtureSeeds.InsertTagWithId(1020, "Zed"));
-
-    var export = await ExportAsync(database);
-
-    Assert.Equal("foo-bar", export.Layer.Name);
-    Assert.Equal(SeedLayers.Minimal, export.Layer.Extends);
-    Assert.False(export.Replaces);
-  }
-
-  [Fact]
-  public async Task ExportAsync_BuiltForEditingAndAnotherName_NeedsADescription() {
-    var database = await EditingDatabaseFromAsync(SeedLayers.MoreTags);
-    await RunAsync(database, FixtureSeeds.InsertTagWithId(1020, "Zed"));
-
-    var exception = await Assert.ThrowsAsync<SeedFormatException>(() => ExportAsync(database, description: null));
-
-    Assert.Contains("needs a description", exception.Message, StringComparison.Ordinal);
-  }
-
-  [Fact]
-  public async Task ExportAsync_NotBuiltForEditingAndNoName_AsksForOne() {
-    var database = await DatabaseFromAsync(SeedLayers.Minimal);
-    await RunAsync(database, FixtureSeeds.InsertTag("Zed"));
-
-    var exception = await Assert.ThrowsAsync<SeedFormatException>(() => ExportAsync(database, name: null));
-
-    Assert.Contains("Give the new layer a --name", exception.Message, StringComparison.Ordinal);
-  }
-
-  [Fact]
-  public async Task ExportAsync_ReplacingALayerThatOthersExtend_IsFineWhileTheyStillApply() {
-    var database = await EditingDatabaseFromAsync(SeedLayers.Minimal);
-    await RunAsync(database, "UPDATE tag.tag SET name = 'Foo' WHERE tag_id = 1;");
-
-    var export = await ExportAsync(database, name: null, description: null);
-
-    Assert.Equal(SeedLayers.Minimal, export.Layer.Name);
-    Assert.Null(export.Layer.Extends);
-    Assert.True(export.Replaces);
-  }
-
-  [Fact]
-  public async Task ExportAsync_ReplacingALayerThatOthersExtend_NamesTheOnesItWouldBreak() {
-    var database = await EditingDatabaseFromAsync(SeedLayers.Minimal);
-    await RunAsync(database, "DELETE FROM tag.tag WHERE tag_id = 2;");
-
-    var exception = await Assert.ThrowsAsync<SeedFormatException>(() => ExportAsync(database, name: null, description: null));
-
-    Assert.Contains("more-tags no longer applies", exception.Message, StringComparison.Ordinal);
-  }
-
-  [Fact]
-  public async Task ExportAsync_ReplacingALayerSoThatOneBelowItBreaksAConstraint_NamesIt() {
-    var database = await EditingDatabaseFromAsync(SeedLayers.Minimal);
-    // `more-tags` inserts a tag with the slug `framework`. The merge cannot see a unique constraint, the database can.
-    await RunAsync(database, "INSERT INTO tag.tag (tag_id, name, slug) OVERRIDING SYSTEM VALUE VALUES (900, 'Foo', 'framework');");
-
-    var exception = await Assert.ThrowsAsync<SeedFormatException>(() => ExportAsync(database, name: null, description: null));
-
-    Assert.Contains("more-tags does not build: Inserting into tag.tag failed", exception.Message, StringComparison.Ordinal);
-  }
-
-  [Fact]
-  public async Task RecordExportAsync_MakesTheDatabaseTheLayerItExported() {
-    var database = await DatabaseFromAsync(SeedLayers.Minimal);
-    await RunAsync(database, FixtureSeeds.InsertTag("Zed"));
-    var export = await ExportAsync(database);
-
-    await _tool.RecordExportAsync(database, export, _cancellationToken);
-
-    await using var connection = await DatabaseEnvironment.OpenOwnerAsync(database, _cancellationToken);
-    var layer = await connection.QuerySingleAsync<string>("SELECT layer FROM seed.hydration;", _cancellationToken);
-    var editing = await connection.QuerySingleAsync<bool>("SELECT editing FROM seed.hydration;", _cancellationToken);
-    Assert.Equal("foo-bar", layer);
-    Assert.True(editing);
-  }
-
-  [Fact]
-  public async Task RecordExportAsync_DatabaseWithNoRecord_GetsOneWithTheAnchorTheTimesWereMeasuredFrom() {
-    await using var scratch = await ScratchDatabase.CreateAsync(_cancellationToken);
-    await RunAsync(scratch.Name, FixtureSeeds.InsertTagWithId(1, "Foo"));
-    var export = await ExportAsync(scratch.Name);
-
-    await _tool.RecordExportAsync(scratch.Name, export, _cancellationToken);
-
-    await using var connection = await DatabaseEnvironment.OpenOwnerAsync(scratch.Name, _cancellationToken);
-    var anchor = await connection.QuerySingleAsync<DateTime>("SELECT anchor_utc FROM seed.hydration;", _cancellationToken);
-    Assert.Equal(export.Anchor.ToDateTimeUtc(), anchor);
-  }
+  public async Task ExportAsync_BadNameOrDescription_IsRefusedBeforeAnythingIsRead(
+    string name,
+    string description,
+    string expected
+  )
+    => Assert.Contains(
+      expected,
+      await _exports.RefusalAsync("no_such_database", name, description),
+      StringComparison.Ordinal);
 }
