@@ -57,7 +57,10 @@ public static class LayerMover {
         return $"{layer.Name}: {exception.Message}";
       }
     });
-    var baseline = await ReadHeadAsync(owner, options, headTemplate, newSchema, anchor, cancellationToken);
+    // The rows of the newest template, which is what a root layer's state is measured from: it holds the reference data
+    // every database has.
+    var head = await SeedStateReader.ReadTemplateAsync(options.Databases, owner, headTemplate, "move", newSchema, cancellationToken, anchor);
+    var baseline = head.Rows;
 
     var moved = new List<MovedLayer>();
     if (problems.Count is 0) {
@@ -105,21 +108,6 @@ public static class LayerMover {
     return history.Count is 0
       ? (await SeedStateReader.ReadAsync(connection, newSchema, cancellationToken)).Rows
       : throw new SeedFormatException(string.Join(" ", history));
-  }
-
-  // The rows of the newest template, which is what a root layer's state is measured from: it holds the reference data
-  // every database has.
-  private static async Task<SeedState> ReadHeadAsync(
-    NpgsqlConnection owner,
-    MigrateOptions options,
-    string headTemplate,
-    SeedSchema newSchema,
-    NodaTime.Instant anchor,
-    CancellationToken cancellationToken
-  ) {
-    await using var scratch = await options.Databases.CloneScratchAsync(owner, headTemplate, "move", cancellationToken);
-    await using var connection = await scratch.OpenAsync(cancellationToken);
-    return (await SeedStateReader.ReadAsync(connection, newSchema, cancellationToken, anchor)).Rows;
   }
 
   // Each layer again, as the difference between its migrated state and its parent's, and checked in memory: the parent's

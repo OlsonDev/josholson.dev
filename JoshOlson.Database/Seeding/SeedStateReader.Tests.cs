@@ -42,6 +42,50 @@ public sealed class SeedStateReaderTests {
 
   private readonly CancellationToken _cancellationToken = TestContext.Current.CancellationToken;
 
+  // The two kinds of template, each through a clone that is gone afterwards: the schema template has no anchor of its
+  // own and a layer's has, with the layer's name.
+  [Fact]
+  public async Task ReadTemplateAsync_SchemaAndLayerTemplates_ReadsEachThroughACloneItDrops() {
+    var schema = SeedTestServer.Schema;
+    var databases = SeedTestServer.Databases;
+    var anchor = Instant.FromUtc(2026, 1, 1, 12, 0);
+    var purpose = $"readtest{Guid.NewGuid():N}"[..16];
+    await using var owner = await SeedTestServer.OpenMaintenanceAsync(_cancellationToken);
+    var (schemaTemplate, _) = await SeedTestServer.RealTemplate.EnsureAsync(owner, _cancellationToken);
+    var tool = await FixtureSeeds.Tool.WaitAsync(_cancellationToken);
+    var layerTemplate = (await tool.BakeAsync(owner, _cancellationToken))
+      .Single(baked => baked.Layer is FixtureSeeds.Root)
+      .Name;
+
+    var unrecorded = await Assert.ThrowsAsync<SeedFormatException>(
+      () => SeedStateReader.ReadTemplateAsync(databases, owner, schemaTemplate, purpose, schema, _cancellationToken));
+    var bare = await SeedStateReader.ReadTemplateAsync(
+      databases,
+      owner,
+      schemaTemplate,
+      purpose,
+      schema,
+      _cancellationToken,
+      anchor);
+    var root = await SeedStateReader.ReadTemplateAsync(
+      databases,
+      owner,
+      layerTemplate,
+      purpose,
+      schema,
+      _cancellationToken,
+      anchor);
+
+    Assert.Contains("not built by the seed tool", unrecorded.Message, StringComparison.Ordinal);
+    Assert.Equal(anchor, bare.Anchor);
+    Assert.Null(bare.Layer);
+    Assert.Empty(bare.Rows.Tables["tag.tag"]);
+    Assert.NotEqual(anchor, root.Anchor);
+    Assert.Equal(FixtureSeeds.Root, root.Layer);
+    Assert.Equal(FixtureSeeds.RootRows, root.Rows.Tables["tag.tag"].Count);
+    Assert.Empty(await databases.ListAsync(owner, $"{SeedDatabaseNames.Prefix}{purpose}_", _cancellationToken));
+  }
+
   // One clone, before and after its one `INSERT`: a database the seed tool did not build is refused, and one with the
   // row and nothing else reads as the reference data the migrations made.
   [Fact]

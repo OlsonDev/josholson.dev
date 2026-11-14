@@ -286,18 +286,14 @@ public sealed class SeedTool {
     }
   }
 
-  // The rows the export is measured from: the parent's template, or the schema template for a root, read through a clone.
-  // The schema template has no anchor, so a root's baseline gets the database's own.
+  // The rows the export is measured from: the parent's template, or the schema template for a root. The schema template
+  // has no anchor, so a root's baseline is measured from the database's own.
   private async Task<SeedState> ReadBaselineAsync(NpgsqlConnection owner, string? parent, Instant anchor, CancellationToken cancellationToken) {
     var template = parent is null
       ? (await _schemaTemplate.EnsureAsync(owner, cancellationToken)).Name
       : (await _layerTemplate.EnsureAsync(owner, parent, cancellationToken)).Name;
-    await using var scratch = await _databases.CloneScratchAsync(owner, template, "export", cancellationToken);
-    await using var connection = await scratch.OpenAsync(cancellationToken);
-    if (parent is null) {
-      await SeedHydration.RecordAsync(connection, layer: null, editing: false, anchor, cancellationToken);
-    }
-    return (await SeedStateReader.ReadAsync(connection, _schema, cancellationToken)).Rows;
+    var baseline = await SeedStateReader.ReadTemplateAsync(_databases, owner, template, "export", _schema, cancellationToken, anchor);
+    return baseline.Rows;
   }
 
   // `seed:test <id> <layer>`: a database of its own for one test, cloned from the layer's template. Returns its name.
