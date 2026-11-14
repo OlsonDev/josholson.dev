@@ -24,6 +24,7 @@ public static class SeedApp {
       provider.GetRequiredService<IClock>(),
       DatabaseEnvironment.DevelopmentDatabase()));
     _ = services.AddSingleton<OwnerConnections>();
+    _ = services.AddSingleton<SeedToolSession>();
   }
 
   // The console is the terminal unless a test gives its own. The handler needs it spelled out: a mistake in the command

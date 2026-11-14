@@ -7,19 +7,16 @@ namespace JoshOlson.Seed.Commands;
 // which this run built and which were already current (ADR 0033, a scoped database per test). Needs the dev database
 // server and the `tools` container.
 public sealed class BakeCommand : AsyncCommand {
-  private readonly SeedToolFactory _factory;
-  private readonly OwnerConnections _connections;
+  private readonly SeedToolSession _session;
   private readonly IAnsiConsole _console;
 
-  public BakeCommand(SeedToolFactory factory, OwnerConnections connections, IAnsiConsole console) {
-    _factory = factory;
-    _connections = connections;
+  public BakeCommand(SeedToolSession session, IAnsiConsole console) {
+    _session = session;
     _console = console;
   }
 
   public override async Task<int> ExecuteAsync(CommandContext context, CancellationToken cancellationToken) {
-    var tool = await _factory.OpenAsync(cancellationToken);
-    var owner = await _connections.MaintenanceAsync(cancellationToken);
+    var (tool, owner) = await _session.OpenAsync(cancellationToken);
     var baked = await _console.Status()
       .StartAsync("Building templates", _ => tool.BakeAsync(owner, cancellationToken));
     var table = new Table()

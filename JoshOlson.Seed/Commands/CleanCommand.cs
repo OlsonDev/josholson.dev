@@ -10,13 +10,11 @@ namespace JoshOlson.Seed.Commands;
 // longer name: old templates, test databases, and builds that died halfway. Never the dev database. `--all` drops the
 // current templates too.
 public sealed class CleanCommand : AsyncCommand<CleanCommand.Settings> {
-  private readonly SeedToolFactory _factory;
-  private readonly OwnerConnections _connections;
+  private readonly SeedToolSession _session;
   private readonly IAnsiConsole _console;
 
-  public CleanCommand(SeedToolFactory factory, OwnerConnections connections, IAnsiConsole console) {
-    _factory = factory;
-    _connections = connections;
+  public CleanCommand(SeedToolSession session, IAnsiConsole console) {
+    _session = session;
     _console = console;
   }
 
@@ -32,8 +30,7 @@ public sealed class CleanCommand : AsyncCommand<CleanCommand.Settings> {
   }
 
   public override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken) {
-    var tool = await _factory.OpenAsync(cancellationToken);
-    var owner = await _connections.MaintenanceAsync(cancellationToken);
+    var (tool, owner) = await _session.OpenAsync(cancellationToken);
     var dropped = await tool.CleanAsync(owner, settings.All, settings.Prefix, cancellationToken);
     foreach (var name in dropped) {
       _console.MarkupLineInterpolated($"[red]Dropped[/] {name}");

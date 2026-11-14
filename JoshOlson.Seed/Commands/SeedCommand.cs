@@ -9,13 +9,11 @@ namespace JoshOlson.Seed.Commands;
 // the layer's rows in it, their relative times measured from now. Everything in the dev database is lost. Dev only. A
 // plain build is for making a child of the layer; `--edit` is for changing the layer itself (see `export`).
 public sealed class SeedCommand : AsyncCommand<SeedCommand.Settings> {
-  private readonly SeedToolFactory _factory;
-  private readonly OwnerConnections _connections;
+  private readonly SeedToolSession _session;
   private readonly IAnsiConsole _console;
 
-  public SeedCommand(SeedToolFactory factory, OwnerConnections connections, IAnsiConsole console) {
-    _factory = factory;
-    _connections = connections;
+  public SeedCommand(SeedToolSession session, IAnsiConsole console) {
+    _session = session;
     _console = console;
   }
 
@@ -30,8 +28,7 @@ public sealed class SeedCommand : AsyncCommand<SeedCommand.Settings> {
   }
 
   public override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken) {
-    var tool = await _factory.OpenAsync(cancellationToken);
-    var owner = await _connections.MaintenanceAsync(cancellationToken);
+    var (tool, owner) = await _session.OpenAsync(cancellationToken);
     var rows = await _console.Status()
       .StartAsync($"Rebuilding {tool.Development}", _ => tool.SeedDevelopmentAsync(owner, settings.Layer, settings.Edit, cancellationToken));
     _console.MarkupLineInterpolated(
