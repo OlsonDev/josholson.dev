@@ -3,8 +3,8 @@ using Xunit;
 namespace JoshOlson.Database.Baking;
 
 // Exports of a database that was built for editing a layer, which replace that layer. They are apart from
-// `SeedToolExportTests` so the two classes run side by side: an export clones a template two to four times.
-public sealed class SeedToolExportEditingTests : IAsyncLifetime {
+// `LayerExporterTests` so the two classes run side by side: an export clones a template two to four times.
+public sealed class LayerExporterEditingTests : IAsyncLifetime {
   private readonly CancellationToken _cancellationToken = TestContext.Current.CancellationToken;
   private ExportHarness _exports = null!;
 

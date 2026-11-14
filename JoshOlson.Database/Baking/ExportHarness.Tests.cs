@@ -4,7 +4,7 @@ using Xunit;
 
 namespace JoshOlson.Database.Baking;
 
-// What the tests of `SeedTool.ExportAsync` share: the tool over the fixture layers, an owner connection, and the
+// What the tests of `LayerExporter.ExportAsync` share: the tool over the fixture layers, an owner connection, and the
 // databases a test built from a layer, which are dropped when the test is done. An export is named `foo-bar` and
 // described as `Foo bar` unless the test says otherwise.
 internal sealed class ExportHarness : IAsyncDisposable {
@@ -47,7 +47,7 @@ internal sealed class ExportHarness : IAsyncDisposable {
     string? description = "Foo bar",
     bool overwrite = false
   )
-    => await Tool.ExportAsync(_owner, database, name, description, overwrite, _cancellationToken);
+    => await Tool.Exporter.ExportAsync(_owner, database, name, description, overwrite, _cancellationToken);
 
   // The message of the export that is refused.
   public async Task<string> RefusalAsync(

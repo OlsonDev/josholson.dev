@@ -49,7 +49,7 @@ public sealed class ExportCommand : AsyncCommand<ExportCommand.Settings> {
     var database = settings.Database ?? tool.Development;
     var export = await _console.Status().StartAsync(
       $"Exporting {database}",
-      _ => tool.ExportAsync(owner, database, settings.Name, settings.Description, settings.Overwrite, cancellationToken));
+      _ => tool.Exporter.ExportAsync(owner, database, settings.Name, settings.Description, settings.Overwrite, cancellationToken));
 
     var table = new Table()
       .AddColumn("Table")
@@ -66,7 +66,7 @@ public sealed class ExportCommand : AsyncCommand<ExportCommand.Settings> {
     _console.Write(table);
     var path = _paths.Layer(export.Layer.Name);
     await File.WriteAllTextAsync(path, export.Yaml, cancellationToken);
-    await tool.RecordExportAsync(database, export, cancellationToken);
+    await tool.Exporter.RecordExportAsync(database, export, cancellationToken);
     _console.MarkupLineInterpolated($"[green]{(export.Replaces ? "Replaced" : "Wrote")}[/] {path}");
     return 0;
   }

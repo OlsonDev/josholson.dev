@@ -6,8 +6,8 @@ namespace JoshOlson.Database.Baking;
 // `ExportAsync` reads its database and changes nothing, so each test builds one database from a fixture layer and
 // exports it as often as it has something to say about that state, changing it the way the app would in between. The
 // comment on a test is the states it walks through. Exports of a database built for editing a layer are
-// `SeedToolExportEditingTests`.
-public sealed class SeedToolExportTests : IAsyncLifetime {
+// `LayerExporterEditingTests`.
+public sealed class LayerExporterTests : IAsyncLifetime {
   // A tag made, the first renamed, the third deleted, and a user made an hour and a half after the anchor.
   private static readonly string _ChangesToTheRoot = $"""
     {FixtureSeeds.InsertTag("Zed")}
@@ -67,7 +67,7 @@ public sealed class SeedToolExportTests : IAsyncLifetime {
     var nameInUse = await _exports.RefusalAsync(database, name: FixtureSeeds.Child);
     var cycle = await _exports.RefusalAsync(database, name: FixtureSeeds.Root, overwrite: true);
     var noName = await _exports.RefusalAsync(database, name: null);
-    await _exports.Tool.RecordExportAsync(database, export, _cancellationToken);
+    await _exports.Tool.Exporter.RecordExportAsync(database, export, _cancellationToken);
     var (_, layer, editing) = await ReadHydrationAsync(database);
 
     Assert.Equal(
@@ -154,7 +154,7 @@ public sealed class SeedToolExportTests : IAsyncLifetime {
     await _exports.RunAsync(scratch.Name, FixtureSeeds.InsertTagWithId(1, "Foo"));
 
     var unrecorded = await _exports.ExportAsync(scratch.Name);
-    await _exports.Tool.RecordExportAsync(scratch.Name, unrecorded, _cancellationToken);
+    await _exports.Tool.Exporter.RecordExportAsync(scratch.Name, unrecorded, _cancellationToken);
     var recorded = await ReadHydrationAsync(scratch.Name);
     await _exports.RunAsync(
       scratch.Name,
