@@ -122,9 +122,11 @@ public sealed class SchemaTemplate {
 
   private async Task<List<SkippedRepeatable>> ApplyRepeatablesAsync(string database, int version, bool newest, CancellationToken cancellationToken) {
     var skipped = new List<SkippedRepeatable>();
+    // The versioned migrations are already in the history, so they only have to be there for Waypoint to find them.
+    var versioned = await VersionedFilesAsync(version, cancellationToken);
     foreach (var path in RepeatablePaths()) {
-      // The versioned migrations are already in the history, so they only have to be there for Waypoint to find them.
-      var files = await VersionedFilesAsync(version, cancellationToken);
+      var files = new List<(string Name, byte[] Content)>(versioned.Count + 1);
+      files.AddRange(versioned);
       files.Add((Path.GetFileName(path), await File.ReadAllBytesAsync(path, cancellationToken)));
       try {
         await _tools.MigrateAsync(database, files, transaction: true, cancellationToken);
