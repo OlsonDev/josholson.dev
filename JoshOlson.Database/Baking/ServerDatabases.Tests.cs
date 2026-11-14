@@ -5,7 +5,9 @@ using Xunit;
 namespace JoshOlson.Database.Baking;
 
 // Makes and drops databases named `seed_serverdb_*` on the dev database's server; nothing touches the dev database
-// itself.
+// itself. The source database, which has a table with one row, is made by the first call to `SourceAsync`: half the
+// tests never get as far as needing one. Cloning a source somebody is connected to is
+// `ServerDatabasesSourceInUseTests`.
 public sealed class ServerDatabasesTests : IAsyncLifetime {
   // What a connection to a database with `ALLOW_CONNECTIONS false` gets.
   private const string _NotAcceptingConnections = "55000";
@@ -15,19 +17,28 @@ public sealed class ServerDatabasesTests : IAsyncLifetime {
   private readonly string _target = $"seed_serverdb_{Guid.NewGuid():N}";
   private readonly ServerDatabases _databases = SeedTestServer.Databases;
   private NpgsqlConnection _owner = null!;
+  private bool _sourceMade;
 
-  public async ValueTask InitializeAsync() {
-    _owner = await DatabaseEnvironment.OpenOwnerAsync(_cancellationToken);
-    await _databases.CreateAsync(_owner, _source, _cancellationToken);
-    await using var source = await DatabaseEnvironment.OpenOwnerAsync(_source, _cancellationToken);
-    await source.ExecuteAsync("CREATE TABLE foo (bar INT); INSERT INTO foo (bar) VALUES (42);", _cancellationToken);
-  }
+  public async ValueTask InitializeAsync()
+    => _owner = await DatabaseEnvironment.OpenOwnerAsync(_cancellationToken);
 
   public async ValueTask DisposeAsync() {
     await _databases.DropAsync(_owner, SeedDatabaseNames.Building(_target), CancellationToken.None);
     await _databases.DropAsync(_owner, _target, CancellationToken.None);
-    await _databases.DropAsync(_owner, _source, CancellationToken.None);
+    if (_sourceMade) {
+      await _databases.DropAsync(_owner, _source, CancellationToken.None);
+    }
     await _owner.DisposeAsync();
+  }
+
+  private async Task<string> SourceAsync() {
+    if (!_sourceMade) {
+      await _databases.CreateAsync(_owner, _source, _cancellationToken);
+      _sourceMade = true;
+      await using var source = await DatabaseEnvironment.OpenOwnerAsync(_source, _cancellationToken);
+      await source.ExecuteAsync("CREATE TABLE foo (bar INT); INSERT INTO foo (bar) VALUES (42);", _cancellationToken);
+    }
+    return _source;
   }
 
   [Fact]
@@ -49,11 +60,12 @@ public sealed class ServerDatabasesTests : IAsyncLifetime {
 
   [Fact]
   public async Task DropAsync_SomebodyConnected_DropsItAnyway() {
-    await using var holder = await DatabaseEnvironment.OpenOwnerAsync(_source, _cancellationToken);
+    var source = await SourceAsync();
+    await using var holder = await DatabaseEnvironment.OpenOwnerAsync(source, _cancellationToken);
 
-    await _databases.DropAsync(_owner, _source, _cancellationToken);
+    await _databases.DropAsync(_owner, source, _cancellationToken);
 
-    Assert.False(await _databases.ExistsAsync(_owner, _source, _cancellationToken));
+    Assert.False(await _databases.ExistsAsync(_owner, source, _cancellationToken));
   }
 
   [Theory]
@@ -73,11 +85,12 @@ public sealed class ServerDatabasesTests : IAsyncLifetime {
 
   [Fact]
   public async Task ListAsync_Prefix_ReturnsTheMatchesInOrder() {
+    var source = await SourceAsync();
     await _databases.CreateAsync(_owner, _target, _cancellationToken);
 
     var names = await _databases.ListAsync(_owner, "seed_serverdb_", _cancellationToken);
 
-    Assert.Contains(_source, names);
+    Assert.Contains(source, names);
     Assert.Contains(_target, names);
     Assert.Equal(names.Order(StringComparer.Ordinal), names);
     Assert.All(names, name => Assert.StartsWith("seed_serverdb_", name, StringComparison.Ordinal));
@@ -90,60 +103,32 @@ public sealed class ServerDatabasesTests : IAsyncLifetime {
 
   [Fact]
   public async Task CloseAsync_Database_RefusesConnections() {
-    await _databases.CloseAsync(_owner, _source, _cancellationToken);
+    var source = await SourceAsync();
+
+    await _databases.CloseAsync(_owner, source, _cancellationToken);
 
     var exception = await Assert.ThrowsAsync<PostgresException>(
-      () => DatabaseEnvironment.OpenOwnerAsync(_source, _cancellationToken));
+      () => DatabaseEnvironment.OpenOwnerAsync(source, _cancellationToken));
     Assert.Equal(_NotAcceptingConnections, exception.SqlState);
   }
 
   [Fact]
   public async Task RenameAsync_Database_KeepsItsRowsUnderTheNewName() {
-    await _databases.RenameAsync(_owner, _source, _target, _cancellationToken);
+    var source = await SourceAsync();
+
+    await _databases.RenameAsync(_owner, source, _target, _cancellationToken);
 
     await using var renamed = await DatabaseEnvironment.OpenOwnerAsync(_target, _cancellationToken);
     Assert.Equal(42, await renamed.QuerySingleAsync<int>("SELECT bar FROM foo;", _cancellationToken));
-    Assert.False(await _databases.ExistsAsync(_owner, _source, _cancellationToken));
+    Assert.False(await _databases.ExistsAsync(_owner, source, _cancellationToken));
   }
 
   [Fact]
   public async Task CloneAsync_Source_CopiesItsRows() {
-    await _databases.CloneAsync(_owner, _source, _target, _cancellationToken);
+    await _databases.CloneAsync(_owner, await SourceAsync(), _target, _cancellationToken);
 
     await using var clone = await DatabaseEnvironment.OpenOwnerAsync(_target, _cancellationToken);
     Assert.Equal(42, await clone.QuerySingleAsync<int>("SELECT bar FROM foo;", _cancellationToken));
-  }
-
-  [Fact]
-  public async Task CloneAsync_SourceStaysInUse_GivesUpAfterTheAttempts() {
-    await using var holder = await DatabaseEnvironment.OpenOwnerAsync(_source, _cancellationToken);
-    // Postgres itself waits five seconds inside each attempt to clone a source somebody is connected to, so one attempt is all
-    // this needs to see the error given up on; the test below has the retrying.
-    var databases = new ServerDatabases {
-      Attempts = 1,
-      Delay = TimeSpan.FromMilliseconds(10),
-    };
-
-    var exception = await Assert.ThrowsAsync<PostgresException>(
-      () => databases.CloneAsync(_owner, _source, _target, _cancellationToken));
-
-    Assert.Equal("55006", exception.SqlState);
-  }
-
-  [Fact]
-  public async Task CloneAsync_SourceFreedWhileWaiting_Succeeds() {
-    var holder = await DatabaseEnvironment.OpenOwnerAsync(_source, _cancellationToken);
-    var databases = new ServerDatabases {
-      Attempts = 200,
-      Delay = TimeSpan.FromMilliseconds(25),
-    };
-
-    var cloning = databases.CloneAsync(_owner, _source, _target, _cancellationToken);
-    await Task.Delay(150, _cancellationToken);
-    await holder.DisposeAsync();
-    await cloning;
-
-    Assert.True(await _databases.ExistsAsync(_owner, _target, _cancellationToken));
   }
 
   [Theory]
@@ -155,10 +140,11 @@ public sealed class ServerDatabasesTests : IAsyncLifetime {
 
   [Fact]
   public async Task EnsureTemplateAsync_Missing_BuildsItClosedAndOnlyOnce() {
+    var source = await SourceAsync();
     var builds = new List<string>();
     Task Build(string building) {
       builds.Add(building);
-      return _databases.CloneAsync(_owner, _source, building, _cancellationToken);
+      return _databases.CloneAsync(_owner, source, building, _cancellationToken);
     }
 
     var first = await _databases.EnsureTemplateAsync(_owner, _target, Build, _cancellationToken);
@@ -176,6 +162,7 @@ public sealed class ServerDatabasesTests : IAsyncLifetime {
 
   [Fact]
   public async Task EnsureTemplateAsync_TwoConnectionsToDifferentDatabasesAtOnce_BuildItOnce() {
+    var source = await SourceAsync();
     var builds = 0;
     // Each caller builds through its own connection, as the commands and the tests do. The test's owner is connected to
     // the dev database and the other to `postgres`: a lock that belonged to one database would let both build.
@@ -183,7 +170,7 @@ public sealed class ServerDatabasesTests : IAsyncLifetime {
       => async building => {
         _ = Interlocked.Increment(ref builds);
         await Task.Delay(300, _cancellationToken);
-        await _databases.CloneAsync(connection, _source, building, _cancellationToken);
+        await _databases.CloneAsync(connection, source, building, _cancellationToken);
       };
     await using var other = await SeedTestServer.OpenMaintenanceAsync(_cancellationToken);
 
@@ -197,8 +184,9 @@ public sealed class ServerDatabasesTests : IAsyncLifetime {
 
   [Fact]
   public async Task EnsureTemplateAsync_BuildFails_LeavesNothingBehind() {
+    var source = await SourceAsync();
     async Task BuildThenFail(string building) {
-      await _databases.CloneAsync(_owner, _source, building, _cancellationToken);
+      await _databases.CloneAsync(_owner, source, building, _cancellationToken);
       throw new InvalidOperationException("foo");
     }
 
@@ -211,12 +199,13 @@ public sealed class ServerDatabasesTests : IAsyncLifetime {
 
   [Fact]
   public async Task EnsureTemplateAsync_EarlierBuildDiedHalfway_StartsOverFromNothing() {
+    var source = await SourceAsync();
     await _databases.CreateAsync(_owner, SeedDatabaseNames.Building(_target), _cancellationToken);
 
     var built = await _databases.EnsureTemplateAsync(
       _owner,
       _target,
-      building => _databases.CloneAsync(_owner, _source, building, _cancellationToken),
+      building => _databases.CloneAsync(_owner, source, building, _cancellationToken),
       _cancellationToken);
 
     Assert.True(built);
