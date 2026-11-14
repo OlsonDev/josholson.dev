@@ -54,6 +54,32 @@ public class LayerTreeTests {
   }
 
   [Fact]
+  public async Task VisitParentFirstAsync_LayerThatFails_ReportsItAndPassesOverEveryLayerBelowIt() {
+    var visited = new List<string>();
+
+    var problems = await NewTree().VisitParentFirstAsync(layer => {
+      visited.Add(layer.Name);
+      return Task.FromResult(layer.Name is "minimal" ? "minimal: foo" : null);
+    });
+
+    Assert.Equal(["base", "minimal", "stress", "other"], visited);
+    Assert.Equal(["minimal: foo"], problems);
+  }
+
+  [Fact]
+  public async Task VisitParentFirstAsync_RootThatFails_PassesOverItsWholeSubtree() {
+    var visited = new List<string>();
+
+    var problems = await NewTree().VisitParentFirstAsync(layer => {
+      visited.Add(layer.Name);
+      return Task.FromResult(layer.Name is "base" ? "base: foo" : null);
+    });
+
+    Assert.Equal(["base", "other"], visited);
+    Assert.Equal(["base: foo"], problems);
+  }
+
+  [Fact]
   public void Constructor_DuplicateName_Throws()
     => Assert.Throws<SeedFormatException>(() => new LayerTree([Layer("foo"), Layer("foo")]));
 

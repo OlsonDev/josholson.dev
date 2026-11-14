@@ -100,4 +100,23 @@ public sealed class LayerTree {
     }
     return ordered;
   }
+
+  // Every layer in that order, handed to `visit`, which returns what is wrong with the layer or null. A layer whose
+  // parent failed (or was itself passed over for that) is not visited: it would fail the same way. Returns the
+  // problems, so a caller that tries every layer reports them together.
+  public async Task<List<string>> VisitParentFirstAsync(Func<SeedLayer, Task<string?>> visit) {
+    var problems = new List<string>();
+    var failed = new HashSet<string>(StringComparer.Ordinal);
+    foreach (var layer in InBakeOrder()) {
+      if (layer.Extends is not null && failed.Contains(layer.Extends)) {
+        _ = failed.Add(layer.Name);
+        continue;
+      }
+      if (await visit(layer) is { } problem) {
+        _ = failed.Add(layer.Name);
+        problems.Add(problem);
+      }
+    }
+    return problems;
+  }
 }

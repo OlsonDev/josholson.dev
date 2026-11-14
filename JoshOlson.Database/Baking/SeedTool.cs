@@ -88,23 +88,15 @@ public sealed class SeedTool {
   // What `seeds:migrate` asks of the layers: each has to build into a template from the migrations on disk. Every layer
   // is tried, so the problems come back together, but one whose parent failed is skipped (it would fail the same way).
   // A failed build leaves nothing behind. Returns the problems, empty when all the layers apply.
-  public async Task<List<string>> CheckAsync(NpgsqlConnection owner, CancellationToken cancellationToken) {
-    var problems = new List<string>();
-    var failed = new HashSet<string>(StringComparer.Ordinal);
-    foreach (var layer in Tree.InBakeOrder()) {
-      if (layer.Extends is not null && failed.Contains(layer.Extends)) {
-        _ = failed.Add(layer.Name);
-        continue;
-      }
+  public async Task<List<string>> CheckAsync(NpgsqlConnection owner, CancellationToken cancellationToken)
+    => await Tree.VisitParentFirstAsync(async layer => {
       try {
         _ = await _layerTemplate.EnsureAsync(owner, layer.Name, cancellationToken);
+        return null;
       } catch (SeedFormatException exception) {
-        _ = failed.Add(layer.Name);
-        problems.Add($"{layer.Name}: {exception.Message}");
+        return $"{layer.Name}: {exception.Message}";
       }
-    }
-    return problems;
-  }
+    });
 
   // `export`: makes a layer from what is in `database` (ADR 0014, hierarchical seed layers): the difference from a
   // baseline, `insert`s for new rows, `update`s of only the columns that changed, and `delete`s. What `seed.hydration`
@@ -195,22 +187,8 @@ public sealed class SeedTool {
   // and diffed against its parent's template, are exactly the layer. Every layer is tried, so the problems come back
   // together, but one whose parent failed is skipped (it would fail the same way). Returns the problems, empty when
   // all the layers pass.
-  public async Task<List<string>> CheckFilesAsync(NpgsqlConnection owner, string seedsDirectory, CancellationToken cancellationToken) {
-    var problems = new List<string>();
-    var failed = new HashSet<string>(StringComparer.Ordinal);
-    foreach (var layer in Tree.InBakeOrder()) {
-      if (layer.Extends is not null && failed.Contains(layer.Extends)) {
-        _ = failed.Add(layer.Name);
-        continue;
-      }
-      var problem = await CheckFileAsync(owner, seedsDirectory, layer, cancellationToken);
-      if (problem is not null) {
-        _ = failed.Add(layer.Name);
-        problems.Add(problem);
-      }
-    }
-    return problems;
-  }
+  public async Task<List<string>> CheckFilesAsync(NpgsqlConnection owner, string seedsDirectory, CancellationToken cancellationToken)
+    => await Tree.VisitParentFirstAsync(layer => CheckFileAsync(owner, seedsDirectory, layer, cancellationToken));
 
   private async Task<string?> CheckFileAsync(NpgsqlConnection owner, string seedsDirectory, SeedLayer layer, CancellationToken cancellationToken) {
     var canonical = LayerWriter.Write(layer, _schema);

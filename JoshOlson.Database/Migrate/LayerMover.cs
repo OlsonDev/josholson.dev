@@ -48,18 +48,15 @@ public static class LayerMover {
     var skipped = await options.Template.SkippedAsync(owner, fromTemplate, cancellationToken);
     var (headTemplate, _) = await options.Template.EnsureAsync(owner, cancellationToken);
 
-    var problems = new List<string>();
     var states = new Dictionary<string, SeedState>(StringComparer.Ordinal);
-    foreach (var layer in oldTree.InBakeOrder()) {
-      if (layer.Extends is not null && !states.ContainsKey(layer.Extends)) {
-        continue;
-      }
+    var problems = await oldTree.VisitParentFirstAsync(async layer => {
       try {
         states[layer.Name] = await MigrateLayerAsync(owner, options, fromTemplate, oldTree, oldSchema, newSchema, layer.Name, onDisk, anchor, cancellationToken);
+        return null;
       } catch (SeedFormatException exception) {
-        problems.Add($"{layer.Name}: {exception.Message}");
+        return $"{layer.Name}: {exception.Message}";
       }
-    }
+    });
     var baseline = await ReadHeadAsync(owner, options, headTemplate, newSchema, anchor, cancellationToken);
 
     var moved = new List<MovedLayer>();
