@@ -6,8 +6,9 @@ using Xunit;
 
 namespace JoshOlson.Database.Seeding;
 
-// Each test works in a database of its own (a clone of the real schema template).
-public sealed class SeedStateReaderTests : IAsyncLifetime {
+// Each test works in a database of its own (a clone of the real schema template). Reading a database a layer chain was
+// put into is `SeedHydratorTests`' test, which hydrates one and reads it back here.
+public sealed class SeedStateReaderTests {
   // `foo.kind` as `SchemaLockSample.KindTable` describes it, with a row of values and a row of nulls. The database has
   // none of the sample's other tables, so these tests read it with `SampleLayers.SchemaOfKind`.
   private const string _KindSql = """
@@ -39,78 +40,44 @@ public sealed class SeedStateReaderTests : IAsyncLifetime {
     INSERT INTO foo.kind (id) VALUES (2);
     """;
 
-  private static readonly Instant _Anchor = Instant.FromUtc(2026, 1, 1, 12, 0).PlusNanoseconds(123_000);
   private readonly CancellationToken _cancellationToken = TestContext.Current.CancellationToken;
-  private ScratchDatabase _database = null!;
 
-  public async ValueTask InitializeAsync()
-    => _database = await ScratchDatabase.CreateAsync(_cancellationToken);
-
-  public async ValueTask DisposeAsync()
-    => await _database.DisposeAsync();
-
-  // True when both hold the same value, an array item by item (a record's equality compares a list by reference).
-  private static bool Same(SeedValue? left, SeedValue? right)
-    => (left, right) switch {
-      (SeedValue.Array a, SeedValue.Array b) => a.Items.Count == b.Items.Count && a.Items.Zip(b.Items).All(pair => Same(pair.First, pair.Second)),
-      _ => Equals(left, right),
-    };
-
+  // One clone, before and after its one `INSERT`: a database the seed tool did not build is refused, and one with the
+  // row and nothing else reads as the reference data the migrations made.
   [Fact]
-  public async Task ReadAsync_HydratedLayers_GivesBackTheMergedStateAndTheAnchor() {
+  public async Task ReadAsync_TemplateClone_IsRefusedUntilItHasAHydrationRowAndThenReadsEveryRowOfEveryTable() {
     var schema = SeedTestServer.Schema;
-    var tree = (await SeedTestServer.RealTool).Tree;
-    _ = await SeedHydrator.HydrateAsync(_database.Name, tree, schema, SeedLayers.MoreTags, editing: false, _Anchor, _cancellationToken);
-    var merged = LayerMerger.Merge(tree.ChainTo(SeedLayers.MoreTags), schema);
-    await using var connection = await _database.OpenAsync(_cancellationToken);
+    await using var database = await ScratchDatabase.CreateAsync(_cancellationToken);
+    await using var connection = await database.OpenAsync(_cancellationToken);
 
+    var exception = await Assert.ThrowsAsync<SeedFormatException>(
+      () => SeedStateReader.ReadAsync(connection, schema, _cancellationToken));
+    await connection.ExecuteAsync(
+      "INSERT INTO seed.hydration (anchor_utc) VALUES ('2026-01-01 12:00:00+00');",
+      _cancellationToken);
     var read = await SeedStateReader.ReadAsync(connection, schema, _cancellationToken);
 
-    // The database holds the layers' rows and the reference data its migrations made, so the layers' are a part of it.
-    Assert.Equal(_Anchor, read.Anchor);
-    Assert.Equal(SeedLayers.MoreTags, read.Layer);
-    foreach (var (table, rows) in merged.Tables) {
-      foreach (var (key, row) in rows) {
-        foreach (var (column, value) in row) {
-          Assert.True(Same(value, read.Rows.Tables[table][key][column]), $"{table} {string.Join(",", key.Select(part => part.ToString()))} {column}");
-        }
-      }
-    }
-  }
-
-  [Fact]
-  public async Task ReadAsync_FreshTemplateClone_ReadsEveryRowOfEveryTable() {
-    var schema = SeedTestServer.Schema;
-    await using var connection = await _database.OpenAsync(_cancellationToken);
-    await connection.ExecuteAsync("INSERT INTO seed.hydration (anchor_utc) VALUES ('2026-01-01 12:00:00+00');", _cancellationToken);
-
-    var read = await SeedStateReader.ReadAsync(connection, schema, _cancellationToken);
-
-    // A fresh database is not empty: the repeatable migrations put reference data in it, which no layer has. A table that is
-    // `@seed ignore` is not read at all.
+    Assert.Contains("not built by the seed tool", exception.Message, StringComparison.Ordinal);
+    // A fresh database is not empty: the repeatable migrations put reference data in it, which no layer has. A table
+    // that is `@seed ignore` is not read at all.
     var seedTables = schema.InsertOrder().Where(table => !table.Table.Ignored).ToList();
-    Assert.Equal(seedTables.Select(table => table.Table.Name).Order(StringComparer.Ordinal), read.Rows.Tables.Keys.Order(StringComparer.Ordinal));
+    Assert.Equal(
+      seedTables.Select(table => table.Table.Name).Order(StringComparer.Ordinal),
+      read.Rows.Tables.Keys.Order(StringComparer.Ordinal));
     Assert.DoesNotContain("auth.session", read.Rows.Tables.Keys);
     foreach (var table in seedTables) {
-      var count = await connection.QuerySingleAsync<long>($"SELECT count(*) FROM {table.Table.Name};", _cancellationToken);
+      var count = await connection.QuerySingleAsync<long>(
+        $"SELECT count(*) FROM {table.Table.Name};",
+        _cancellationToken);
       Assert.Equal(count, read.Rows.Tables[table.Table.Name].Count);
     }
     Assert.True(read.Rows.RowCount > 0);
   }
 
   [Fact]
-  public async Task ReadAsync_NoHydrationRow_IsRefused() {
-    var schema = SeedTestServer.Schema;
-    await using var connection = await _database.OpenAsync(_cancellationToken);
-
-    var exception = await Assert.ThrowsAsync<SeedFormatException>(() => SeedStateReader.ReadAsync(connection, schema, _cancellationToken));
-
-    Assert.Contains("not built by the seed tool", exception.Message, StringComparison.Ordinal);
-  }
-
-  [Fact]
-  public async Task ReadAsync_EveryKindOfValue_IsReadAsTheLayerReaderWouldReadIt() {
-    await using var connection = await _database.OpenAsync(_cancellationToken);
+  public async Task ReadAsync_EveryKindOfValueAndARowOfNulls_AreReadAsTheLayerReaderWouldReadThem() {
+    await using var database = await ScratchDatabase.CreateAsync(_cancellationToken);
+    await using var connection = await database.OpenAsync(_cancellationToken);
     await connection.ExecuteAsync(_KindSql, _cancellationToken);
 
     var read = await SeedStateReader.ReadAsync(connection, SampleLayers.SchemaOfKind, _cancellationToken);
@@ -124,24 +91,19 @@ public sealed class SeedStateReaderTests : IAsyncLifetime {
     Assert.Equal(new SeedValue.Text("hello"), first["note"]);
     Assert.Equal(new SeedValue.Decimal(1.50m), first["amount"]);
     Assert.Equal(new SeedValue.RelativeTime(-11_520_000_001), first["at_utc"]);
-    Assert.Equal(new SeedValue.AbsoluteTime(Instant.FromUtc(2026, 1, 2, 3, 4, 5).PlusNanoseconds(123_456_000)), first["seen_utc"]);
-    Assert.True(Same(new SeedValue.Array([new SeedValue.Integer(1), null, new SeedValue.Integer(3)]), first["nums"]));
-    Assert.True(Same(new SeedValue.Array([new SeedValue.Json("""{"a":2,"b":1}"""), null]), first["docs"]));
-    Assert.True(Same(new SeedValue.Array([new SeedValue.RelativeTime(1_000_000)]), first["times"]));
-    Assert.True(Same(new SeedValue.Array([new SeedValue.Inet("10.0.0.0/8"), new SeedValue.Inet("::1")]), first["hosts"]));
+    Assert.Equal(
+      new SeedValue.AbsoluteTime(Instant.FromUtc(2026, 1, 2, 3, 4, 5).PlusNanoseconds(123_456_000)),
+      first["seen_utc"]);
+    var nums = new SeedValue.Array([new SeedValue.Integer(1), null, new SeedValue.Integer(3)]);
+    var hosts = new SeedValue.Array([new SeedValue.Inet("10.0.0.0/8"), new SeedValue.Inet("::1")]);
+    Assert.True(SeedValues.Same(nums, first["nums"]));
+    Assert.True(SeedValues.Same(new SeedValue.Array([new SeedValue.Json("""{"a":2,"b":1}"""), null]), first["docs"]));
+    Assert.True(SeedValues.Same(new SeedValue.Array([new SeedValue.RelativeTime(1_000_000)]), first["times"]));
+    Assert.True(SeedValues.Same(hosts, first["hosts"]));
     Assert.DoesNotContain("len", first.Keys);
-  }
-
-  [Fact]
-  public async Task ReadAsync_RowOfNulls_HasANullForEveryColumnButTheKey() {
-    await using var connection = await _database.OpenAsync(_cancellationToken);
-    await connection.ExecuteAsync(_KindSql, _cancellationToken);
-
-    var read = await SeedStateReader.ReadAsync(connection, SampleLayers.SchemaOfKind, _cancellationToken);
-
     var second = read.Rows.Tables["foo.kind"][[new SeedValue.Integer(2)]];
     Assert.Equal(new SeedValue.Integer(2), second["id"]);
     Assert.All(second.Where(cell => cell.Key is not "id"), cell => Assert.Null(cell.Value));
-    Assert.Equal(_Anchor.Minus(Duration.FromNanoseconds(123_000)), read.Anchor);
+    Assert.Equal(Instant.FromUtc(2026, 1, 1, 12, 0), read.Anchor);
   }
 }
