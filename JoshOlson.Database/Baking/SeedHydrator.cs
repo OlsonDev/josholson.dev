@@ -2,6 +2,7 @@ using JoshOlson.Database.Layers;
 using JoshOlson.Database.Seeding;
 using JoshOlson.Shared.Data;
 using NodaTime;
+using Npgsql;
 
 namespace JoshOlson.Database.Baking;
 
@@ -43,6 +44,34 @@ public static class SeedHydrator {
     CancellationToken cancellationToken
   )
     => await FillAsync(database, tree, schema, layer, editing: false, anchor, forMigration: true, cancellationToken);
+
+  // Whether each of `layers` builds: its chain is put into a clone of `template` (the schema template the tree is
+  // written for), which is then dropped. The merge of a chain is in memory and Postgres has not seen the rows, so a
+  // foreign key to a row that is gone, a duplicate of a unique value, or a check a value fails shows only here.
+  // Returns one problem for each layer that does not build, worded by `problem` from the layer's name and the error.
+  public static async Task<List<string>> BuildProblemsAsync(
+    ServerDatabases databases,
+    NpgsqlConnection owner,
+    string template,
+    string purpose,
+    LayerTree tree,
+    SeedSchema schema,
+    List<string> layers,
+    Instant anchor,
+    Func<string, string, string> problem,
+    CancellationToken cancellationToken
+  ) {
+    var problems = new List<string>();
+    foreach (var layer in layers) {
+      await using var scratch = await databases.CloneScratchAsync(owner, template, purpose, cancellationToken);
+      try {
+        _ = await HydrateAsync(scratch.Name, tree, schema, layer, editing: false, anchor, cancellationToken);
+      } catch (SeedFormatException exception) {
+        problems.Add(problem(layer, exception.Message));
+      }
+    }
+    return problems;
+  }
 
   // Both of the above. `forMigration` is the two things that differ: foreign keys are not enforced while the rows go
   // in, and the sequences are positioned by the root layer alone.

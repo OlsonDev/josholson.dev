@@ -267,20 +267,20 @@ public sealed class SeedTool {
     return problems.Count > 0 ? throw new SeedFormatException(string.Join("\n", problems)) : (tree, names);
   }
 
-  // The merge is in memory and Postgres has not seen the rows, so a foreign key to a row that is gone, a duplicate of a
-  // unique value, or a check a value fails shows only when the chain is applied. Each affected layer's chain is applied to
-  // a clone of the schema template, so a layer that would not build is found here, naming it, instead of at the next bake.
+  // Each affected layer's chain is applied to a clone of the schema template (`SeedHydrator.BuildProblemsAsync`), so a
+  // layer that would not build is found here, naming it, instead of at the next bake.
   private async Task CheckTheyBuildAsync(NpgsqlConnection owner, LayerTree tree, List<string> affected, CancellationToken cancellationToken) {
-    var template = (await _schemaTemplate.EnsureAsync(owner, cancellationToken)).Name;
-    var problems = new List<string>();
-    foreach (var name in affected) {
-      await using var scratch = await _databases.CloneScratchAsync(owner, template, "check", cancellationToken);
-      try {
-        _ = await SeedHydrator.HydrateAsync(scratch.Name, tree, _schema, name, editing: false, SeedHydrator.Anchor(_clock), cancellationToken);
-      } catch (SeedFormatException exception) {
-        problems.Add($"{name} does not build: {exception.Message}");
-      }
-    }
+    var problems = await SeedHydrator.BuildProblemsAsync(
+      _databases,
+      owner,
+      (await _schemaTemplate.EnsureAsync(owner, cancellationToken)).Name,
+      "check",
+      tree,
+      _schema,
+      affected,
+      SeedHydrator.Anchor(_clock),
+      (name, error) => $"{name} does not build: {error}",
+      cancellationToken);
     if (problems.Count > 0) {
       throw new SeedFormatException(string.Join("\n", problems));
     }

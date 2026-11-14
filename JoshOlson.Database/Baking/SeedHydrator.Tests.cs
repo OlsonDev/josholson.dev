@@ -1,3 +1,4 @@
+using JoshOlson.Database.Layers;
 using JoshOlson.Database.Seeding;
 using JoshOlson.Shared.Data;
 using NodaTime;
@@ -61,6 +62,45 @@ public sealed class SeedHydratorTests {
     }
     // The child's rows end at 1002, but a database built from it hands out IDs from the depth-2 block.
     Assert.Equal(2001, next);
+  }
+
+  // A layer that merges but that Postgres refuses (its tag has the slug of one of the root's), beside one that builds.
+  [Fact]
+  public async Task BuildProblemsAsync_LayerPostgresRefuses_NamesItInTheCallersWordsAndDropsEveryClone() {
+    var schema = SeedTestServer.Schema;
+    var databases = SeedTestServer.Databases;
+    var refused = $"""
+      description: A tag with a slug the root has
+      extends: {FixtureSeeds.Root}
+      tables:
+        tag.tag:
+          insert:
+            - {FixtureSeeds.TagRow(1001, "Baz")}
+
+      """;
+    var tree = new LayerTree([
+      FixtureSeeds.Tree.Get(FixtureSeeds.Root),
+      LayerParser.Parse("foo", refused, schema),
+    ]);
+    var purpose = $"buildtest{Guid.NewGuid():N}"[..17];
+    await using var owner = await SeedTestServer.OpenMaintenanceAsync(_cancellationToken);
+    var (template, _) = await SeedTestServer.RealTemplate.EnsureAsync(owner, _cancellationToken);
+
+    var problems = await SeedHydrator.BuildProblemsAsync(
+      databases,
+      owner,
+      template,
+      purpose,
+      tree,
+      schema,
+      [FixtureSeeds.Root, "foo"],
+      Instant.FromUtc(2026, 1, 2, 3, 4, 5),
+      (name, error) => $"{name} is refused: {error}",
+      _cancellationToken);
+
+    var problem = Assert.Single(problems);
+    Assert.StartsWith("foo is refused: Inserting into tag.tag failed", problem, StringComparison.Ordinal);
+    Assert.Empty(await databases.ListAsync(owner, $"{SeedDatabaseNames.Prefix}{purpose}_", _cancellationToken));
   }
 
   private sealed class FixedClock : IClock {

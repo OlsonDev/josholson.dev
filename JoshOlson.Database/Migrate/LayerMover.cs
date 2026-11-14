@@ -70,7 +70,19 @@ public static class LayerMover {
       moved = Reconcile(moved, authored, dropped, newSchema, problems);
     }
     if (problems.Count is 0) {
-      problems.AddRange(await BuildAtHeadAsync(owner, options, headTemplate, moved, newSchema, anchor, cancellationToken));
+      // Each new layer's chain, applied to a database at the newest version, which enforces what the in-memory merge
+      // cannot. The reference data from the repeatable migrations is there by now.
+      problems.AddRange(await SeedHydrator.BuildProblemsAsync(
+        options.Databases,
+        owner,
+        headTemplate,
+        "move",
+        new LayerTree([.. moved.ConvertAll(layer => layer.Layer)]),
+        newSchema,
+        moved.ConvertAll(layer => layer.Layer.Name),
+        anchor,
+        (name, error) => $"{name}: does not build at the newest version: {error}",
+        cancellationToken));
     }
     if (problems.Count > 0) {
       if (skipped.Count > 0) {
@@ -184,29 +196,5 @@ public static class LayerMover {
       problems.Add(exception.Message);
     }
     return all;
-  }
-
-  // Each new layer's chain, applied to a database at the newest version, which enforces what the in-memory merge cannot:
-  // a foreign key, a unique value, a check. The reference data from the repeatable migrations is there by now.
-  private static async Task<List<string>> BuildAtHeadAsync(
-    NpgsqlConnection owner,
-    MigrateOptions options,
-    string headTemplate,
-    List<MovedLayer> moved,
-    SeedSchema newSchema,
-    NodaTime.Instant anchor,
-    CancellationToken cancellationToken
-  ) {
-    var tree = new LayerTree([.. moved.ConvertAll(layer => layer.Layer)]);
-    var problems = new List<string>();
-    foreach (var layer in moved) {
-      await using var scratch = await options.Databases.CloneScratchAsync(owner, headTemplate, "move", cancellationToken);
-      try {
-        _ = await SeedHydrator.HydrateAsync(scratch.Name, tree, newSchema, layer.Layer.Name, editing: false, anchor, cancellationToken);
-      } catch (SeedFormatException exception) {
-        problems.Add($"{layer.Layer.Name}: does not build at the newest version: {exception.Message}");
-      }
-    }
-    return problems;
   }
 }
