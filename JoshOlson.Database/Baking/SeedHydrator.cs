@@ -25,17 +25,8 @@ public static class SeedHydrator {
     bool editing,
     Instant anchor,
     CancellationToken cancellationToken
-  ) {
-    await using var connection = await DatabaseEnvironment.OpenOwnerAsync(database, cancellationToken);
-    int rows;
-    await using (var transaction = await connection.BeginTransactionAsync(cancellationToken)) {
-      rows = await SeedApplier.ApplyAsync(transaction, tree, schema, layer, anchor, cancellationToken);
-      await transaction.CommitAsync(cancellationToken);
-    }
-    await SeedHydration.RecordAsync(connection, layer, editing, anchor, cancellationToken);
-    _ = await SequencePositioner.ChainAsync(connection, tree, schema, layer, editing, cancellationToken);
-    return rows;
-  }
+  )
+    => await FillAsync(database, tree, schema, layer, editing, anchor, forMigration: false, cancellationToken);
 
   // The same for `seeds:migrate`, which puts a layer's chain into a database at the schema it was written for before the
   // newer migrations run over it. Two things differ. Foreign keys are not enforced while the rows go in (`session_replication_role`
@@ -50,16 +41,34 @@ public static class SeedHydrator {
     string layer,
     Instant anchor,
     CancellationToken cancellationToken
+  )
+    => await FillAsync(database, tree, schema, layer, editing: false, anchor, forMigration: true, cancellationToken);
+
+  // Both of the above. `forMigration` is the two things that differ: foreign keys are not enforced while the rows go
+  // in, and the sequences are positioned by the root layer alone.
+  private static async Task<int> FillAsync(
+    string database,
+    LayerTree tree,
+    SeedSchema schema,
+    string layer,
+    bool editing,
+    Instant anchor,
+    bool forMigration,
+    CancellationToken cancellationToken
   ) {
     await using var connection = await DatabaseEnvironment.OpenOwnerAsync(database, cancellationToken);
     int rows;
     await using (var transaction = await connection.BeginTransactionAsync(cancellationToken)) {
-      await connection.ExecuteAsync("SET LOCAL session_replication_role = replica;", cancellationToken);
+      if (forMigration) {
+        await connection.ExecuteAsync("SET LOCAL session_replication_role = replica;", cancellationToken);
+      }
       rows = await SeedApplier.ApplyAsync(transaction, tree, schema, layer, anchor, cancellationToken);
       await transaction.CommitAsync(cancellationToken);
     }
-    await SeedHydration.RecordAsync(connection, layer, editing: false, anchor, cancellationToken);
-    _ = await SequencePositioner.RootAsync(connection, tree, schema, layer, cancellationToken);
+    await SeedHydration.RecordAsync(connection, layer, editing, anchor, cancellationToken);
+    _ = forMigration
+      ? await SequencePositioner.RootAsync(connection, tree, schema, layer, cancellationToken)
+      : await SequencePositioner.ChainAsync(connection, tree, schema, layer, editing, cancellationToken);
     return rows;
   }
 }
