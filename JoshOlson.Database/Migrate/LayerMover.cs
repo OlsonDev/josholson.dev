@@ -132,37 +132,30 @@ public static class LayerMover {
     SeedSchema newSchema,
     List<string> problems
   ) {
-    var layers = new List<SeedLayer>();
+    var diffs = new List<LayerDiff>();
     foreach (var layer in oldTree.InBakeOrder()) {
       var parent = layer.Extends is null ? baseline : states[layer.Extends];
-      var tables = StateDiffer.Diff(parent, states[layer.Name], newSchema);
-      if (tables.Count is 0) {
+      var diff = LayerDiff.Between(parent, states[layer.Name], layer.Name, layer.Extends, layer.Description, newSchema);
+      if (diff is null) {
         problems.Add($"{layer.Name}: nothing is left for it to add after the migrations.");
         continue;
       }
-      layers.Add(new() {
-        Name = layer.Name,
-        Extends = layer.Extends,
-        Description = layer.Description,
-        Tables = tables,
-      });
+      diffs.Add(diff);
     }
     if (problems.Count > 0) {
       return [];
     }
-    var tree = new LayerTree(layers);
-    problems.AddRange(tree.IdBlockProblems(newSchema));
-    var moved = new List<MovedLayer>(layers.Count);
-    foreach (var layer in layers) {
-      var rebuilt = LayerMerger.Merge([StateLayer.Of(baseline, "baseline"), .. tree.ChainTo(layer.Name)], newSchema);
-      if (!SeedValues.SameState(rebuilt, states[layer.Name])) {
-        problems.Add($"{layer.Name}: the layer does not give back its migrated rows when it is applied to its parent's. This is a bug in the migration.");
+    problems.AddRange(new LayerTree(diffs.ConvertAll(diff => diff.Layer)).IdBlockProblems(newSchema));
+    var moved = new List<MovedLayer>(diffs.Count);
+    foreach (var diff in diffs) {
+      var name = diff.Layer.Name;
+      if (!diff.GivesBackTheState) {
+        problems.Add($"{name}: the layer does not give back its migrated rows when it is applied to its parent's. This is a bug in the migration.");
       }
-      var yaml = LayerWriter.Write(layer, newSchema);
-      if (!string.Equals(LayerWriter.Write(LayerParser.Parse(layer.Name, yaml, newSchema), newSchema), yaml, StringComparison.Ordinal)) {
-        problems.Add($"{layer.Name}: the layer does not read back as the text it was written as. This is a bug in the migration.");
+      if (!diff.ReadsBack) {
+        problems.Add($"{name}: the layer does not read back as the text it was written as. This is a bug in the migration.");
       }
-      moved.Add(new(layer, yaml));
+      moved.Add(new(diff.Layer, diff.Yaml));
     }
     return moved;
   }

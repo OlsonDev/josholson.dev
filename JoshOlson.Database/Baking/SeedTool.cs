@@ -160,25 +160,14 @@ public sealed class SeedTool {
     CancellationToken cancellationToken
   ) {
     var baseline = await ReadBaselineAsync(owner, parent, child.Anchor, cancellationToken);
-    var tables = StateDiffer.Diff(baseline, child.Rows, _schema);
     var from = parent is null ? "the schema template" : $"the template for {parent}";
-    if (tables.Count is 0) {
-      throw new SeedFormatException($"There is nothing to export: {database} holds the same rows as {from}.");
-    }
-    var layer = new SeedLayer {
-      Name = name,
-      Extends = parent,
-      Description = description,
-      Tables = tables,
-    };
-    var rebuilt = LayerMerger.Merge([StateLayer.Of(baseline, "baseline"), layer], _schema);
-    if (!SeedValues.SameState(rebuilt, child.Rows)) {
+    var diff = LayerDiff.Between(baseline, child.Rows, name, parent, description, _schema)
+      ?? throw new SeedFormatException($"There is nothing to export: {database} holds the same rows as {from}.");
+    if (!diff.GivesBackTheState) {
       throw new InvalidOperationException($"The layer does not give back the rows of {database} when it is applied to {from}. This is a bug in the export.");
     }
-    var yaml = LayerWriter.Write(layer, _schema);
-    var written = LayerWriter.Write(LayerParser.Parse(name, yaml, _schema), _schema);
-    return string.Equals(written, yaml, StringComparison.Ordinal)
-      ? new(layer, yaml, child.Anchor, exists)
+    return diff.ReadsBack
+      ? new(diff.Layer, diff.Yaml, child.Anchor, exists)
       : throw new InvalidOperationException("The layer does not read back as the text it was written as. This is a bug in the export.");
   }
 
