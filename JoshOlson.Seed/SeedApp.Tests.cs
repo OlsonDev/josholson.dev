@@ -33,7 +33,7 @@ public sealed class SeedAppTests {
 
   [Fact]
   public async Task Run_UnknownCommand_SaysSoAndExitsTwoWithoutAStackTrace() {
-    var (exitCode, output) = await SeedAppRunner.RunAsync(paths: null, "foo");
+    var (exitCode, output) = await SeedAppRunner.RunAsync("foo");
 
     Assert.Equal(2, exitCode);
     Assert.Contains("Unknown command 'foo'", output, StringComparison.Ordinal);

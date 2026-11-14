@@ -9,9 +9,9 @@ namespace JoshOlson.Seed.Commands;
 public sealed class BakeCommandTests {
   [Fact]
   public async Task Execute_RealLayers_ListsTheSchemaTemplateAndEachLayerAndThenFindsThemCurrent() {
-    var (firstExitCode, firstOutput) = await SeedAppRunner.RunAsync(paths: null, "bake");
+    var (firstExitCode, firstOutput) = await SeedAppRunner.RunAsync("bake");
 
-    var (exitCode, output) = await SeedAppRunner.RunAsync(paths: null, "bake");
+    var (exitCode, output) = await SeedAppRunner.RunAsync("bake");
 
     Assert.True(firstExitCode is 0, firstOutput);
     Assert.True(exitCode is 0, output);

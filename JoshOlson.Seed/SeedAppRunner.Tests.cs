@@ -8,8 +8,9 @@ using Xunit;
 
 namespace JoshOlson.Seed;
 
-// Runs the real command line, wired as `Program` wires it, with the console swapped for one that keeps its output. The
-// paths are the repository's unless a test gives its own. Spectre's own CLI testing package is still an alpha.
+// Runs the real command line, wired as `Program` wires it, with the console swapped for one that keeps its output and
+// the factory for one over what the tests share. The paths are the repository's unless a test gives a workspace.
+// Spectre's own CLI testing package is still an alpha.
 internal static class SeedAppRunner {
   // The factory a test hands the command line in place of the real one: the shared database operations, container
   // tools, and clock (`SeedTestServer`), over the paths the test works on. `development` is the database `seed` may
@@ -23,21 +24,16 @@ internal static class SeedAppRunner {
       development ?? DatabaseEnvironment.DevelopmentDatabase(),
       snapshots);
 
+  // Over the real repository, which a test only reads.
+  public static async Task<(int ExitCode, string Output)> RunAsync(params string[] arguments)
+    => await RunAsync(services => services.AddSingleton(FactoryFor(SeedTestServer.Paths)), arguments);
+
   // Over a workspace: its paths and a factory for them. Only the container tools keep the real root, for the compose files.
   public static async Task<(int ExitCode, string Output)> RunAsync(SeedWorkspace workspace, params string[] arguments)
     => await RunAsync(
       services => {
         _ = services.AddSingleton(workspace.Paths);
         _ = services.AddSingleton(FactoryFor(workspace.Paths));
-      },
-      arguments);
-
-  public static async Task<(int ExitCode, string Output)> RunAsync(SeedPaths? paths, params string[] arguments)
-    => await RunAsync(
-      services => {
-        if (paths is not null) {
-          _ = services.AddSingleton(paths);
-        }
       },
       arguments);
 

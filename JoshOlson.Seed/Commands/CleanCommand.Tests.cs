@@ -27,7 +27,7 @@ public sealed class CleanCommandTests : IAsyncLifetime {
     await _databases.CreateAsync(_owner, _prefix + "foo", _cancellationToken);
     await _databases.CreateAsync(_owner, _prefix + "bar_building", _cancellationToken);
 
-    var (exitCode, output) = await SeedAppRunner.RunAsync(paths: null, "clean", "--prefix", _prefix);
+    var (exitCode, output) = await SeedAppRunner.RunAsync("clean", "--prefix", _prefix);
 
     Assert.True(exitCode is 0, output);
     Assert.Contains($"Dropped {_prefix}foo", output, StringComparison.Ordinal);
@@ -39,7 +39,7 @@ public sealed class CleanCommandTests : IAsyncLifetime {
 
   [Fact]
   public async Task Execute_NothingUnderThePrefix_SaysZero() {
-    var (exitCode, output) = await SeedAppRunner.RunAsync(paths: null, "clean", "--prefix", _prefix);
+    var (exitCode, output) = await SeedAppRunner.RunAsync("clean", "--prefix", _prefix);
 
     Assert.Equal(0, exitCode);
     Assert.Contains("0 database(s) dropped.", output, StringComparison.Ordinal);
@@ -47,7 +47,7 @@ public sealed class CleanCommandTests : IAsyncLifetime {
 
   [Fact]
   public async Task Execute_PrefixOutsideTheSeedTool_FailsWithExitOne() {
-    var (exitCode, output) = await SeedAppRunner.RunAsync(paths: null, "clean", "--prefix", "josholson");
+    var (exitCode, output) = await SeedAppRunner.RunAsync("clean", "--prefix", "josholson");
 
     Assert.Equal(1, exitCode);
     Assert.Contains("not a seed tool database name", output, StringComparison.Ordinal);
