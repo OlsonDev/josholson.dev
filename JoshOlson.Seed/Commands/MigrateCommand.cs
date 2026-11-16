@@ -8,7 +8,7 @@ using Spectre.Console.Cli;
 
 namespace JoshOlson.Seed.Commands;
 
-// `seed migrate [--relock]` (`mise run seeds:migrate`, `mise run seeds:relock`): writes `migrations/schema.lock.yaml` from
+// `seed migrate [--relock]` (`mise seeds:migrate`, `mise seeds:relock`): writes `migrations/schema.lock.yaml` from
 // the schema the migrations on disk produce, read from the template for the newest one (the dev database is not used), or
 // says everything that is wrong and writes nothing. Each seed layer must still read against the new schema and build into a
 // template, or the lock is not written (ADR 0034, lock file and branch-safe migration). `--relock` starts the lock over,

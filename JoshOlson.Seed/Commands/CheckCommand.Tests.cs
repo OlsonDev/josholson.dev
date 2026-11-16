@@ -24,7 +24,7 @@ public sealed class CheckCommandTests {
     var (exitCode, output) = await SeedAppRunner.RunAsync(workspace, "check");
 
     Assert.Equal(1, exitCode);
-    Assert.Contains("Run mise run seeds:migrate", output, StringComparison.Ordinal);
+    Assert.Contains("Run mise seeds:migrate", output, StringComparison.Ordinal);
   }
 
   [Fact]

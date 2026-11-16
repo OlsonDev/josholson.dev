@@ -18,7 +18,7 @@ var staged = Git("diff --cached --name-only").Split('\n', StringSplitOptions.Rem
 // Only an upgrade (or an edit to .editorconfig) can leave an analyzer rule undecided, so check just then (ADR 0030)
 if (AnalyzerCheckTrigger.IsNeeded(staged)
     && !Passes(
-      "Every analyzer rule needs a severity in .editorconfig. Decide the ones listed above, or run `mise run analyzers:add`.",
+      "Every analyzer rule needs a severity in .editorconfig. Decide the ones listed above, or run `mise analyzers:add`.",
       "scripts/analyzers.cs",
       "--",
       "check")) {
@@ -28,7 +28,7 @@ if (AnalyzerCheckTrigger.IsNeeded(staged)
 // The scripts and hooks are checked by building them
 if (AnalyzerCheckTrigger.IsScriptCheckNeeded(staged)
     && !Passes(
-      "A script fails the style rules or analyzers. Fix the ones listed above; `mise run scripts:check` reruns the check.",
+      "A script fails the style rules or analyzers. Fix the ones listed above; `mise scripts:check` reruns the check.",
       "scripts/check-scripts.cs")) {
   return 1;
 }

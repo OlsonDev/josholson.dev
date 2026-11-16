@@ -6,8 +6,8 @@ PostgreSQL 19 (release candidate). The migrations in `JoshOlson.Database/migrati
 
 Tables, columns, constraints, indexes, and relation diagrams are generated from the running dev database by `scripts/schema-docs.cs` into [docs/schema/](schema/README.md): one page per table, plus [domains](schema/domains.md). Never edit those files by hand. Rationale in [ADR 0021](adr/0021-generated-schema-docs.md).
 
-- **Regenerate** after changing a migration: `mise run schema:doc`. The dev database must be running with the migrations applied.
-- **Check for drift** with `mise run schema:check`. It regenerates into a temporary directory and exits non-zero when that differs from the committed docs. It reads the same catalogs as `psql`, so Postgres version changes show up only through the objects themselves. Run it before committing a migration change. Nothing runs it automatically yet.
+- **Regenerate** after changing a migration: `mise schema:doc`. The dev database must be running with the migrations applied.
+- **Check for drift** with `mise schema:check`. It regenerates into a temporary directory and exits non-zero when that differs from the committed docs. It reads the same catalogs as `psql`, so Postgres version changes show up only through the objects themselves. Run it before committing a migration change. Nothing runs it automatically yet.
 - **Type links** point built-in types at the PostgreSQL manual and domains at their section in `domains.md`. A type with no link (a less common built-in, or an enum) gets a warning when you regenerate; add it to `TypeDocs` in `scripts/schema-docs.cs`.
 - **Migration order** is filename order. Each schema depends only on earlier ones.
 

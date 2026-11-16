@@ -3,7 +3,7 @@ using Spectre.Console.Cli;
 
 namespace JoshOlson.Seed.Commands;
 
-// `seed bake` (`mise run seeds:bake`): builds the schema template and then every layer's template, parent first, and says
+// `seed bake` (`mise seeds:bake`): builds the schema template and then every layer's template, parent first, and says
 // which this run built and which were already current (ADR 0033, a scoped database per test). Needs the dev database
 // server and the `tools` container.
 public sealed class BakeCommand : AsyncCommand {

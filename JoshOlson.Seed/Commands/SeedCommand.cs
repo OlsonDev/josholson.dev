@@ -5,7 +5,7 @@ using Spectre.Console.Cli;
 
 namespace JoshOlson.Seed.Commands;
 
-// `seed seed <layer>` (`mise run seed <layer>`): drops the dev database and makes it again from the schema template with
+// `seed seed <layer>` (`mise seed <layer>`): drops the dev database and makes it again from the schema template with
 // the layer's rows in it, their relative times measured from now. Everything in the dev database is lost. Dev only. A
 // plain build is for making a child of the layer; `--edit` is for changing the layer itself (see `export`).
 public sealed class SeedCommand : AsyncCommand<SeedCommand.Settings> {

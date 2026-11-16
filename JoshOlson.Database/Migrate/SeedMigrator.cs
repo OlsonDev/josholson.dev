@@ -13,7 +13,7 @@ public static class SeedMigrator {
   public static async Task<List<string>> CheckLockAsync(string migrationsDirectory, CancellationToken cancellationToken) {
     var path = SeedPaths.LockFileIn(migrationsDirectory);
     if (!File.Exists(path)) {
-      return [$"{path} does not exist. Run mise run seeds:migrate."];
+      return [$"{path} does not exist. Run mise seeds:migrate."];
     }
     var onDisk = await MigrationFiles.LoadAsync(migrationsDirectory, cancellationToken);
     var check = SchemaLockParser.Parse(await File.ReadAllTextAsync(path, cancellationToken)).Check(onDisk);
@@ -21,7 +21,7 @@ public static class SeedMigrator {
     if (check.Pending.Count > 0) {
       problems.Add(
         $"{string.Join(", ", check.Pending.Select(migration => migration.File))} {(check.Pending.Count is 1 ? "is" : "are")} newer than the seeds. "
-        + "Run mise run seeds:migrate.");
+        + "Run mise seeds:migrate.");
     }
     return problems;
   }

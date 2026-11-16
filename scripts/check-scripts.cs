@@ -1,7 +1,7 @@
 #!/usr/bin/env dotnet
 // Builds every loose script (scripts/, .githooks/) so the style rules and analyzers in the root Directory.Build.props
 // run on them (ADR 0030). `dotnet format` cannot open file-based apps, so this build is the check. Run through mise:
-//   mise run scripts:check
+//   mise scripts:check
 using System.Diagnostics;
 using System.Globalization;
 

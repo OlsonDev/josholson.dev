@@ -2,7 +2,7 @@
 
   <!--
     The seed tool's command line (ADR 0033): commands are classes, built on `Spectre.Console.Cli` and the DI container,
-    over the library in `JoshOlson.Database`. Run it through `mise` (`mise run seeds:list`). Tests live next to the code as
+    over the library in `JoshOlson.Database`. Run it through `mise` (`mise seeds:list`). Tests live next to the code as
     `*.Tests.cs`, as in `JoshOlson.Api`. `IncludeTests` defaults to on for `Debug` and off otherwise. Pass
     `-p:IncludeTests=true|false` to override. `Program.cs` hands a `dotnet test` run to the test runner, as the API's does.
   -->

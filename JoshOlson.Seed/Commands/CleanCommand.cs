@@ -6,7 +6,7 @@ using Spectre.Console.Cli;
 
 namespace JoshOlson.Seed.Commands;
 
-// `seed clean [--all]` (`mise run seed:clean`): drops the seed tool's databases that the current migrations and layers no
+// `seed clean [--all]` (`mise seed:clean`): drops the seed tool's databases that the current migrations and layers no
 // longer name: old templates, test databases, and builds that died halfway. Never the dev database. `--all` drops the
 // current templates too.
 public sealed class CleanCommand : AsyncCommand<CleanCommand.Settings> {

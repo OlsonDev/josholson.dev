@@ -150,7 +150,7 @@ public sealed class ComposeTools {
       ? found[0]
       : throw new InvalidOperationException(
         found.Count is 0
-          ? $"The {service} container is not running. Start it with mise run tools:up."
+          ? $"The {service} container is not running. Start it with mise tools:up."
           : $"More than one {service} container is running, and none is the repository's. Stop the others.");
     _containers[service] = container;
     return container;

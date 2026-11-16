@@ -107,7 +107,7 @@ public sealed class ServerDatabases {
     if (await ExistsAsync(name, cancellationToken)) {
       return false;
     }
-    // Two processes can want the same template at once (`mise run test` runs the test projects side by side), and the
+    // Two processes can want the same template at once (`mise test` runs the test projects side by side), and the
     // second would drop the first's half-built database. A lock on the name makes it wait, and find the template there
     // when it gets its turn.
     await using var guard = await TemplateLock.TakeAsync(name, cancellationToken);

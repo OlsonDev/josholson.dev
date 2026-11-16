@@ -30,7 +30,7 @@ public sealed class SeedSchema {
   public static async Task<SeedSchema> LoadAsync(SeedPaths paths, CancellationToken cancellationToken)
     => File.Exists(paths.LockFile)
       ? new(SchemaLockParser.Parse(await File.ReadAllTextAsync(paths.LockFile, cancellationToken)))
-      : throw new SeedFormatException($"{paths.LockFile} does not exist. Run mise run seeds:migrate first.");
+      : throw new SeedFormatException($"{paths.LockFile} does not exist. Run mise seeds:migrate first.");
 
   public SeedTable? Find(string table)
     => _tables.GetValueOrDefault(table);

@@ -22,7 +22,7 @@ public sealed class SeedSchemaTests {
 
       var exception = await Assert.ThrowsAsync<SeedFormatException>(() => SeedSchema.LoadAsync(paths, _cancellationToken));
 
-      Assert.Equal($"{paths.LockFile} does not exist. Run mise run seeds:migrate first.", exception.Message);
+      Assert.Equal($"{paths.LockFile} does not exist. Run mise seeds:migrate first.", exception.Message);
     } finally {
       Directory.Delete(directory, recursive: true);
     }

@@ -20,7 +20,7 @@ public class MigrationHistoryTests {
 
     var problem = Assert.Single(problems);
     Assert.Contains("V002__bar.sql", problem, StringComparison.Ordinal);
-    Assert.Contains("mise run waypoint migrate", problem, StringComparison.Ordinal);
+    Assert.Contains("mise waypoint migrate", problem, StringComparison.Ordinal);
   }
 
   [Fact]

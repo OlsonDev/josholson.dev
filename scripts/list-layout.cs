@@ -8,7 +8,7 @@
 // line. Reported: `Foo(\n  a, b, c)`, `Foo(a,\n  b)`. Roslynator's RCS0053 catches only half of these, so this checks
 // the rest. A list that is the value of a declaration (field, property, local, expression body) must also be one item
 // per line, not all on the opening line. Covers argument, parameter, type-argument, type-parameter, attribute, tuple,
-// initializer, collection expression, and enum member lists. Run through mise: mise run lists:check
+// initializer, collection expression, and enum member lists. Run through mise: mise lists:check
 using JoshOlson.Shared.IO;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;

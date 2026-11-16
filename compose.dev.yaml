@@ -16,7 +16,7 @@ services:
       - max_connections=200
 
   # Waypoint, kept running so commands use `exec` instead of a fresh container.
-  # Use it through mise: mise run waypoint migrate
+  # Use it through mise: mise waypoint migrate
   tools:
     build:
       context: ./tools

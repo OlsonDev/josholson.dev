@@ -6,7 +6,7 @@ using Spectre.Console.Cli;
 
 namespace JoshOlson.Seed.Commands;
 
-// `seed list` (`mise run seeds:list`): the layer tree, each layer with what it changes in each table (+ inserts, ~ updates, - deletes).
+// `seed list` (`mise seeds:list`): the layer tree, each layer with what it changes in each table (+ inserts, ~ updates, - deletes).
 public sealed class ListCommand : AsyncCommand {
   private readonly SeedPaths _paths;
   private readonly IAnsiConsole _console;

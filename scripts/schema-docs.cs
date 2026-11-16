@@ -5,8 +5,8 @@
 // Generates docs/schema (Markdown with Mermaid diagrams) from the dev database's catalogs, read by the seed tool's
 // catalog reader (JoshOlson.Database), which is what the schema lock file is made from (ADR 0034).
 // Run through mise, which supplies the connection settings from .env (see mise.toml):
-//   mise run schema:doc     regenerate docs/schema
-//   mise run schema:check   fail if docs/schema differs from what the database would generate
+//   mise schema:doc     regenerate docs/schema
+//   mise schema:check   fail if docs/schema differs from what the database would generate
 using System.Diagnostics;
 using System.Globalization;
 using System.Text;
@@ -61,7 +61,7 @@ try {
   }
 
   if (!Directory.Exists(DocPath)) {
-    Console.Error.WriteLine($"{DocPath} does not exist. Run: mise run schema:doc");
+    Console.Error.WriteLine($"{DocPath} does not exist. Run: mise schema:doc");
     return 1;
   }
   var diff = Process.Start(new ProcessStartInfo {
@@ -71,7 +71,7 @@ try {
   })!;
   await diff.WaitForExitAsync(CancellationToken.None);
   if (diff.ExitCode is 0) Console.WriteLine($"{DocPath} is up to date.");
-  else if (diff.ExitCode is 1) Console.Error.WriteLine($"{DocPath} is out of date. Run: mise run schema:doc");
+  else if (diff.ExitCode is 1) Console.Error.WriteLine($"{DocPath} is out of date. Run: mise schema:doc");
   return diff.ExitCode;
 } finally {
   Directory.Delete(work, recursive: true);

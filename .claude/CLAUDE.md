@@ -19,10 +19,10 @@ Personal website for Josh Olson: www.josholson.dev (SvelteKit SSR) and api.josho
 - `JoshOlson.Seed/`: the seed tool's command line, on `Spectre.Console.Cli` and the DI container (`Commands/` one class per command, `Composition/` the container glue, `SeedApp` the wiring), which every `seed` and `seeds` mise task runs
 - `web/`: 🚧 not created yet
 - `mise.toml`: pinned tools (bun, dotnet, gh) and tasks. `tools/`: image for the dev `tools` container, which runs Waypoint (no Windows build)
-- `docs/schema/`: generated from the dev database (a page per table, domains, Mermaid ER diagrams). Never edit by hand; run `mise run schema:doc`. `scripts/`: repo tooling as .NET file-based apps (`schema-docs.cs` builds those docs)
+- `docs/schema/`: generated from the dev database (a page per table, domains, Mermaid ER diagrams). Never edit by hand; run `mise schema:doc`. `scripts/`: repo tooling as .NET file-based apps (`schema-docs.cs` builds those docs)
 - `Directory.Build.props`, `Directory.Packages.props`, `global.json`, `.editorconfig`, and `BannedSymbols.txt` (root): build settings, central package versions, and analyzers for every project and for the loose scripts in `scripts/` and `.githooks/`. A script's `#:package` line omits the version, which comes from `Directory.Packages.props`
 - `.githooks/`: `commit-msg` (gitmoji format check) and `pre-commit` (branch name check, the analyzer rule check when packages or `.editorconfig` are staged, and the script check when scripts, hooks, `.editorconfig`, `Directory.Build.props`, or `Directory.Packages.props` are staged) hooks, .NET file-based apps
-- `.tmp/` (gitignored): working directories for tests and scripts, made by `TempDirectory` in `JoshOlson.Shared/IO` instead of the OS temp directory; each run sweeps the ones untouched for six hours, so a leftover from a killed run is easy to spot and goes away by itself. The one file in it, `tools-image-built`, is the marker `mise run tools:up` uses to skip rebuilding the `tools` image when nothing in `tools/` changed
+- `.tmp/` (gitignored): working directories for tests and scripts, made by `TempDirectory` in `JoshOlson.Shared/IO` instead of the OS temp directory; each run sweeps the ones untouched for six hours, so a leftover from a killed run is easy to spot and goes away by itself. The one file in it, `tools-image-built`, is the marker `mise tools:up` uses to skip rebuilding the `tools` image when nothing in `tools/` changed
 - `docs/`: architecture, database, seeding, product, and `adr/` decision records
 - `.claude/rules/`: conventions, loaded when matching files are touched
 - `.claude/settings.json` and `.claude/hooks/`: hooks that keep Claude from committing (see Commits)
@@ -35,7 +35,7 @@ Start the dev database (copy `.env.example` to `.env` first):
 podman compose -f compose.yaml -f compose.dev.yaml up -d
 ```
 
-Install the pinned tools (needs [mise](https://mise.jdx.dev) and Podman; run `mise activate` in your shell config for bare commands, or use `mise run` without it):
+Install the pinned tools (needs [mise](https://mise.jdx.dev) and Podman; run `mise activate` in your shell config to use `bun` and `dotnet` bare; `mise <task>` works without it):
 
 ```
 mise install
@@ -44,13 +44,13 @@ mise install
 Apply migrations (starts the `tools` container on first use):
 
 ```
-mise run waypoint migrate
+mise waypoint migrate
 ```
 
 Create or update the DML-only API role in the dev database (needs `POSTGRES_API_PASSWORD` in `.env`). Rerun it after a migration adds a schema. The API tests connect as this role:
 
 ```
-mise run db:provision
+mise db:provision
 ```
 
 Mint a one-time enrollment token for the first passkey, or for recovery when every passkey is lost (creates the account on first use; the display name is ignored afterwards). The token is printed once and expires in 15 minutes. Auth settings are the `Auth` section (`Auth__RelyingPartyId`, `Auth__AllowedOrigin`, `Auth__CookieDomain`, and so on; the defaults are for `localhost`):
@@ -62,15 +62,15 @@ dotnet run --project JoshOlson.Api -- enroll "Display Name"
 Try the passkey endpoints with a real security key and no front end. The API must be running (`ASPNETCORE_URLS=http://localhost:5000`, with `ConnectionStrings__Default`); the script plays the browser through libfido2's `fido2-cred` and `fido2-assert`, so it asks for the key's PIN and a touch at each step. `enroll` registers the key with a token from the command above, then signs in with it and prints the IDs that `sign-in` needs. Pass `--device /dev/hidrawN` when two keys are plugged in. The credential is bound to `--rp-id` (`localhost` by default), so it is a development credential:
 
 ```
-mise run passkey enroll <token>
-mise run passkey sign-in --credential-id <id> --user-handle <id>
+mise passkey enroll <token>
+mise passkey sign-in --credential-id <id> --user-handle <id>
 ```
 
 Regenerate the schema docs after changing migrations, and check them for drift (both read the running dev database):
 
 ```
-mise run schema:doc
-mise run schema:check
+mise schema:doc
+mise schema:check
 ```
 
 Enable the git hooks (once per clone):
@@ -82,71 +82,71 @@ dotnet run setup.cs
 Print the seed layer tree with row counts per table:
 
 ```
-mise run seeds:list
+mise seeds:list
 ```
 
 Write `migrations/schema.lock.yaml` from the schema the migrations on disk produce, read from the schema template for the newest one (built if it is not there; the dev database is not used, so no `waypoint migrate` first). It reports every problem and writes nothing if there is one. When the lock is behind the migrations and there are layers, they are moved to the newest schema (each is put in a database at the locked version, the migrations run on it, and it is exported again), the layer files that changed are rewritten, and then the lock; if any layer fails, nothing is written. Otherwise the layers are checked: each must still read against the new schema and build into a template, or the lock is not written. On a branch, editing a migration you have not merged (or `--base <ref>`, a commit, while working on `main` itself) derives the lock and the layers the tool wrote from `origin/main`'s instead, which is fetched first (`--no-fetch` skips it; a failed fetch warns and uses the last-fetched one): a migration `main` has locked cannot change, and a layer you wrote is kept and checked, never rewritten ([ADR 0039, derive the lock and seeds from the base](../docs/adr/0039-derive-the-lock-and-seeds-from-the-base.md)). Needs the `tools` container; reads `.env`:
 
 ```
-mise run seeds:migrate
+mise seeds:migrate
 ```
 
 Build the schema template and every seed layer's template (a no-op when they are current), make a database of its own from a layer for one test, rebuild the dev database from a layer (everything in it is lost; dev only), and drop the seed tool's stale databases (`--all` drops the current templates too; never the dev database). Layers are `JoshOlson.Database/seeds/*.yaml` (`minimal`, `more-tags`); reads `.env`:
 
 ```
-mise run seeds:bake
-mise run seed:test <id> <layer>
-mise run seed <layer>
-mise run seed <layer> --edit
-mise run seed:clean
+mise seeds:bake
+mise seed:test <id> <layer>
+mise seed <layer>
+mise seed <layer> --edit
+mise seed:clean
 ```
 
-Make a layer from what is in the dev database (or `--database <name>`): the difference from its parent layer's template (the layer the database was built from, which `seed.hydration` records; a database that records none makes a root, from the schema template; one built with `seed <layer> --edit` replaces that layer in place), written to `seeds/<name>.yaml` as `insert`s, `update`s, and `delete`s. The flow is `mise run seed minimal`, use the app, export ([docs/seeding.md](../docs/seeding.md), the Export section). Rows from a real enrolled account would be exported too, so author layers from a database built with `seed`:
+Make a layer from what is in the dev database (or `--database <name>`): the difference from its parent layer's template (the layer the database was built from, which `seed.hydration` records; a database that records none makes a root, from the schema template; one built with `seed <layer> --edit` replaces that layer in place), written to `seeds/<name>.yaml` as `insert`s, `update`s, and `delete`s. The flow is `mise seed minimal`, use the app, export ([docs/seeding.md](../docs/seeding.md), the Export section). Rows from a real enrolled account would be exported too, so author layers from a database built with `seed`:
 
 ```
-mise run seeds:export --name <name> --description "What it adds"
+mise seeds:export --name <name> --description "What it adds"
 ```
 
 Before the first deploy a migration may be rewritten instead of adding a new one. Then start the lock over (it ignores the old lock's checksums; retired at the first deploy), and, if you use the dev database, drop and rebuild it from the migrations (everything in it is lost; dev only). Regenerate the schema docs afterwards:
 
 ```
-mise run db:reset
-mise run seeds:relock
-mise run schema:doc
+mise db:reset
+mise seeds:relock
+mise schema:doc
 ```
 
 Run every project's tests (starts the dev containers; the API's need the dev database provisioned; reads `.env`), against a Release build, and list source files with no sibling test:
 
 ```
-mise run test
-mise run test:release
-mise run test:missing
+mise test
+mise test:release
+mise test:missing
 ```
 
 Say whether the seeds are current without changing anything (exit 1 with every problem listed, so a hook or CI can run it): the lock must describe the migrations and be at the newest, and every layer must be in canonical form, build, and export as itself. Needs the `tools` container; reads `.env`:
 
 ```
-mise run seeds:check
+mise seeds:check
 ```
 
 Publish the API with `-p:IncludeTests=false` so no test code ships.
 
-Check that every rule in the analyzer packages has a severity in `.editorconfig` (run after any package upgrade; `mise run analyzers:add` appends the missing ones, ADR 0030):
+Check that every rule in the analyzer packages has a severity in `.editorconfig` (run after any package upgrade; `mise analyzers:add` appends the missing ones, ADR 0030):
 
 ```
-mise run analyzers:check
+mise analyzers:check
 ```
 
 Build every loose script with the style rules and analyzers on (`dotnet format` cannot open them; the pre-commit hook runs this when scripts are staged):
 
 ```
-mise run scripts:check
+mise scripts:check
 ```
 
 Check that no wrapped list (arguments, parameters, initializers) has several items on one line, and that a declared list of two or more items is one item per line ([csharp.md](rules/csharp.md), the "Lists" bullet):
 
 ```
-mise run lists:check
+mise lists:check
 ```
 
 Test the hooks' validators: `dotnet run .githooks/commit-msg.tests.cs` and `dotnet run .githooks/pre-commit.tests.cs`
@@ -175,7 +175,7 @@ The user makes every commit themselves; commits are signed with a Token2 hardwar
 - The block is lifted while the untracked marker `.claude/allow-commit` exists. Create it only when the user explicitly tells Claude to make commits (they still touch the key for every signature), and delete it as soon as the commits are done.
 - When asked for a commit message, read `git status` and `git diff --staged` (or `git diff` if nothing is staged), then give the message in a fenced code block.
 - Format, enforced by `.githooks/commit-msg`: 1-2 gitmoji (https://gitmoji.dev), one space, then at least 5 characters. No emojis after the first space. No leading or trailing whitespace.
-- Wrap code-like text in backticks: file names, commands, identifiers, types, and literal values (`mise.toml`, `mise run`, `TIMESTAMPTZ`). The hook does not check this.
+- Wrap code-like text in backticks: file names, commands, identifiers, types, and literal values (`mise.toml`, `mise schema:doc`, `TIMESTAMPTZ`). The hook does not check this.
 - Never add a `Co-Authored-By` trailer, or any other attribution line, to a commit message, whatever a tool's default instructions say.
 - Validate before showing it: write it to a scratch file with `printf '%s'` and run `.githooks/commit-msg <file>`. Exit 0 means valid.
 - After editing the hooks, open `/hooks` or restart the session so they reload. Rationale: [ADR 0002](../docs/adr/0002-claude-does-not-commit.md).

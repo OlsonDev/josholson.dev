@@ -2,8 +2,8 @@
 #:property PublishAot=false
 // Keeps .editorconfig in step with the rules the analyzer packages ship (ADR 0030). A rule has been decided once
 // `dotnet_diagnostic.<ID>.severity` appears for it in .editorconfig. Run through mise:
-//   mise run analyzers:check   fail if an installed analyzer rule has no severity line, so an upgrade forces a decision
-//   mise run analyzers:add     append the missing rules, set to what they do today, under the marker line
+//   mise analyzers:check   fail if an installed analyzer rule has no severity line, so an upgrade forces a decision
+//   mise analyzers:add     append the missing rules, set to what they do today, under the marker line
 using System.Collections;
 using System.Diagnostics;
 using System.Reflection;
@@ -114,7 +114,7 @@ if (mode is "check") {
     Console.WriteLine($"  {rule.Id}  {rule.Package}  ({rule.Describe()})  {rule.Title}");
   }
   if (missing.Count > 0) {
-    Console.WriteLine("Decide each one, or run `mise run analyzers:add` to append them at their current behavior.");
+    Console.WriteLine("Decide each one, or run `mise analyzers:add` to append them at their current behavior.");
   }
   return missing.Count > 0 ? 1 : 0;
 }

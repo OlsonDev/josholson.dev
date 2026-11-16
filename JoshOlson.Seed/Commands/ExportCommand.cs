@@ -7,7 +7,7 @@ using Spectre.Console.Cli;
 
 namespace JoshOlson.Seed.Commands;
 
-// `seed export --name <name> --description <text>` (`mise run seeds:export ...`): makes a layer from what is in a database
+// `seed export --name <name> --description <text>` (`mise seeds:export ...`): makes a layer from what is in a database
 // and writes it to `seeds/<name>.yaml`. The flow it is for: `seed minimal`, use the app, then export what you added as a
 // child of `minimal`, the layer the database records in `seed.hydration`. A database that records none makes a root
 // layer. The layer is the difference from the parent's template (a root: from the schema template): `insert`s of new rows,

@@ -240,8 +240,8 @@ dotnet_diagnostic.RCS0028.severity = warning
 dotnet_diagnostic.RCS0032.severity = warning
 dotnet_diagnostic.RCS0062.severity = warning
 
-## Every analyzer rule, so an upgrade that adds one fails `mise run analyzers:check` until it is decided.
-## `mise run analyzers:add` appends new rules below at what they do today; edit each in place.
+## Every analyzer rule, so an upgrade that adds one fails `mise analyzers:check` until it is decided.
+## `mise analyzers:add` appends new rules below at what they do today; edit each in place.
 # analyzers:unreviewed
 dotnet_diagnostic.RCS0001.severity = none
 dotnet_diagnostic.RCS0002.severity = none

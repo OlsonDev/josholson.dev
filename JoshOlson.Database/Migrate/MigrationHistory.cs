@@ -51,7 +51,7 @@ public static class MigrationHistory {
       }
     }
     foreach (var migration in onDisk.Where(migration => !appliedByVersion.ContainsKey(migration.Version))) {
-      problems.Add((migration.Version, $"{migration.File} (version {migration.Version.ToInvariantString()}) has not been applied to the database. Run `mise run waypoint migrate`."));
+      problems.Add((migration.Version, $"{migration.File} (version {migration.Version.ToInvariantString()}) has not been applied to the database. Run `mise waypoint migrate`."));
     }
 
     problems.Sort((left, right) => left.Version.CompareTo(right.Version));

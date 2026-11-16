@@ -4,7 +4,7 @@ using Spectre.Console.Cli;
 
 namespace JoshOlson.Seed.Commands;
 
-// `seed test <id> <layer>` (`mise run seed:test <id> <layer>`): a database of its own, `seed_test_<id>`, cloned from the
+// `seed test <id> <layer>` (`mise seed:test <id> <layer>`): a database of its own, `seed_test_<id>`, cloned from the
 // layer's template (ADR 0033, a scoped database per test), and prints its name. `seed clean` drops it.
 public sealed class TestCommand : AsyncCommand<TestCommand.Settings> {
   private readonly SeedToolFactory _factory;

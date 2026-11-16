@@ -34,12 +34,12 @@ fi
 """
 
 [tasks.waypoint]
-description = "Run waypoint in the tools container, e.g. mise run waypoint migrate"
+description = "Run waypoint in the tools container, e.g. mise waypoint migrate"
 depends = ["tools:up"]
 run = "podman compose -f compose.yaml -f compose.dev.yaml exec tools waypoint"
 
 [tasks.passkey]
-description = "Enroll or sign in with a real security key against a running API, e.g. mise run passkey enroll <token>"
+description = "Enroll or sign in with a real security key against a running API, e.g. mise passkey enroll <token>"
 run = "dotnet run scripts/passkey-cli.cs --"
 
 # scripts/schema-docs.cs reads the dev database through the POSTGRES_* settings in .env.
@@ -117,30 +117,30 @@ _.file = ".env"
 
 # Makes a layer from what is in the dev database (ADR 0014, hierarchical seed layers) and writes seeds/<name>.yaml: the
 # difference from the parent layer's template (the layer the database was built from, recorded in seed.hydration; a
-# database that records none makes a root, from the schema template). The flow: `mise run seed minimal`, use the app,
-# then `mise run seeds:export --name my-layer --description "What it adds"`. Needs the `tools` container to build a
+# database that records none makes a root, from the schema template). The flow: `mise seed minimal`, use the app,
+# then `mise seeds:export --name my-layer --description "What it adds"`. Needs the `tools` container to build a
 # template that is not current. Reads .env.
 [tasks."seeds:export"]
-description = "Make a seed layer from the dev database, e.g. mise run seeds:export --name my-layer --description \"What it adds\""
+description = "Make a seed layer from the dev database, e.g. mise seeds:export --name my-layer --description \"What it adds\""
 depends = ["tools:up"]
 run = "dotnet run --project JoshOlson.Seed -- export"
 
 [tasks."seeds:export".env]
 _.file = ".env"
 
-# Drops the dev database and makes it again from a layer, its relative times measured from now: mise run seed <layer>.
+# Drops the dev database and makes it again from a layer, its relative times measured from now: mise seed <layer>.
 # Everything in the dev database is lost. Dev only.
 [tasks.seed]
-description = "Drop the dev database and rebuild it from a seed layer, e.g. mise run seed more-tags"
+description = "Drop the dev database and rebuild it from a seed layer, e.g. mise seed more-tags"
 depends = ["tools:up"]
 run = "dotnet run --project JoshOlson.Seed -- seed"
 
 [tasks.seed.env]
 _.file = ".env"
 
-# A database of its own, seed_test_<id>, cloned from a layer's template: mise run seed:test 42 more-tags.
+# A database of its own, seed_test_<id>, cloned from a layer's template: mise seed:test 42 more-tags.
 [tasks."seed:test"]
-description = "Make a scoped database seed_test_<id> from a seed layer, e.g. mise run seed:test 42 more-tags"
+description = "Make a scoped database seed_test_<id> from a seed layer, e.g. mise seed:test 42 more-tags"
 depends = ["tools:up"]
 run = "dotnet run --project JoshOlson.Seed -- test"
 
@@ -163,8 +163,8 @@ description = "Drop the dev database and rebuild it from the migrations, then pr
 depends = ["tools:up"]
 run = [
   "podman compose -f compose.yaml -f compose.dev.yaml exec -T postgres psql -U $POSTGRES_USER -d postgres -v ON_ERROR_STOP=1 -c 'DROP DATABASE IF EXISTS \"'$POSTGRES_DB'\" WITH (FORCE)' -c 'CREATE DATABASE \"'$POSTGRES_DB'\"'",
-  "mise run waypoint migrate",
-  "mise run db:provision",
+  "mise waypoint migrate",
+  "mise db:provision",
 ]
 
 [tasks."db:reset".env]

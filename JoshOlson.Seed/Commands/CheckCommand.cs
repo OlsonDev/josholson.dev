@@ -6,7 +6,7 @@ using Spectre.Console.Cli;
 
 namespace JoshOlson.Seed.Commands;
 
-// `seed check` (`mise run seeds:check`): says whether the seeds are current, and changes nothing. The lock must describe
+// `seed check` (`mise seeds:check`): says whether the seeds are current, and changes nothing. The lock must describe
 // the migrations on disk and be at the newest one, and every layer must be in the canonical form the tool writes, build
 // into a template, and give itself back (a database built from it, read and diffed against its parent's template, is
 // the layer's own text). Every problem is listed, and the exit code is 1 if there is one, so a hook or CI can run it.
