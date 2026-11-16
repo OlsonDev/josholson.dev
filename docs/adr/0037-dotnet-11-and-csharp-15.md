@@ -20,11 +20,11 @@
 
 - **Stay on .NET 10 until .NET 12:** gains nothing in support, and moves the same churn later.
 - **Switch RS0030 off for the API project:** the ban on `DateTime` matters most there ([ADR 0029 (NodaTime for time)](0029-nodatime-for-time.md)).
-- **Union types (`union`):** nothing in the code is a "one of several unrelated types" value yet. Revisit for ceremony outcomes in the API.
+- **Union types (`union`):** nothing in the code is a "one of several unrelated types" value yet. Revisit for ceremony outcomes in the API. Revisited in [ADR 0041 (parameter and result records, and union results)](0041-parameter-records-result-records-and-union-results.md), which adopts them.
 
 ## Consequences
 
 - `Microsoft.Extensions.Validation` changed: `ValidateContext` takes a `ServiceProvider` instead of a `ValidationContext`, and each error is a `ValidationError` with an `ErrorMessage`. Only `PayloadValidator` changed. The library is no longer experimental, so the project's `ASP0029` suppression is gone.
 - `TextWriter.WriteLineAsync` has overloads that take a token, and MA0040 requires them.
-- Roslynator 5.0.1 and Meziantou 3.0.317 ran cleanly on C# 15 code, but neither is documented to understand `union` or `closed`. Check when one is first used.
+- Roslynator 5.0.1 and Meziantou 3.0.317 ran cleanly on C# 15 code, but neither is documented to understand `union` or `closed`. Check when one is first used. (They run on `union`: see ADR 0041, records and union results.)
 - `closed` on `SeedValue` and `PendingPasskeyChange` is the next change, and is separate from the upgrade.
