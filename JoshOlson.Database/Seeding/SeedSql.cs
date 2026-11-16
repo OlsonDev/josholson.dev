@@ -4,7 +4,6 @@ using System.Numerics;
 using System.Text;
 using JoshOlson.Database.Layers;
 using JoshOlson.Database.Schema;
-using JoshOlson.Shared.Extensions;
 using NodaTime;
 using Npgsql;
 using NpgsqlTypes;
@@ -26,17 +25,13 @@ public static class SeedSql {
 
   public static List<SeedStatement> Build(SeedState state, SeedSchema schema, Instant anchor) {
     var statements = new List<SeedStatement>();
-    var problems = new List<string>();
+    var problems = new SeedProblems("The rows have");
     foreach (var table in schema.InsertOrder()) {
       if (state.Tables.TryGetValue(table.Table.Name, out var rows) && rows.Count > 0) {
         AddTable(table, rows, anchor, statements, problems);
       }
     }
-    if (problems.Count > 0) {
-      throw new SeedFormatException(problems.Count is 1
-        ? problems[0]
-        : $"The rows have {problems.Count.ToInvariantString()} problems:\n- {string.Join("\n- ", problems)}");
-    }
+    problems.ThrowIfAny();
     return statements;
   }
 
@@ -45,7 +40,7 @@ public static class SeedSql {
     SortedDictionary<SeedValue[], Dictionary<string, SeedValue?>> rows,
     Instant anchor,
     List<SeedStatement> statements,
-    List<string> problems
+    SeedProblems problems
   ) {
     var columns = table.Table.Columns
       .Where(column => column.GeneratedAs is not (GeneratedAs.ExpressionStored or GeneratedAs.ExpressionVirtual))
@@ -62,7 +57,7 @@ public static class SeedSql {
     List<SeedColumn> columns,
     Dictionary<string, SeedValue?>[] rows,
     Instant anchor,
-    List<string> problems
+    SeedProblems problems
   ) {
     var sql = new StringBuilder();
     sql.Append("INSERT INTO ").Append(table.Table.Name).Append(" (\n");
@@ -102,7 +97,7 @@ public static class SeedSql {
     Dictionary<string, SeedValue?> row,
     Instant anchor,
     List<NpgsqlParameter> parameters,
-    List<string> problems
+    SeedProblems problems
   ) {
     if (!row.TryGetValue(column.Column.Name, out var value)) {
       throw new SeedFormatException($"{table.Table.Name}: a row leaves out {column.Column.Name}, and a seed names every column.");

@@ -39,7 +39,7 @@ internal sealed class MigrationRun {
     var check = existing?.Check(onDisk);
 
     var derivation = await DeriveFromBaseAsync(check, onDisk);
-    var problems = new List<string>();
+    var problems = new SeedProblems();
     if (derivation is null && check is not null) {
       problems.AddRange(check.Problems.Select(problem => problem.Message));
       Refuse(problems);
@@ -121,7 +121,7 @@ internal sealed class MigrationRun {
     SchemaLock schemaLock,
     List<MigrationFile> onDisk,
     HashSet<string> generated,
-    List<string> problems
+    SeedProblems problems
   ) {
     try {
       if (derivation is not null) {
@@ -225,9 +225,9 @@ internal sealed class MigrationRun {
     return read.Snapshot;
   }
 
-  private void Refuse(List<string> problems) {
+  private void Refuse(SeedProblems problems) {
     if (problems.Count > 0) {
-      throw new SeedFormatException($"seeds:migrate did not write {SeedPaths.LockFileName}:\n- {string.Join("\n- ", problems.Concat(_warnings))}");
+      throw new SeedFormatException($"seeds:migrate did not write {SeedPaths.LockFileName}:\n- {string.Join("\n- ", problems.Messages.Concat(_warnings))}");
     }
   }
 }

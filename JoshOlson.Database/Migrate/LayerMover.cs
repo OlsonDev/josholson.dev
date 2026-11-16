@@ -49,14 +49,15 @@ public static class LayerMover {
     var (headTemplate, _) = await options.Template.EnsureAsync(owner, cancellationToken);
 
     var states = new Dictionary<string, SeedState>(StringComparer.Ordinal);
-    var problems = await oldTree.VisitParentFirstAsync(async layer => {
+    var problems = new SeedProblems();
+    problems.AddRange(await oldTree.VisitParentFirstAsync(async layer => {
       try {
         states[layer.Name] = await MigrateLayerAsync(owner, options, fromTemplate, oldTree, oldSchema, newSchema, layer.Name, onDisk, anchor, cancellationToken);
         return null;
       } catch (SeedFormatException exception) {
         return $"{layer.Name}: {exception.Message}";
       }
-    });
+    }));
     // The rows of the newest template, which is what a root layer's state is measured from: it holds the reference data
     // every database has.
     var head = await SeedStateReader.ReadTemplateAsync(options.Databases, owner, headTemplate, "move", newSchema, cancellationToken, anchor);
@@ -84,14 +85,12 @@ public static class LayerMover {
         (name, error) => $"{name}: does not build at the newest version: {error}",
         cancellationToken));
     }
-    if (problems.Count > 0) {
-      if (skipped.Count > 0) {
-        problems.Add(
-          $"Without {string.Join(", ", skipped.Select(repeatable => repeatable.File))} (which cannot apply at version {existing.Version.ToInvariantString()}) "
-          + "a row may have pointed at reference data that was not there yet, which is not checked until the newest version.");
-      }
-      throw new SeedFormatException(string.Join("\n", problems));
+    if (problems.Any && skipped.Count > 0) {
+      problems.Add(
+        $"Without {string.Join(", ", skipped.Select(repeatable => repeatable.File))} (which cannot apply at version {existing.Version.ToInvariantString()}) "
+        + "a row may have pointed at reference data that was not there yet, which is not checked until the newest version.");
     }
+    problems.ThrowIfAny();
     return moved;
   }
 
@@ -130,7 +129,7 @@ public static class LayerMover {
     Dictionary<string, SeedState> states,
     SeedState baseline,
     SeedSchema newSchema,
-    List<string> problems
+    SeedProblems problems
   ) {
     var diffs = new List<LayerDiff>();
     foreach (var layer in oldTree.InBakeOrder()) {
@@ -169,7 +168,7 @@ public static class LayerMover {
     Dictionary<string, string> authored,
     HashSet<string> dropped,
     SeedSchema newSchema,
-    List<string> problems
+    SeedProblems problems
   ) {
     var all = moved.FindAll(layer => !dropped.Contains(layer.Layer.Name) && !authored.ContainsKey(layer.Layer.Name));
     foreach (var (name, text) in authored.OrderBy(entry => entry.Key, StringComparer.Ordinal)) {

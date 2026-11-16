@@ -13,7 +13,7 @@ namespace JoshOlson.Database.Seeding;
 public static class LayerMerger {
   public static SeedState Merge(List<SeedLayer> chain, SeedSchema schema) {
     var state = new SeedState();
-    var problems = new List<string>();
+    var problems = new SeedProblems("The layers have");
     foreach (var layer in chain) {
       foreach (var change in layer.Tables) {
         if (schema.Find(change.Table) is not { } table) {
@@ -28,11 +28,7 @@ public static class LayerMerger {
         Update(layer, change, table, rows, problems);
       }
     }
-    if (problems.Count > 0) {
-      throw new SeedFormatException(problems.Count is 1
-        ? problems[0]
-        : $"The layers have {problems.Count.ToInvariantString()} problems:\n- {string.Join("\n- ", problems)}");
-    }
+    problems.ThrowIfAny();
     return state;
   }
 
@@ -41,7 +37,7 @@ public static class LayerMerger {
     TableChange change,
     SeedTable table,
     SortedDictionary<SeedValue[], Dictionary<string, SeedValue?>> rows,
-    List<string> problems
+    SeedProblems problems
   ) {
     foreach (var row in change.Deletes) {
       var key = KeyOf(row, table);
@@ -56,7 +52,7 @@ public static class LayerMerger {
     TableChange change,
     SeedTable table,
     SortedDictionary<SeedValue[], Dictionary<string, SeedValue?>> rows,
-    List<string> problems
+    SeedProblems problems
   ) {
     foreach (var row in change.Inserts) {
       var key = KeyOf(row, table);
@@ -73,7 +69,7 @@ public static class LayerMerger {
     TableChange change,
     SeedTable table,
     SortedDictionary<SeedValue[], Dictionary<string, SeedValue?>> rows,
-    List<string> problems
+    SeedProblems problems
   ) {
     foreach (var row in change.Updates) {
       var key = KeyOf(row, table);

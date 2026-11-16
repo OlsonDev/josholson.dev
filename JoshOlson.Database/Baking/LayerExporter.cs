@@ -124,7 +124,7 @@ public sealed class LayerExporter {
   private (LayerTree Tree, List<string> Affected) CheckAgainstTheOthers(SeedLayer layer, bool replaced) {
     var others = _tree.InBakeOrder().Where(other => !string.Equals(other.Name, layer.Name, StringComparison.Ordinal));
     var tree = new LayerTree([.. others, layer]);
-    var problems = new List<string>();
+    var problems = new SeedProblems();
     var below = new Stack<SeedLayer>(tree.ChildrenOf(layer.Name));
     var names = new List<string> { layer.Name };
     while (below.TryPop(out var descendant)) {
@@ -146,7 +146,8 @@ public sealed class LayerExporter {
       problems.AddRange(blocks);
       problems.Add($"A row made in a database built with {hint} takes its ID from the right block.");
     }
-    return problems.Count > 0 ? throw new SeedFormatException(string.Join("\n", problems)) : (tree, names);
+    problems.ThrowIfAny();
+    return (tree, names);
   }
 
   // Each affected layer's chain is applied to a clone of the schema template (`SeedHydrator.BuildProblemsAsync`), so a

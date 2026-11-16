@@ -1,5 +1,3 @@
-using JoshOlson.Shared.Extensions;
-
 namespace JoshOlson.Database.Layers;
 
 public static class LayerLoader {
@@ -28,11 +26,9 @@ public static class LayerLoader {
       layers.Add(LayerParser.Parse(name, yaml, schema));
     }
     var tree = new LayerTree(layers);
-    var problems = tree.IdBlockProblems(schema);
-    return problems.Count is 0
-      ? tree
-      : throw new SeedFormatException(problems.Count is 1
-        ? problems[0]
-        : $"The layers have {problems.Count.ToInvariantString()} ID block problems:\n- {string.Join("\n- ", problems)}");
+    var problems = new SeedProblems("The layers have", "ID block problems");
+    problems.AddRange(tree.IdBlockProblems(schema));
+    problems.ThrowIfAny();
+    return tree;
   }
 }

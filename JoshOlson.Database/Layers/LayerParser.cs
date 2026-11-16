@@ -55,7 +55,7 @@ public static class LayerParser {
       }
     }
 
-    var problems = new List<string>();
+    var problems = new SeedProblems($"{name} has");
     var tables = new List<TableChange>();
     if (YamlNodes.Find(root, "tables") is { } tablesNode) {
       var tableMap = tablesNode as YamlMappingNode
@@ -64,11 +64,7 @@ public static class LayerParser {
         tables.Add(ParseTable(name, YamlNodes.Key(name, key), value, schema, problems));
       }
     }
-    if (problems.Count > 0) {
-      throw new SeedFormatException(problems.Count is 1
-        ? problems[0]
-        : $"{name} has {problems.Count.ToInvariantString()} problems:\n- {string.Join("\n- ", problems)}");
-    }
+    problems.ThrowIfAny();
     return new() {
       Name = name,
       Extends = extends,
@@ -77,7 +73,7 @@ public static class LayerParser {
     };
   }
 
-  private static TableChange ParseTable(string layer, string table, YamlNode node, SeedSchema schema, List<string> problems) {
+  private static TableChange ParseTable(string layer, string table, YamlNode node, SeedSchema schema, SeedProblems problems) {
     if (table.Split('.') is not [{ Length: > 0 }, { Length: > 0 }]) {
       throw new SeedFormatException($"{layer}: '{table}' is not a schema.table name.");
     }
@@ -107,7 +103,7 @@ public static class LayerParser {
     string key,
     YamlMappingNode map,
     SeedTable? known,
-    List<string> problems
+    SeedProblems problems
   ) {
     if (YamlNodes.Find(map, key) is not { } node) {
       return [];
@@ -157,7 +153,7 @@ public static class LayerParser {
     YamlNode node,
     SeedTable? known,
     bool isSet,
-    List<string> problems
+    SeedProblems problems
   ) {
     if (known is null) {
       return null;
@@ -177,7 +173,7 @@ public static class LayerParser {
     return value;
   }
 
-  private static void CheckKey(string where, Dictionary<string, SeedValue?> values, SeedTable known, List<string> problems) {
+  private static void CheckKey(string where, Dictionary<string, SeedValue?> values, SeedTable known, SeedProblems problems) {
     foreach (var column in known.Table.PrimaryKey) {
       if (!values.ContainsKey(column)) {
         problems.Add($"{where}: the primary key column {column} is missing.");
@@ -187,7 +183,7 @@ public static class LayerParser {
 
   // An insert leaves nothing to a default, which a later migration could change under the seed (ADR 0014, hierarchical seed
   // layers): it names every column that can be set, a NULL one as `~`.
-  private static void CheckComplete(string where, Dictionary<string, SeedValue?> values, SeedTable known, List<string> problems) {
+  private static void CheckComplete(string where, Dictionary<string, SeedValue?> values, SeedTable known, SeedProblems problems) {
     var missing = known.Table.Columns
       .Where(column => column.GeneratedAs is not (GeneratedAs.ExpressionStored or GeneratedAs.ExpressionVirtual))
       .Select(column => column.Name)
@@ -198,13 +194,13 @@ public static class LayerParser {
     }
   }
 
-  private static void CheckChanges(string where, Dictionary<string, SeedValue?> values, SeedTable known, List<string> problems) {
+  private static void CheckChanges(string where, Dictionary<string, SeedValue?> values, SeedTable known, SeedProblems problems) {
     if (values.Keys.All(column => known.Table.PrimaryKey.Contains(column) || !known.Columns.ContainsKey(column))) {
       problems.Add($"{where}: an update names the key and the columns it changes, and it changes none.");
     }
   }
 
-  private static void CheckOnlyKey(string where, Dictionary<string, SeedValue?> values, SeedTable known, List<string> problems) {
+  private static void CheckOnlyKey(string where, Dictionary<string, SeedValue?> values, SeedTable known, SeedProblems problems) {
     foreach (var column in values.Keys.Where(column => known.Columns.ContainsKey(column) && !known.Table.PrimaryKey.Contains(column))) {
       problems.Add($"{where}: a delete holds only the primary key, so {column} does not belong.");
     }
