@@ -100,17 +100,22 @@ public sealed class SchemaTemplate {
 
   // Takes a database cloned from a template for an older version on to the newest: the migrations after it, then every
   // repeatable (those the older template skipped, and any that changed). Not in one transaction, so a migration that cannot
-  // run in one (`CREATE INDEX CONCURRENTLY`) still can; a failure throws, and the database is the caller's to discard.
-  public async Task MigrateToNewestAsync(string database, CancellationToken cancellationToken) {
+  // run in one (`CREATE INDEX CONCURRENTLY`) still can. Returns null, or the failure of a migration Waypoint refused, after
+  // which the database is the caller's to discard.
+  public async Task<MigrationFailure?> MigrateToNewestAsync(string database, CancellationToken cancellationToken) {
     var files = await VersionedFilesAsync(int.MaxValue, cancellationToken);
     foreach (var path in RepeatablePaths()) {
       files.Add(new(Path.GetFileName(path), await File.ReadAllBytesAsync(path, cancellationToken)));
     }
-    await _tools.MigrateAsync(database, files, transaction: false, cancellationToken);
+    return await _tools.MigrateAsync(database, files, transaction: false, cancellationToken);
   }
 
-  private async Task ApplyVersionedAsync(string database, int version, CancellationToken cancellationToken)
-    => await _tools.MigrateAsync(database, await VersionedFilesAsync(version, cancellationToken), transaction: true, cancellationToken);
+  private async Task ApplyVersionedAsync(string database, int version, CancellationToken cancellationToken) {
+    var files = await VersionedFilesAsync(version, cancellationToken);
+    if (await _tools.MigrateAsync(database, files, transaction: true, cancellationToken) is { } failure) {
+      throw new InvalidOperationException(failure.Output);
+    }
+  }
 
   private async Task<List<FileContent>> VersionedFilesAsync(int version, CancellationToken cancellationToken) {
     var files = new List<FileContent>();
@@ -128,11 +133,14 @@ public sealed class SchemaTemplate {
       var files = new List<FileContent>(versioned.Count + 1);
       files.AddRange(versioned);
       files.Add(new(Path.GetFileName(path), await File.ReadAllBytesAsync(path, cancellationToken)));
-      try {
-        await _tools.MigrateAsync(database, files, transaction: true, cancellationToken);
-      } catch (InvalidOperationException exception) when (!newest) {
-        skipped.Add(new(Path.GetFileName(path), FirstError(exception.Message)));
+      if (await _tools.MigrateAsync(database, files, transaction: true, cancellationToken) is not { } failure) {
+        continue;
       }
+      // The newest version has to take every repeatable; an older one goes without those written for a newer schema.
+      if (newest) {
+        throw new InvalidOperationException(failure.Output);
+      }
+      skipped.Add(new(Path.GetFileName(path), failure.FirstError));
     }
     return skipped;
   }
@@ -151,12 +159,6 @@ public sealed class SchemaTemplate {
       ? migrations
       : throw new SeedFormatException($"There are no migrations up to version {version.ToInvariantString()}.");
   }
-
-  // Waypoint's own line for what went wrong (`ERROR: Migration failed for R__foo.sql: relation "bar" does not exist`), not the
-  // whole output.
-  public static string FirstError(string output)
-    => output.Split('\n').Select(line => line.Trim()).FirstOrDefault(line => line.Contains("ERROR:", StringComparison.Ordinal))
-      ?? output.Trim();
 
   private static Dictionary<string, string> ApiPasswordVariable()
     => new(StringComparer.Ordinal) {

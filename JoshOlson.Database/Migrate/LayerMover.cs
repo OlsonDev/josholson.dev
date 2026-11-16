@@ -104,10 +104,8 @@ public sealed class LayerMover {
     if (await SeedHydrator.HydrateForMigrationAsync(scratch.Name, _move.OldTree, layer, _anchor, _cancellationToken) is SeedProblems refused) {
       return refused;
     }
-    try {
-      await _options.Template.MigrateToNewestAsync(scratch.Name, _cancellationToken);
-    } catch (InvalidOperationException exception) {
-      return SeedProblems.Of($"the migrations failed on its rows: {SchemaTemplate.FirstError(exception.Message)}");
+    if (await _options.Template.MigrateToNewestAsync(scratch.Name, _cancellationToken) is { } failure) {
+      return SeedProblems.Of($"the migrations failed on its rows: {failure.FirstError}");
     }
     await using var connection = await scratch.OpenAsync(_cancellationToken);
     var history = MigrationHistory.Check(_move.OnDisk, await MigrationHistory.ReadAsync(connection, _cancellationToken));

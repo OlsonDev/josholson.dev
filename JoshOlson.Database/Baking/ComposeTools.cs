@@ -38,8 +38,9 @@ public sealed class ComposeTools {
 
   // The same, from files the caller has instead of the mounted ones, in one round trip. With `transaction` everything
   // pending is applied in one transaction, so a migration that fails leaves nothing of itself, not even a failed row in
-  // Waypoint's history (which it would otherwise want `waypoint repair` for).
-  public async Task MigrateAsync(
+  // Waypoint's history (which it would otherwise want `waypoint repair` for). Returns null when everything applied, and
+  // what Waypoint said when it refused a migration, which is the caller's to act on.
+  public async Task<MigrationFailure?> MigrateAsync(
     string database,
     List<FileContent> files,
     bool transaction,
@@ -55,7 +56,9 @@ public sealed class ComposeTools {
       command.Add("--transaction");
     }
     var lines = string.Join('\n', files.Select(file => $"{file.Name} {Convert.ToBase64String(file.Content)}")) + "\n";
-    _ = await ExecAsync("tools", [$"POSTGRES_DB={database}"], command, lines, cancellationToken);
+    var args = await ExecArgsAsync("tools", [$"POSTGRES_DB={database}"], command, hasStdin: true, cancellationToken);
+    var (exitCode, text) = await TryRunPodmanAsync(args, lines, cancellationToken);
+    return exitCode is 0 ? null : new(Failure(args, exitCode, text));
   }
 
   // Runs a SQL file with psql as the owner, stopping at the first error. A psql variable is how the API role's
@@ -104,10 +107,23 @@ public sealed class ComposeTools {
     List<string> command,
     string? stdin,
     CancellationToken cancellationToken
+  )
+    => await RunPodmanAsync(
+      await ExecArgsAsync(service, environment, command, stdin is not null, cancellationToken),
+      stdin,
+      cancellationToken);
+
+  // The `podman exec` arguments that run a command in a service's container.
+  private async Task<List<string>> ExecArgsAsync(
+    string service,
+    List<string> environment,
+    List<string> command,
+    bool hasStdin,
+    CancellationToken cancellationToken
   ) {
     var container = await ContainerAsync(service, cancellationToken);
     List<string> args = ["exec"];
-    if (stdin is not null) {
+    if (hasStdin) {
       args.Add("-i");
     }
     foreach (var variable in environment) {
@@ -116,7 +132,7 @@ public sealed class ComposeTools {
     }
     args.Add(container);
     args.AddRange(command);
-    return await RunPodmanAsync(args, stdin, cancellationToken);
+    return args;
   }
 
   // The running container of a compose service, which the compose file's project gave labels. Found by the repository's
@@ -155,7 +171,16 @@ public sealed class ComposeTools {
     return [.. output.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)];
   }
 
+  // What the command printed, for one that has to work: any other exit code is thrown.
   private async Task<string> RunPodmanAsync(List<string> args, string? stdin, CancellationToken cancellationToken) {
+    var (exitCode, text) = await TryRunPodmanAsync(args, stdin, cancellationToken);
+    return exitCode is 0 ? text : throw new InvalidOperationException(Failure(args, exitCode, text));
+  }
+
+  private static string Failure(List<string> args, int exitCode, string text)
+    => $"podman {string.Join(' ', Shown(args))} exited with {exitCode.ToString(CultureInfo.InvariantCulture)}:\n{text}";
+
+  private async Task<(int ExitCode, string Text)> TryRunPodmanAsync(List<string> args, string? stdin, CancellationToken cancellationToken) {
     var start = new ProcessStartInfo("podman") {
       WorkingDirectory = _root,
       UseShellExecute = false,
@@ -175,11 +200,7 @@ public sealed class ComposeTools {
     var output = process.StandardOutput.ReadToEndAsync(cancellationToken);
     var error = process.StandardError.ReadToEndAsync(cancellationToken);
     await process.WaitForExitAsync(cancellationToken);
-    var text = await output + await error;
-    return process.ExitCode is 0
-      ? text
-      : throw new InvalidOperationException(
-        $"podman {string.Join(' ', Shown(args))} exited with {process.ExitCode.ToString(CultureInfo.InvariantCulture)}:\n{text}");
+    return (process.ExitCode, await output + await error);
   }
 
   // The command as it is reported when it fails, without a psql variable's value (`-v api_password=...` is the API role's
