@@ -130,8 +130,13 @@ internal sealed class MigrationRun {
         return await DeriveLayersAsync(derivation, schemaLock, onDisk, generated);
       }
       if (input is not null && check is { Pending.Count: > 0 } && SeedMigrator.HasLayers(_options)) {
-        var oldTree = await LoadWorkingTreeAsync(input);
-        return new(await LayerMover.MoveAsync(_owner, _options, input, schemaLock, onDisk, oldTree, authored: [], dropped: [], _cancellationToken), generated, []);
+        var move = new LayerMove {
+          From = input,
+          To = schemaLock,
+          OnDisk = onDisk,
+          OldTree = await LoadWorkingTreeAsync(input),
+        };
+        return new(await new LayerMover(_owner, _options, move, _cancellationToken).MoveAsync(), generated, []);
       }
     } catch (SeedFormatException exception) {
       problems.Add(exception.Message);
@@ -166,7 +171,15 @@ internal sealed class MigrationRun {
     } catch (SeedFormatException exception) {
       throw new SeedFormatException($"{derivation.Snapshot.Description}'s layers do not read against its own lock:\n{exception.Message}", exception);
     }
-    var moved = await LayerMover.MoveAsync(_owner, _options, derivation.BaseLock, schemaLock, onDisk, oldTree, authored, dropped, _cancellationToken);
+    var move = new LayerMove {
+      From = derivation.BaseLock,
+      To = schemaLock,
+      OnDisk = onDisk,
+      OldTree = oldTree,
+      Authored = authored,
+      Dropped = dropped,
+    };
+    var moved = await new LayerMover(_owner, _options, move, _cancellationToken).MoveAsync();
     return new(moved, remade, [.. authored.Keys.Order(StringComparer.Ordinal)]);
   }
 
