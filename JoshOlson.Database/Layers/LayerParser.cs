@@ -1,6 +1,7 @@
 using JoshOlson.Database.Schema;
 using JoshOlson.Database.Yaml;
 using JoshOlson.Shared.Extensions;
+using JoshOlson.Shared.Results;
 using YamlDotNet.Core;
 using YamlDotNet.RepresentationModel;
 
@@ -20,9 +21,10 @@ namespace JoshOlson.Database.Layers;
 //         - { bar_id: 2 }        # primary key columns only
 //
 // Each value is read as its column's type from the lock (`SeedValueReader`), and a plain `~`, `null`, or empty value is
-// NULL. A file that is not the shape above throws at the first fault. Once it is, every problem with its tables and
-// values (an unknown table or column, a value that is not its column's type, a missing key column, an insert that leaves
-// a column out, an update that changes nothing) is collected, and they are thrown together. Whether an insert's key is new
+// NULL. `Parse` returns the layer, or its problems. A file that is not the shape above stops at the first fault, which is
+// the one problem. Once it is, every problem with its tables and values (an unknown table or column, a value that is not
+// its column's type, a missing key column, an insert that leaves a column out, an update that changes nothing) is
+// collected, and they come back together. Whether an insert's key is new
 // and an update's is not is for `LayerMerger`, which sees the layers before it.
 public static class LayerParser {
   private static readonly string[] _LayerKeys = [
@@ -36,7 +38,16 @@ public static class LayerParser {
     "delete",
   ];
 
-  public static SeedLayer Parse(string name, string yaml, SeedSchema schema) {
+  public static Result<SeedLayer, SeedProblems> Parse(string name, string yaml, SeedSchema schema) {
+    try {
+      return Read(name, yaml, schema);
+    } catch (SeedFormatException exception) {
+      // The first fault in the file's shape, thrown from wherever the reading found it.
+      return SeedProblems.Of(exception.Message);
+    }
+  }
+
+  private static Result<SeedLayer, SeedProblems> Read(string name, string yaml, SeedSchema schema) {
     if (!LayerName.IsValid(name)) {
       throw new SeedFormatException($"'{name}' is not a layer name: use lower-kebab-case, 40 characters at most.");
     }
@@ -64,13 +75,14 @@ public static class LayerParser {
         tables.Add(ParseTable(name, YamlNodes.Key(name, key), value, schema, problems));
       }
     }
-    problems.ThrowIfAny();
-    return new() {
-      Name = name,
-      Extends = extends,
-      Description = description,
-      Tables = tables,
-    };
+    return problems.Any
+      ? problems
+      : new SeedLayer {
+        Name = name,
+        Extends = extends,
+        Description = description,
+        Tables = tables,
+      };
   }
 
   private static TableChange ParseTable(string layer, string table, YamlNode node, SeedSchema schema, SeedProblems problems) {

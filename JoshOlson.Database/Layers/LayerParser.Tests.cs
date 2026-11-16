@@ -23,7 +23,7 @@ public class LayerParserTests {
             - { bar_id: 1, tag_id: 2, flags: [1, 2], tags: ~ }
       """;
 
-    var layer = LayerParser.Parse("foo", Yaml, SampleLayers.Schema);
+    var layer = LayerParser.Parse("foo", Yaml, SampleLayers.Schema).OrThrow();
 
     Assert.Equal("foo", layer.Name);
     Assert.Equal("base", layer.Extends);
@@ -46,7 +46,7 @@ public class LayerParserTests {
 
   [Fact]
   public void Parse_RootLayerWithoutTables_IsValid() {
-    var layer = LayerParser.Parse("foo", "description: Nothing yet", SampleLayers.Schema);
+    var layer = LayerParser.Parse("foo", "description: Nothing yet", SampleLayers.Schema).OrThrow();
 
     Assert.Null(layer.Extends);
     Assert.Empty(layer.Tables);
@@ -74,7 +74,7 @@ public class LayerParserTests {
             - { bar_id: 1, name: ~, slug_length: 3 }
       """;
 
-    var exception = Assert.Throws<SeedFormatException>(() => LayerParser.Parse("foo", Yaml, SampleLayers.Schema));
+    var problems = Problems(Yaml, SampleLayers.Schema);
 
     Assert.Equal(
       """
@@ -91,7 +91,7 @@ public class LayerParserTests {
       - foo: foo.bar insert row 1: slug_length is generated from an expression, so a seed cannot set it.
       - foo: foo.bar insert row 1: an insert names every column, and it leaves out slug, note, created_utc, published_utc, lat.
       """,
-      exception.Message.Replace("\r", "", StringComparison.Ordinal));
+      problems.Replace("\r", "", StringComparison.Ordinal));
   }
 
   [Fact]
@@ -104,9 +104,9 @@ public class LayerParserTests {
             - { tag_id: 1, price: abc }
       """;
 
-    var exception = Assert.Throws<SeedFormatException>(() => LayerParser.Parse("foo", Yaml, SampleLayers.Schema));
+    var problems = Problems(Yaml, SampleLayers.Schema);
 
-    Assert.Equal("foo: foo.tag update row 1: price must be a number, not 'abc'.", exception.Message);
+    Assert.Equal("foo: foo.tag update row 1: price must be a number, not 'abc'.", problems);
   }
 
   [Fact]
@@ -119,9 +119,9 @@ public class LayerParserTests {
             - { bar_id: 1, tag_id: 2 }
       """;
 
-    var exception = Assert.Throws<SeedFormatException>(() => LayerParser.Parse("foo", Yaml, SampleLayers.Schema));
+    var problems = Problems(Yaml, SampleLayers.Schema);
 
-    Assert.Equal("foo: foo.link insert row 1: an insert names every column, and it leaves out flags, tags.", exception.Message);
+    Assert.Equal("foo: foo.link insert row 1: an insert names every column, and it leaves out flags, tags.", problems);
   }
 
   [Fact]
@@ -134,7 +134,7 @@ public class LayerParserTests {
             - { bar_id: 1, tag_id: 2, flags: ~, tags: ~ }
       """;
 
-    var layer = LayerParser.Parse("foo", Yaml, SampleLayers.Schema);
+    var layer = LayerParser.Parse("foo", Yaml, SampleLayers.Schema).OrThrow();
 
     Assert.Null(layer.Tables[0].Inserts[0]["flags"]);
     Assert.True(layer.Tables[0].Inserts[0].ContainsKey("flags"));
@@ -150,9 +150,9 @@ public class LayerParserTests {
             - { bar_id: 1 }
       """;
 
-    var exception = Assert.Throws<SeedFormatException>(() => LayerParser.Parse("foo", Yaml, SampleLayers.Schema));
+    var problems = Problems(Yaml, SampleLayers.Schema);
 
-    Assert.Equal("foo: foo.bar update row 1: an update names the key and the columns it changes, and it changes none.", exception.Message);
+    Assert.Equal("foo: foo.bar update row 1: an update names the key and the columns it changes, and it changes none.", problems);
   }
 
   [Fact]
@@ -165,7 +165,7 @@ public class LayerParserTests {
             - { bar_id: 1, note: changed }
       """;
 
-    var row = Assert.Single(LayerParser.Parse("foo", Yaml, SampleLayers.Schema).Tables[0].Updates);
+    var row = Assert.Single(LayerParser.Parse("foo", Yaml, SampleLayers.Schema).OrThrow().Tables[0].Updates);
 
     Assert.Equal(["bar_id", "note"], row.Keys.Order(StringComparer.Ordinal));
   }
@@ -181,20 +181,19 @@ public class LayerParserTests {
             - { id: 1 }
       """;
 
-    var exception = Assert.Throws<SeedFormatException>(() => LayerParser.Parse("foo", Yaml, schema));
+    var problems = Problems(Yaml, schema);
 
     Assert.Equal(
       "foo: foo.session holds runtime data (its comment says @seed ignore), not seed data, so a layer cannot name it.",
-      exception.Message);
+      problems);
   }
 
   [Fact]
   public void Parse_Upsert_IsNoLongerASection()
-    => Assert.Throws<SeedFormatException>(
-      () => LayerParser.Parse(
-        "foo",
-        "description: Foo\ntables:\n  foo.link: { upsert: [ { bar_id: 1, tag_id: 2 } ] }",
-        SampleLayers.Schema));
+    => Assert.Contains(
+      "unknown key 'upsert'",
+      Problems("description: Foo\ntables:\n  foo.link: { upsert: [ { bar_id: 1, tag_id: 2 } ] }", SampleLayers.Schema),
+      StringComparison.Ordinal);
 
   [Theory]
   [InlineData("")]
@@ -205,8 +204,8 @@ public class LayerParserTests {
   [InlineData("foo-")]
   [InlineData("1foo")]
   [InlineData("foo bar")]
-  public void Parse_InvalidName_Throws(string name)
-    => Assert.Throws<SeedFormatException>(() => LayerParser.Parse(name, "description: Foo", SampleLayers.Schema));
+  public void Parse_InvalidName_IsRefused(string name)
+    => Assert.IsType<SeedProblems>(LayerParser.Parse(name, "description: Foo", SampleLayers.Schema).Value);
 
   [Theory]
   [InlineData("")]
@@ -222,6 +221,10 @@ public class LayerParserTests {
   [InlineData("description: Foo\ntables:\n  foo.bar: { insert: [ {} ] }")]
   [InlineData("description: Foo\ntables:\n  foo.bar: { insert: [ { bar_id: 1, bar_id: 2 } ] }")]
   [InlineData("description: [unclosed")]
-  public void Parse_InvalidContent_Throws(string yaml)
-    => Assert.Throws<SeedFormatException>(() => LayerParser.Parse("foo", yaml, SampleLayers.Schema));
+  public void Parse_InvalidContent_IsRefused(string yaml)
+    => Assert.NotEmpty(Problems(yaml, SampleLayers.Schema));
+
+  // The problems of a layer named `foo` that is expected not to read, as their text.
+  private static string Problems(string yaml, SeedSchema schema)
+    => Assert.IsType<SeedProblems>(LayerParser.Parse("foo", yaml, schema).Value).ToString();
 }

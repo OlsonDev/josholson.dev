@@ -10,6 +10,12 @@ public sealed class LayerLoaderTests : IDisposable {
   public void Dispose()
     => Directory.Delete(_directory, recursive: true);
 
+  // The problems of a directory that is expected not to load, as their text.
+  private async Task<string> LoadProblemsAsync() {
+    var loaded = await LayerLoader.LoadAsync(_directory, SampleLayers.Schema, _cancellationToken);
+    return Assert.IsType<SeedProblems>(loaded.Value).ToString();
+  }
+
   [Fact]
   public async Task LoadAsync_ReadsYamlFilesAndIgnoresOthers() {
     await File.WriteAllTextAsync(Path.Combine(_directory, "base.yaml"), "description: Root", _cancellationToken);
@@ -17,14 +23,14 @@ public sealed class LayerLoaderTests : IDisposable {
     await File.WriteAllTextAsync(Path.Combine(_directory, "ignored.yml"), "not: a layer", _cancellationToken);
     await File.WriteAllTextAsync(Path.Combine(_directory, "notes.md"), "# notes", _cancellationToken);
 
-    var tree = await LayerLoader.LoadAsync(_directory, SampleLayers.Schema, _cancellationToken);
+    var tree = (await LayerLoader.LoadAsync(_directory, SampleLayers.Schema, _cancellationToken)).OrThrow();
 
     Assert.Equal(["base", "foo"], tree.InBakeOrder().Select(layer => layer.Name));
   }
 
   [Fact]
   public async Task LoadAsync_EmptyDirectory_GivesAnEmptyTree() {
-    var tree = await LayerLoader.LoadAsync(_directory, SampleLayers.Schema, _cancellationToken);
+    var tree = (await LayerLoader.LoadAsync(_directory, SampleLayers.Schema, _cancellationToken)).OrThrow();
 
     Assert.Equal(0, tree.Count);
   }
@@ -33,20 +39,18 @@ public sealed class LayerLoaderTests : IDisposable {
   public async Task LoadAsync_BadFile_ThrowsNamingTheLayer() {
     await File.WriteAllTextAsync(Path.Combine(_directory, "foo.yaml"), "bar: baz", _cancellationToken);
 
-    var exception = await Assert.ThrowsAsync<SeedFormatException>(
-      () => LayerLoader.LoadAsync(_directory, SampleLayers.Schema, _cancellationToken));
+    var problems = await LoadProblemsAsync();
 
-    Assert.StartsWith("foo:", exception.Message, StringComparison.Ordinal);
+    Assert.StartsWith("foo:", problems, StringComparison.Ordinal);
   }
 
   [Fact]
   public async Task LoadAsync_ValueThatIsNotItsColumnsType_Throws() {
     await File.WriteAllTextAsync(Path.Combine(_directory, "foo.yaml"), "description: Foo\ntables:\n  foo.tag:\n    update:\n      - { tag_id: 1, price: x }", _cancellationToken);
 
-    var exception = await Assert.ThrowsAsync<SeedFormatException>(
-      () => LayerLoader.LoadAsync(_directory, SampleLayers.Schema, _cancellationToken));
+    var problems = await LoadProblemsAsync();
 
-    Assert.Equal("foo: foo.tag update row 1: price must be a number, not 'x'.", exception.Message);
+    Assert.Equal("foo: foo.tag update row 1: price must be a number, not 'x'.", problems);
   }
 
   private async Task WriteAsync(string name, string yaml)
@@ -57,7 +61,7 @@ public sealed class LayerLoaderTests : IDisposable {
     await WriteAsync("base", $"description: Root\ntables:\n  foo.tag:\n    insert:\n      - {SampleLayers.Tag(7)}\n      - {SampleLayers.Tag(1000)}");
     await WriteAsync("child", $"description: Child\nextends: base\ntables:\n  foo.tag:\n    insert:\n      - {SampleLayers.Tag(1001)}\n      - {SampleLayers.Tag(2000)}");
 
-    var tree = await LayerLoader.LoadAsync(_directory, SampleLayers.Schema, _cancellationToken);
+    var tree = (await LayerLoader.LoadAsync(_directory, SampleLayers.Schema, _cancellationToken)).OrThrow();
 
     Assert.Equal(2, tree.Count);
   }
@@ -67,10 +71,9 @@ public sealed class LayerLoaderTests : IDisposable {
     await WriteAsync("base", $"description: Root\ntables:\n  foo.tag:\n    insert:\n      - {SampleLayers.Tag(7)}");
     await WriteAsync("child", $"description: Child\nextends: base\ntables:\n  foo.tag:\n    insert:\n      - {SampleLayers.Tag(8)}");
 
-    var exception = await Assert.ThrowsAsync<SeedFormatException>(
-      () => LayerLoader.LoadAsync(_directory, SampleLayers.Schema, _cancellationToken));
+    var problems = await LoadProblemsAsync();
 
-    Assert.Equal("child: foo.tag inserts tag_id 8, outside the 1001..2000 block of a layer at depth 1.", exception.Message);
+    Assert.Equal("child: foo.tag inserts tag_id 8, outside the 1001..2000 block of a layer at depth 1.", problems);
   }
 
   [Fact]
@@ -78,8 +81,7 @@ public sealed class LayerLoaderTests : IDisposable {
     await WriteAsync("base", $"description: Root\ntables:\n  foo.tag:\n    insert:\n      - {SampleLayers.Tag(1001)}");
     await WriteAsync("child", $"description: Child\nextends: base\ntables:\n  foo.tag:\n    insert:\n      - {SampleLayers.Tag(2001)}");
 
-    var exception = await Assert.ThrowsAsync<SeedFormatException>(
-      () => LayerLoader.LoadAsync(_directory, SampleLayers.Schema, _cancellationToken));
+    var problems = await LoadProblemsAsync();
 
     Assert.Equal(
       """
@@ -87,7 +89,7 @@ public sealed class LayerLoaderTests : IDisposable {
       - base: foo.tag inserts tag_id 1001, outside the 1..1000 block of a layer at depth 0.
       - child: foo.tag inserts tag_id 2001, outside the 1001..2000 block of a layer at depth 1.
       """,
-      exception.Message.Replace("\r", "", StringComparison.Ordinal));
+      problems.Replace("\r", "", StringComparison.Ordinal));
   }
 
   [Fact]
@@ -95,7 +97,7 @@ public sealed class LayerLoaderTests : IDisposable {
     await WriteAsync("base", $"description: Root\ntables:\n  foo.tag:\n    insert:\n      - {SampleLayers.Tag(7)}");
     await WriteAsync("child", "description: Child\nextends: base\ntables:\n  foo.tag:\n    update:\n      - { tag_id: 7, price: 1 }");
 
-    var tree = await LayerLoader.LoadAsync(_directory, SampleLayers.Schema, _cancellationToken);
+    var tree = (await LayerLoader.LoadAsync(_directory, SampleLayers.Schema, _cancellationToken)).OrThrow();
 
     Assert.Equal(2, tree.Count);
   }
@@ -106,7 +108,7 @@ public sealed class LayerLoaderTests : IDisposable {
     await WriteAsync("base", "description: Root");
     await WriteAsync("child", $"description: Child\nextends: base\ntables:\n  foo.link:\n    insert:\n      - {SampleLayers.Link(5, 9)}");
 
-    var tree = await LayerLoader.LoadAsync(_directory, SampleLayers.Schema, _cancellationToken);
+    var tree = (await LayerLoader.LoadAsync(_directory, SampleLayers.Schema, _cancellationToken)).OrThrow();
 
     Assert.Equal(2, tree.Count);
   }

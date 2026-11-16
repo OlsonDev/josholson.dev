@@ -44,7 +44,7 @@ public class LayerWriterTests {
     var schema = new SeedSchema(schemaLock);
     var yaml = await File.ReadAllTextAsync(Path.Combine(SeedPaths.ForRepository().Seeds, name + ".yaml"), TestContext.Current.CancellationToken);
 
-    var written = LayerWriter.Write(LayerParser.Parse(name, yaml, schema), schema);
+    var written = LayerWriter.Write(LayerParser.Parse(name, yaml, schema).OrThrow(), schema);
 
     Assert.Equal(yaml, written);
   }
@@ -80,7 +80,7 @@ public class LayerWriterTests {
 
       """,
       yaml);
-    var parsed = LayerParser.Parse("foo", yaml, _Schema);
+    var parsed = LayerParser.Parse("foo", yaml, _Schema).OrThrow();
     Assert.Equal(yaml, LayerWriter.Write(parsed, _Schema));
     var row = parsed.Tables[0].Inserts[0];
     Assert.Equal(new SeedValue.Json("""{"a":[1,2.50,{"b":null}],"c":"true","d":"x: y"}"""), row["doc"]);
@@ -135,7 +135,7 @@ public class LayerWriterTests {
 
     var yaml = LayerWriter.Write(layer, _Schema);
 
-    var parsed = LayerParser.Parse("foo", yaml, _Schema);
+    var parsed = LayerParser.Parse("foo", yaml, _Schema).OrThrow();
     Assert.Equal(new SeedValue.Text(text), parsed.Tables[0].Updates[0]["note"]);
     Assert.Equal(yaml, LayerWriter.Write(parsed, _Schema));
   }
@@ -149,7 +149,7 @@ public class LayerWriterTests {
   public void Write_AnyDescription_IsReadBackAsTheSameDescription(string description) {
     var layer = Layer() with { Description = description };
 
-    var parsed = LayerParser.Parse("foo", LayerWriter.Write(layer, _Schema), _Schema);
+    var parsed = LayerParser.Parse("foo", LayerWriter.Write(layer, _Schema), _Schema).OrThrow();
 
     Assert.Equal(description, parsed.Description);
   }
@@ -161,7 +161,7 @@ public class LayerWriterTests {
     var yaml = LayerWriter.Write(layer, _Schema);
 
     Assert.Contains("{ id: 1, note: ~, nums: ~ }", yaml, StringComparison.Ordinal);
-    Assert.Null(LayerParser.Parse("foo", yaml, _Schema).Tables[0].Updates[0]["note"]);
+    Assert.Null(LayerParser.Parse("foo", yaml, _Schema).OrThrow().Tables[0].Updates[0]["note"]);
   }
 
   [Fact]

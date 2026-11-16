@@ -28,7 +28,7 @@ public sealed record LayerDiff(SeedLayer Layer, string Yaml, bool GivesBackTheSt
     };
     var rebuilt = LayerMerger.Merge([StateLayer.Of(baseline, "baseline"), layer], schema).OrThrow();
     var yaml = LayerWriter.Write(layer, schema);
-    var written = LayerWriter.Write(LayerParser.Parse(header.Name, yaml, schema), schema);
+    var written = LayerWriter.Write(LayerParser.Parse(header.Name, yaml, schema).OrThrow(), schema);
     return new(layer, yaml, SeedValues.SameState(rebuilt, state), string.Equals(written, yaml, StringComparison.Ordinal));
   }
 }

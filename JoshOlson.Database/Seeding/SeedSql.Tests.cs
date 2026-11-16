@@ -156,7 +156,7 @@ public class SeedSqlTests {
 
   [Fact]
   public void Build_NoRows_GivesNoStatements()
-    => Assert.Empty(Build(LayerParser.Parse("base", "description: Nothing", SampleLayers.Schema)));
+    => Assert.Empty(Build(LayerParser.Parse("base", "description: Nothing", SampleLayers.Schema).OrThrow()));
 
   // The root layer `base`, from the text that goes under `tables:`.
   private static SeedLayer Base(string tables)

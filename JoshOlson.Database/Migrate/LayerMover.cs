@@ -152,12 +152,13 @@ public sealed class LayerMover {
   private List<MovedLayer> Reconcile(List<MovedLayer> moved) {
     var all = moved.FindAll(layer => !_move.Dropped.Contains(layer.Layer.Name) && !_move.Authored.ContainsKey(layer.Layer.Name));
     foreach (var (name, text) in _move.Authored.OrderBy(entry => entry.Key, StringComparer.Ordinal)) {
-      try {
-        all.Add(new(LayerParser.Parse(name, text, _newSchema), text, Authored: true));
-      } catch (SeedFormatException exception) {
+      var parsed = LayerParser.Parse(name, text, _newSchema);
+      if (parsed is SeedProblems unread) {
         _problems.Add(
-          $"{name}: {exception.Message}\nIt is your own file, so it was not changed. Edit it to the new names, or make it again: `seed <its parent>`, put the data back, `seeds:export`.");
+          $"{name}: {unread}\nIt is your own file, so it was not changed. Edit it to the new names, or make it again: `seed <its parent>`, put the data back, `seeds:export`.");
+        continue;
       }
+      all.Add(new(parsed.OrThrow(), text, Authored: true));
     }
     if (_problems.Any) {
       return [];

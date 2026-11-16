@@ -25,7 +25,7 @@ public sealed class SeedApplierTests {
             insert:
               - { tag_id: 900001, name: Corge, slug: seed-applier-corge, description: ~, color: ~ }
         """,
-        schema),
+        schema).OrThrow(),
       LayerParser.Parse(
         "bar",
         """
@@ -36,7 +36,7 @@ public sealed class SeedApplierTests {
             update:
               - { tag_id: 900001, description: Grault }
         """,
-        schema),
+        schema).OrThrow(),
     ]);
     await using var connection = await DatabaseEnvironment.OpenOwnerAsync(_cancellationToken);
     await using var transaction = await connection.BeginTransactionAsync(_cancellationToken);
@@ -69,7 +69,7 @@ public sealed class SeedApplierTests {
             insert:
               - { alias_id: 900002, tag_id: 900002, name: Quux }
         """,
-        schema),
+        schema).OrThrow(),
     ]);
     await using var connection = await DatabaseEnvironment.OpenOwnerAsync(_cancellationToken);
     await using var transaction = await connection.BeginTransactionAsync(_cancellationToken);

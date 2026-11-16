@@ -46,6 +46,6 @@ public sealed class ListCommand : AsyncCommand {
   // With neither a lock nor a layer there is nothing to list (null), and that is not an error.
   private async Task<LayerTree?> LoadTreeAsync(CancellationToken cancellationToken)
     => File.Exists(_paths.LockFile) || LayerLoader.Files(_paths.Seeds).Count > 0
-      ? await LayerLoader.LoadAsync(_paths.Seeds, await SeedSchema.LoadAsync(_paths, cancellationToken), cancellationToken)
+      ? (await LayerLoader.LoadAsync(_paths.Seeds, await SeedSchema.LoadAsync(_paths, cancellationToken), cancellationToken)).OrThrow()
       : null;
 }

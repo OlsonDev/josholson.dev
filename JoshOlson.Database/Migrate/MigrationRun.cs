@@ -165,12 +165,11 @@ internal sealed class MigrationRun {
     var remade = derivation.Snapshot.Layers.Keys.Where(name => working.ContainsKey(name) && generated.Contains(name)).ToHashSet(StringComparer.Ordinal);
     var authored = working.Where(entry => !remade.Contains(entry.Key)).ToDictionary(entry => entry.Key, entry => entry.Value, StringComparer.Ordinal);
     var dropped = derivation.Snapshot.Layers.Keys.Where(name => !working.ContainsKey(name)).ToHashSet(StringComparer.Ordinal);
-    LayerTree oldTree;
-    try {
-      oldTree = LayerLoader.Load(derivation.Snapshot.Layers, new SeedSchema(derivation.BaseLock));
-    } catch (SeedFormatException exception) {
-      throw new SeedFormatException($"{derivation.Snapshot.Description}'s layers do not read against its own lock:\n{exception.Message}", exception);
+    var loaded = LayerLoader.Load(derivation.Snapshot.Layers, new SeedSchema(derivation.BaseLock));
+    if (loaded is SeedProblems unread) {
+      throw new SeedFormatException($"{derivation.Snapshot.Description}'s layers do not read against its own lock:\n{unread}");
     }
+    var oldTree = loaded.OrThrow();
     var move = new LayerMove {
       From = derivation.BaseLock,
       To = schemaLock,
@@ -184,13 +183,11 @@ internal sealed class MigrationRun {
   }
 
   private async Task<LayerTree> LoadWorkingTreeAsync(SchemaLock input) {
-    try {
-      return await LayerLoader.LoadAsync(_options.SeedsDirectory, new SeedSchema(input), _cancellationToken);
-    } catch (SeedFormatException exception) {
-      throw new SeedFormatException(
-        $"The layers do not read against the schema they were written for (version {input.Version.ToInvariantString()}):\n{exception.Message}",
-        exception);
-    }
+    var loaded = await LayerLoader.LoadAsync(_options.SeedsDirectory, new SeedSchema(input), _cancellationToken);
+    return loaded is SeedProblems unread
+      ? throw new SeedFormatException(
+        $"The layers do not read against the schema they were written for (version {input.Version.ToInvariantString()}):\n{unread}")
+      : loaded.OrThrow();
   }
 
   // Only the layers whose text changed are rewritten, so a migration that leaves a layer as it was leaves its file alone, and

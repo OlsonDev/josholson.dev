@@ -55,7 +55,7 @@ public sealed class SequencePositionerTests {
             insert:
               - {{FixtureSeeds.TagRow(2500, "Thud")}}
         """,
-        _schema),
+        _schema).OrThrow(),
     ]);
 
   // One database (a clone of the real schema template) with the two fixture layers applied carries every step:

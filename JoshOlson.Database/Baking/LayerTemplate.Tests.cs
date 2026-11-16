@@ -22,7 +22,7 @@ public sealed class LayerTemplateTests : IDisposable {
     foreach (var path in LayerLoader.Files(_directory)) {
       var name = Path.GetFileNameWithoutExtension(path);
       var yaml = await File.ReadAllTextAsync(path, _cancellationToken);
-      layers.Add(LayerParser.Parse(name, yaml, schema));
+      layers.Add(LayerParser.Parse(name, yaml, schema).OrThrow());
     }
     var tree = new LayerTree(schema, layers);
     return new(SeedTestServer.RealTemplate, SeedTestServer.Databases, tree, _directory, SeedTestServer.Clock);

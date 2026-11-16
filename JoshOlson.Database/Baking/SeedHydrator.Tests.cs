@@ -78,7 +78,7 @@ public sealed class SeedHydratorTests {
       """;
     var tree = new LayerTree(schema, [
       FixtureSeeds.Tree.Get(FixtureSeeds.Root),
-      LayerParser.Parse("foo", refused, schema),
+      LayerParser.Parse("foo", refused, schema).OrThrow(),
     ]);
     var purpose = $"buildtest{Guid.NewGuid():N}"[..17];
     await using var owner = await SeedTestServer.OpenMaintenanceAsync(_cancellationToken);

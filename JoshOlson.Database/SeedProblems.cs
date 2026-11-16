@@ -13,6 +13,13 @@ public sealed class SeedProblems : Problems, IErrors<SeedProblems> {
   public SeedProblems(string subject, string noun = "problems")
     : base(subject, noun) { }
 
+  // One problem by itself.
+  public static SeedProblems Of(string message) {
+    var problems = new SeedProblems();
+    problems.Add(message);
+    return problems;
+  }
+
   public static Exception ToException(SeedProblems errors)
     => new SeedFormatException(errors.ToString());
 

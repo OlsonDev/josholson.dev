@@ -42,8 +42,8 @@ public static class FixtureSeeds {
     """;
 
   private static readonly Lazy<LayerTree> _Tree = new(() => new(SeedTestServer.Schema, [
-    LayerParser.Parse(Root, RootLayer, SeedTestServer.Schema),
-    LayerParser.Parse(Child, ChildLayer, SeedTestServer.Schema),
+    LayerParser.Parse(Root, RootLayer, SeedTestServer.Schema).OrThrow(),
+    LayerParser.Parse(Child, ChildLayer, SeedTestServer.Schema).OrThrow(),
   ]));
 
   // Opened with no token of a test's, so a test that is canceled does not leave a canceled task for the others. The

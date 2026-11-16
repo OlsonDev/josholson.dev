@@ -52,7 +52,7 @@ internal static class SampleLayers {
   // its name.
   public static SeedLayer Layer(string name, string? extends, string tables) {
     var parent = extends is null ? "" : $"extends: {extends}\n";
-    return LayerParser.Parse(name, $"description: {name}\n{parent}tables:\n{tables}", Schema);
+    return LayerParser.Parse(name, $"description: {name}\n{parent}tables:\n{tables}", Schema).OrThrow();
   }
 
   // The rows a chain comes to, for a test that expects it to merge.

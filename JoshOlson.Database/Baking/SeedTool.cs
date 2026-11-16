@@ -67,7 +67,7 @@ public sealed class SeedTool {
     IClock clock,
     CancellationToken cancellationToken
   ) {
-    var tree = await LayerLoader.LoadAsync(paths.Seeds, schema, cancellationToken);
+    var tree = (await LayerLoader.LoadAsync(paths.Seeds, schema, cancellationToken)).OrThrow();
     var schemaTemplate = new SchemaTemplate(SchemaTemplateOptions.ForRepository(paths), tools, databases);
     var layerTemplate = new LayerTemplate(schemaTemplate, databases, tree, paths.Seeds, clock);
     return new(schemaTemplate, layerTemplate, databases, tree, clock, DatabaseEnvironment.DevelopmentDatabase());
