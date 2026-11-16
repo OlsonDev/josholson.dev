@@ -120,7 +120,7 @@ public sealed class LayerMover {
     var diffs = new List<LayerDiff>();
     foreach (var layer in _move.OldTree.InBakeOrder()) {
       var parent = layer.Extends is null ? baseline : states[layer.Extends];
-      var diff = LayerDiff.Between(parent, states[layer.Name], layer.Name, layer.Extends, layer.Description, _newSchema);
+      var diff = LayerDiff.Between(parent, states[layer.Name], layer.Header, _newSchema);
       if (diff is null) {
         _problems.Add($"{layer.Name}: nothing is left for it to add after the migrations.");
         continue;

@@ -117,7 +117,7 @@ public sealed class SeedTool {
     try {
       var (template, _) = await _layerTemplate.EnsureAsync(owner, layer.Name, cancellationToken);
       var state = await SeedStateReader.ReadTemplateAsync(_databases, owner, template, "check", Tree.Schema, cancellationToken);
-      var again = await Exporter.DiffAsync(owner, template, state, layer.Extends, layer.Name, layer.Description, exists: true, cancellationToken);
+      var again = await Exporter.DiffAsync(owner, template, state, layer.Header, cancellationToken);
       return string.Equals(again.Yaml, canonical, StringComparison.Ordinal)
         ? null
         : $"{layer.Name}: a database built from it exports as something else ({FirstDifference(canonical, again.Yaml)}).";

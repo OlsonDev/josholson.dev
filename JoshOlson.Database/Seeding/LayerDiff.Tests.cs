@@ -26,7 +26,7 @@ public sealed class LayerDiffTests {
     var baseline = SampleLayers.Merge(Base());
     var state = SampleLayers.Merge(Base(), child);
 
-    var diff = LayerDiff.Between(baseline, state, "foo", "base", "Foo bar", SampleLayers.Schema);
+    var diff = LayerDiff.Between(baseline, state, new("foo", "base", "Foo bar"), SampleLayers.Schema);
 
     Assert.NotNull(diff);
     Assert.Equal("foo", diff.Layer.Name);
@@ -55,7 +55,7 @@ public sealed class LayerDiffTests {
   public void Between_TheSameRows_IsNoLayer() {
     var state = SampleLayers.Merge(Base());
 
-    var diff = LayerDiff.Between(state, SampleLayers.Merge(Base()), "foo", extends: null, "Foo bar", SampleLayers.Schema);
+    var diff = LayerDiff.Between(state, SampleLayers.Merge(Base()), new("foo", Extends: null, "Foo bar"), SampleLayers.Schema);
 
     Assert.Null(diff);
   }

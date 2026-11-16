@@ -43,14 +43,9 @@ public sealed class LayerExporter {
   // applied is exactly the database's rows, every layer that extends one it replaces still merges, and the layer and
   // those below it build in a database. Nothing is written to disk, and the database is not changed
   // (`RecordExportAsync` does that once the file is written).
-  public async Task<LayerExport> ExportAsync(
-    NpgsqlConnection owner,
-    string database,
-    string? name,
-    string? description,
-    bool overwrite,
-    CancellationToken cancellationToken
-  ) {
+  public async Task<LayerExport> ExportAsync(NpgsqlConnection owner, ExportRequest request, CancellationToken cancellationToken) {
+    var name = request.Name;
+    var description = request.Description;
     if (name is not null && !LayerName.IsValid(name)) {
       throw new SeedFormatException($"'{name}' is not a layer name: use lower-kebab-case, 40 characters at most.");
     }
@@ -58,7 +53,7 @@ public sealed class LayerExporter {
       throw new SeedFormatException("A layer needs a description, a sentence about what it adds.");
     }
     DatabaseState child;
-    await using (var source = await DatabaseEnvironment.OpenOwnerAsync(database, cancellationToken)) {
+    await using (var source = await DatabaseEnvironment.OpenOwnerAsync(request.Database, cancellationToken)) {
       child = await SeedStateReader.ReadAsync(source, _tree.Schema, cancellationToken, SeedHydrator.Anchor(_clock));
     }
     var recorded = child.Hydration.Layer is null ? null : _tree.Get(child.Hydration.Layer);
@@ -68,10 +63,10 @@ public sealed class LayerExporter {
     name ??= replaced ? recorded!.Name : throw new SeedFormatException("Give the new layer a --name.");
     description ??= replaced ? recorded!.Description : throw new SeedFormatException("A layer needs a description, a sentence about what it adds (--description).");
     var exists = _tree.InBakeOrder().Any(other => string.Equals(other.Name, name, StringComparison.Ordinal));
-    if (exists && !replaced && !overwrite) {
+    if (exists && !replaced && !request.Overwrite) {
       throw new SeedFormatException($"There is already a layer named '{name}'. Pass --overwrite to replace it, or pick another name.");
     }
-    var export = await DiffAsync(owner, database, child, parent, name, description, exists, cancellationToken);
+    var export = await DiffAsync(owner, request.Database, child, new(name, parent, description), cancellationToken) with { Replaces = exists };
     var (tree, affected) = CheckAgainstTheOthers(export.Layer, replaced);
     await CheckTheyBuildAsync(owner, tree, affected, cancellationToken);
     return export;
@@ -88,29 +83,27 @@ public sealed class LayerExporter {
   // The layer that is the difference between `child`'s rows and the baseline (the parent's template, or the schema
   // template for a root, which has no anchor and so is measured from the child's), checked against the baseline
   // (`LayerDiff`). `source` only names where the rows came from in a message. `seeds:check` uses it too, to see that a
-  // layer's own template exports as the layer.
+  // layer's own template exports as the layer. Whether the layer replaces one is the caller's to say, and is false here.
   internal async Task<LayerExport> DiffAsync(
     NpgsqlConnection owner,
     string source,
     DatabaseState child,
-    string? parent,
-    string name,
-    string description,
-    bool exists,
+    LayerHeader header,
     CancellationToken cancellationToken
   ) {
+    var parent = header.Extends;
     var template = parent is null
       ? (await _schemaTemplate.EnsureAsync(owner, cancellationToken)).Name
       : (await _layerTemplate.EnsureAsync(owner, parent, cancellationToken)).Name;
     var baseline = await SeedStateReader.ReadTemplateAsync(_databases, owner, template, "export", _tree.Schema, cancellationToken, child.Hydration.Anchor);
     var from = parent is null ? "the schema template" : $"the template for {parent}";
-    var diff = LayerDiff.Between(baseline.Rows, child.Rows, name, parent, description, _tree.Schema)
+    var diff = LayerDiff.Between(baseline.Rows, child.Rows, header, _tree.Schema)
       ?? throw new SeedFormatException($"There is nothing to export: {source} holds the same rows as {from}.");
     if (!diff.GivesBackTheState) {
       throw new InvalidOperationException($"The layer does not give back the rows of {source} when it is applied to {from}. This is a bug in the export.");
     }
     return diff.ReadsBack
-      ? new(diff.Layer, diff.Yaml, child.Hydration.Anchor, exists)
+      ? new(diff.Layer, diff.Yaml, child.Hydration.Anchor, Replaces: false)
       : throw new InvalidOperationException("The layer does not read back as the text it was written as. This is a bug in the export.");
   }
 

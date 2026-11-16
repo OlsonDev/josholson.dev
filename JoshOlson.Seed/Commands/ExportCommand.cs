@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using JoshOlson.Database;
+using JoshOlson.Database.Baking;
 using JoshOlson.Shared.Extensions;
 using Spectre.Console;
 using Spectre.Console.Cli;
@@ -44,9 +45,15 @@ public sealed class ExportCommand : AsyncCommand<ExportCommand.Settings> {
   public override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken) {
     var (tool, owner) = await _session.OpenAsync(cancellationToken);
     var database = settings.Database ?? tool.Development;
+    var request = new ExportRequest {
+      Database = database,
+      Name = settings.Name,
+      Description = settings.Description,
+      Overwrite = settings.Overwrite,
+    };
     var export = await _console.Status().StartAsync(
       $"Exporting {database}",
-      _ => tool.Exporter.ExportAsync(owner, database, settings.Name, settings.Description, settings.Overwrite, cancellationToken));
+      _ => tool.Exporter.ExportAsync(owner, request, cancellationToken));
 
     var table = new Table()
       .AddColumn("Table")

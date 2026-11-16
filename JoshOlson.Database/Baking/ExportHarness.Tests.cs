@@ -47,7 +47,15 @@ internal sealed class ExportHarness : IAsyncDisposable {
     string? description = "Foo bar",
     bool overwrite = false
   )
-    => await Tool.Exporter.ExportAsync(_owner, database, name, description, overwrite, _cancellationToken);
+    => await Tool.Exporter.ExportAsync(
+      _owner,
+      new() {
+        Database = database,
+        Name = name,
+        Description = description,
+        Overwrite = overwrite,
+      },
+      _cancellationToken);
 
   // The message of the export that is refused.
   public async Task<string> RefusalAsync(

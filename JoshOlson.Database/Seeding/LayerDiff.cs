@@ -13,9 +13,7 @@ public sealed record LayerDiff(SeedLayer Layer, string Yaml, bool GivesBackTheSt
   public static LayerDiff? Between(
     SeedState baseline,
     SeedState state,
-    string name,
-    string? extends,
-    string description,
+    LayerHeader header,
     SeedSchema schema
   ) {
     var tables = StateDiffer.Diff(baseline, state, schema);
@@ -23,14 +21,14 @@ public sealed record LayerDiff(SeedLayer Layer, string Yaml, bool GivesBackTheSt
       return null;
     }
     var layer = new SeedLayer {
-      Name = name,
-      Extends = extends,
-      Description = description,
+      Name = header.Name,
+      Extends = header.Extends,
+      Description = header.Description,
       Tables = tables,
     };
     var rebuilt = LayerMerger.Merge([StateLayer.Of(baseline, "baseline"), layer], schema);
     var yaml = LayerWriter.Write(layer, schema);
-    var written = LayerWriter.Write(LayerParser.Parse(name, yaml, schema), schema);
+    var written = LayerWriter.Write(LayerParser.Parse(header.Name, yaml, schema), schema);
     return new(layer, yaml, SeedValues.SameState(rebuilt, state), string.Equals(written, yaml, StringComparison.Ordinal));
   }
 }

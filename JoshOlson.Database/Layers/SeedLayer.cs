@@ -7,6 +7,9 @@ public sealed record SeedLayer {
   public required string Description { get; init; }
   public required List<TableChange> Tables { get; init; }
 
+  public LayerHeader Header
+    => new(Name, Extends, Description);
+
   public int RowCount
     => Tables.Sum(table => table.Inserts.Count + table.Updates.Count + table.Deletes.Count);
 }
