@@ -151,6 +151,12 @@ mise lists:check
 
 Test the hooks' validators: `dotnet run .githooks/commit-msg.tests.cs` and `dotnet run .githooks/pre-commit.tests.cs`
 
+Run the API for development on `http://localhost:5000`, where `web/` expects it. It loads `.env`, which needs `ConnectionStrings__Default` (see `.env.example`; `dotnet run` does not read `.env` by itself):
+
+```
+mise api:run
+```
+
 Work on `web/` (install once, then dev server, type check (once or on every change), format check, format (both `bun fmt`), and Playwright tests against a production build; the first test run needs `bunx playwright install chromium` in `web/`):
 
 ```

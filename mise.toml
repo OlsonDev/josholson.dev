@@ -4,7 +4,9 @@ dotnet = "11.0.100"
 gh = "2.102.0"
 
 [env]
+_.file = ".env"
 PODMAN_COMPOSE_WARNING_LOGS = "false"
+
 
 # Podman is not installed by mise: install it separately.
 # Waypoint has no Windows build, so it runs in the tools container (tools/Containerfile).
@@ -213,6 +215,15 @@ run = "dotnet run scripts/check-scripts.cs"
 [tasks."lists:check"]
 description = "Fail if a wrapped list (arguments, parameters, initializers) has several items on one line"
 run = "dotnet run scripts/list-layout.cs"
+
+# Runs the API for local development on port 5000, where web/ looks for it. [env] loads .env, which supplies
+# ConnectionStrings__Default (the josholson_api role, see .env.example); dotnet does not read .env on its own.
+[tasks."api:run"]
+description = "Run the API on http://localhost:5000 with the settings in .env"
+run = "dotnet run --project JoshOlson.Api"
+
+[tasks."api:run".env]
+ASPNETCORE_URLS = "http://localhost:5000"
 
 # web/ is one SvelteKit app on Bun. The tasks run from the repo root and call the tools directly; web/package.json keeps only `prepare`, which SvelteKit syncs on install.
 # The dev server reads the API from API_URL (default http://localhost:5000).
