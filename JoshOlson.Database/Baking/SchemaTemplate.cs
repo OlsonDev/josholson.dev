@@ -65,10 +65,10 @@ public sealed class SchemaTemplate {
 
   // Makes sure the template for the newest migration exists and returns its name. `Built` says whether this call did the
   // work.
-  public async Task<(string Name, bool Built)> EnsureAsync(NpgsqlConnection owner, CancellationToken cancellationToken)
+  public async Task<BuiltTemplate> EnsureAsync(NpgsqlConnection owner, CancellationToken cancellationToken)
     => await EnsureAsync(owner, await NewestVersionAsync(cancellationToken), cancellationToken);
 
-  public async Task<(string Name, bool Built)> EnsureAsync(NpgsqlConnection owner, int version, CancellationToken cancellationToken) {
+  public async Task<BuiltTemplate> EnsureAsync(NpgsqlConnection owner, int version, CancellationToken cancellationToken) {
     var name = await NameAsync(version, cancellationToken);
     var newest = version == await NewestVersionAsync(cancellationToken);
     var built = await _databases.EnsureTemplateAsync(
@@ -87,7 +87,7 @@ public sealed class SchemaTemplate {
         await _databases.CommentAsync(owner, building, JsonSerializer.Serialize(skipped), cancellationToken);
       },
       cancellationToken);
-    return (name, built);
+    return new(name, built);
   }
 
   // The repeatable migrations the template for a version could not apply and went without, each with the error. Empty
@@ -104,7 +104,7 @@ public sealed class SchemaTemplate {
   public async Task MigrateToNewestAsync(string database, CancellationToken cancellationToken) {
     var files = await VersionedFilesAsync(int.MaxValue, cancellationToken);
     foreach (var path in RepeatablePaths()) {
-      files.Add((Path.GetFileName(path), await File.ReadAllBytesAsync(path, cancellationToken)));
+      files.Add(new(Path.GetFileName(path), await File.ReadAllBytesAsync(path, cancellationToken)));
     }
     await _tools.MigrateAsync(database, files, transaction: false, cancellationToken);
   }
@@ -112,10 +112,10 @@ public sealed class SchemaTemplate {
   private async Task ApplyVersionedAsync(string database, int version, CancellationToken cancellationToken)
     => await _tools.MigrateAsync(database, await VersionedFilesAsync(version, cancellationToken), transaction: true, cancellationToken);
 
-  private async Task<List<(string Name, byte[] Content)>> VersionedFilesAsync(int version, CancellationToken cancellationToken) {
-    var files = new List<(string Name, byte[] Content)>();
+  private async Task<List<FileContent>> VersionedFilesAsync(int version, CancellationToken cancellationToken) {
+    var files = new List<FileContent>();
     foreach (var migration in await VersionedUpToAsync(version, cancellationToken)) {
-      files.Add((migration.File, await File.ReadAllBytesAsync(Path.Combine(_options.MigrationsDirectory, migration.File), cancellationToken)));
+      files.Add(new(migration.File, await File.ReadAllBytesAsync(Path.Combine(_options.MigrationsDirectory, migration.File), cancellationToken)));
     }
     return files;
   }
@@ -125,9 +125,9 @@ public sealed class SchemaTemplate {
     // The versioned migrations are already in the history, so they only have to be there for Waypoint to find them.
     var versioned = await VersionedFilesAsync(version, cancellationToken);
     foreach (var path in RepeatablePaths()) {
-      var files = new List<(string Name, byte[] Content)>(versioned.Count + 1);
+      var files = new List<FileContent>(versioned.Count + 1);
       files.AddRange(versioned);
-      files.Add((Path.GetFileName(path), await File.ReadAllBytesAsync(path, cancellationToken)));
+      files.Add(new(Path.GetFileName(path), await File.ReadAllBytesAsync(path, cancellationToken)));
       try {
         await _tools.MigrateAsync(database, files, transaction: true, cancellationToken);
       } catch (InvalidOperationException exception) when (!newest) {

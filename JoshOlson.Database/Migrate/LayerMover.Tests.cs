@@ -21,7 +21,7 @@ public sealed class LayerMoverTests : IDisposable {
 
     var result = moved.Result;
 
-    Assert.Equal([("base", true), ("child", true)], result.Layers);
+    Assert.Equal([new("base", Rewritten: true), new("child", Rewritten: true)], result.Layers);
     Assert.Equal(2, result.Version);
     Assert.Equal(
       """
@@ -76,7 +76,7 @@ public sealed class LayerMoverTests : IDisposable {
 
     var result = await _repository.MigrateAsync();
 
-    Assert.Equal([("base", false), ("child", false)], result.Layers);
+    Assert.Equal([new("base", Rewritten: false), new("child", Rewritten: false)], result.Layers);
     Assert.Equal(before, await _repository.ReadLayerAsync("base"));
     Assert.Equal(2, result.Version);
     // The new schema is read from a template built from the new migration: no dev database is involved.

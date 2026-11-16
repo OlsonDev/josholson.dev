@@ -90,8 +90,8 @@ public sealed class SchemaTemplateTests : IDisposable {
         "SELECT datallowconn FROM pg_database WHERE datname = @name;",
         new { name },
         _cancellationToken);
-      Assert.Equal((name, true), first);
-      Assert.Equal((name, false), second);
+      Assert.Equal(new(name, Built: true), first);
+      Assert.Equal(new(name, Built: false), second);
       Assert.False(allowConnections);
       Assert.False(await databases.ExistsAsync(owner, SeedDatabaseNames.Building(name), _cancellationToken));
     } finally {

@@ -79,12 +79,12 @@ public sealed class SeedTool {
   // Builds the schema template and then every layer's template, parent first. Templates that exist for the current
   // files are left alone. Returns the layers in the order built, each with its template's name and whether this run
   // built it.
-  public async Task<List<(string Layer, string Name, bool Built)>> BakeAsync(NpgsqlConnection owner, CancellationToken cancellationToken) {
+  public async Task<List<BakedLayer>> BakeAsync(NpgsqlConnection owner, CancellationToken cancellationToken) {
     var (schemaName, schemaBuilt) = await _schemaTemplate.EnsureAsync(owner, cancellationToken);
-    var baked = new List<(string Layer, string Name, bool Built)> { ("(schema)", schemaName, schemaBuilt) };
+    var baked = new List<BakedLayer> { new("(schema)", schemaName, schemaBuilt) };
     foreach (var layer in Tree.InBakeOrder()) {
       var (name, built) = await _layerTemplate.EnsureAsync(owner, layer.Name, cancellationToken);
-      baked.Add((layer.Name, name, built));
+      baked.Add(new(layer.Name, name, built));
     }
     return baked;
   }

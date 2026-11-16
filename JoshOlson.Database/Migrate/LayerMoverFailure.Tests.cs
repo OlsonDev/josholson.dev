@@ -38,7 +38,7 @@ public sealed class LayerMoverFailureTests : IDisposable {
 
     var result = await _repository.MigrateAsync();
 
-    Assert.Equal([("base", false)], result.Layers);
+    Assert.Equal([new("base", Rewritten: false)], result.Layers);
     Assert.Equal(2, result.Version);
   }
 

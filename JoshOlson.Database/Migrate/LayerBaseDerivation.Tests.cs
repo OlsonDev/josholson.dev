@@ -25,7 +25,7 @@ public sealed class LayerBaseDerivationTests : IDisposable {
     var result = await _repository.MigrateAsync();
 
     Assert.Equal(main.Description, result.Base);
-    Assert.Equal([("base", true), ("child", true)], result.Layers);
+    Assert.Equal([new("base", Rewritten: true), new("child", Rewritten: true)], result.Layers);
     Assert.Contains("note: y", await _repository.ReadLayerAsync("base"), StringComparison.Ordinal);
     var onDisk = await MigrationFiles.LoadAsync(_repository.Options.MigrationsDirectory, TestContext.Current.CancellationToken);
     Assert.True(SchemaLockParser.Parse(await _repository.ReadLockAsync()).Check(onDisk).IsConsistent);
@@ -47,7 +47,7 @@ public sealed class LayerBaseDerivationTests : IDisposable {
     var result = await _repository.MigrateAsync();
 
     Assert.Equal(["child", "extra"], result.Kept);
-    Assert.Equal([("base", true)], result.Layers);
+    Assert.Equal([new("base", Rewritten: true)], result.Layers);
     Assert.Equal(extra, await _repository.ReadLayerAsync("extra"));
     Assert.Equal(child, await _repository.ReadLayerAsync("child"));
     Assert.Contains("note: y", await _repository.ReadLayerAsync("base"), StringComparison.Ordinal);

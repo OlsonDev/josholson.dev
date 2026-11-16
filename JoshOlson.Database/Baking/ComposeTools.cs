@@ -41,7 +41,7 @@ public sealed class ComposeTools {
   // Waypoint's history (which it would otherwise want `waypoint repair` for).
   public async Task MigrateAsync(
     string database,
-    List<(string Name, byte[] Content)> files,
+    List<FileContent> files,
     bool transaction,
     CancellationToken cancellationToken
   ) {

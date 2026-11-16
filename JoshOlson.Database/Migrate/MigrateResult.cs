@@ -10,7 +10,7 @@ public sealed record MigrateResult {
 
   // The layers `seeds:migrate` moved to the newest schema, and whether each file was rewritten. Empty when there was nothing
   // to move: no layers, or a lock that was not behind the migrations.
-  public List<(string Layer, bool Rewritten)> Layers { get; init; } = [];
+  public List<MigratedLayer> Layers { get; init; } = [];
 
   // The base the lock and layers were derived from (a description of the commit), when they were; null when the working
   // tree was the input.

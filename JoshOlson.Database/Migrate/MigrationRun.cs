@@ -77,6 +77,9 @@ internal sealed class MigrationRun {
 
   private sealed record Derivation(SchemaLock BaseLock, SeedSnapshot Snapshot);
 
+  // The layers after the run, which of them are the tool's to record, and which were kept as somebody's own.
+  private sealed record LayerOutcome(List<MovedLayer> Moved, HashSet<string> Recorded, List<string> Kept);
+
   // The base, when it is the input: `--base` was given, or the working lock and the migrations disagree. Null when the
   // working tree is the input (or there is no base to read and the disagreement is reported as it is). A base that is not
   // consistent with the migrations on disk is refused.
@@ -113,8 +116,7 @@ internal sealed class MigrationRun {
     return string.Join("\n", lines);
   }
 
-  // The layers after the run, which of them are the tool's to record, and which were kept as somebody's own.
-  private async Task<(List<MovedLayer> Moved, HashSet<string> Recorded, List<string> Kept)> MoveLayersAsync(
+  private async Task<LayerOutcome> MoveLayersAsync(
     SchemaLock? input,
     Derivation? derivation,
     LockCheck? check,
@@ -129,21 +131,21 @@ internal sealed class MigrationRun {
       }
       if (input is not null && check is { Pending.Count: > 0 } && SeedMigrator.HasLayers(_options)) {
         var oldTree = await LoadWorkingTreeAsync(input);
-        return (await LayerMover.MoveAsync(_owner, _options, input, schemaLock, onDisk, oldTree, authored: [], dropped: [], _cancellationToken), generated, []);
+        return new(await LayerMover.MoveAsync(_owner, _options, input, schemaLock, onDisk, oldTree, authored: [], dropped: [], _cancellationToken), generated, []);
       }
     } catch (SeedFormatException exception) {
       problems.Add(exception.Message);
-      return ([], [], []);
+      return new([], [], []);
     }
     problems.AddRange(await SeedMigrator.CheckLayersAsync(_options, schemaLock, _cancellationToken));
-    return ([], generated, []);
+    return new([], generated, []);
   }
 
   // The base's layers moved through the migrations after its lock. The layers in the working tree decide what becomes of
   // each: one the tool wrote (or that is the base's own copy) is made again; one that is somebody's own is kept as it is,
   // whether the base has a layer of that name or not; one the base has and the working tree does not was deleted on the
   // branch.
-  private async Task<(List<MovedLayer> Moved, HashSet<string> Recorded, List<string> Kept)> DeriveLayersAsync(
+  private async Task<LayerOutcome> DeriveLayersAsync(
     Derivation derivation,
     SchemaLock schemaLock,
     List<MigrationFile> onDisk,
@@ -165,7 +167,7 @@ internal sealed class MigrationRun {
       throw new SeedFormatException($"{derivation.Snapshot.Description}'s layers do not read against its own lock:\n{exception.Message}", exception);
     }
     var moved = await LayerMover.MoveAsync(_owner, _options, derivation.BaseLock, schemaLock, onDisk, oldTree, authored, dropped, _cancellationToken);
-    return (moved, remade, [.. authored.Keys.Order(StringComparer.Ordinal)]);
+    return new(moved, remade, [.. authored.Keys.Order(StringComparer.Ordinal)]);
   }
 
   private async Task<LayerTree> LoadWorkingTreeAsync(SchemaLock input) {
@@ -180,15 +182,15 @@ internal sealed class MigrationRun {
 
   // Only the layers whose text changed are rewritten, so a migration that leaves a layer as it was leaves its file alone, and
   // a layer that is somebody's own is never written.
-  private async Task<List<(string Layer, bool Rewritten)>> WriteLayersAsync(List<MovedLayer> moved) {
-    var layers = new List<(string Layer, bool Rewritten)>(moved.Count);
+  private async Task<List<MigratedLayer>> WriteLayersAsync(List<MovedLayer> moved) {
+    var layers = new List<MigratedLayer>(moved.Count);
     foreach (var layer in moved.Where(layer => !layer.Authored)) {
       var path = LayerLoader.PathOf(_options.SeedsDirectory, layer.Layer.Name);
       var rewritten = !File.Exists(path) || !string.Equals(await File.ReadAllTextAsync(path, _cancellationToken), layer.Yaml, StringComparison.Ordinal);
       if (rewritten) {
         await SeedMigrator.WriteAsync(path, layer.Yaml, _cancellationToken);
       }
-      layers.Add((layer.Layer.Name, rewritten));
+      layers.Add(new(layer.Layer.Name, rewritten));
     }
     return layers;
   }

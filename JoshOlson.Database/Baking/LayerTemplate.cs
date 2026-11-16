@@ -43,7 +43,7 @@ public sealed class LayerTemplate {
     => await NameAsync(await _schemaTemplate.NameAsync(cancellationToken), layer, cancellationToken);
 
   // Makes sure the template for the layer exists and returns its name. `Built` says whether this call did the work.
-  public async Task<(string Name, bool Built)> EnsureAsync(NpgsqlConnection owner, string layer, CancellationToken cancellationToken) {
+  public async Task<BuiltTemplate> EnsureAsync(NpgsqlConnection owner, string layer, CancellationToken cancellationToken) {
     var (schemaName, _) = await _schemaTemplate.EnsureAsync(owner, cancellationToken);
     var name = await NameAsync(schemaName, layer, cancellationToken);
     var built = await _databases.EnsureTemplateAsync(
@@ -54,7 +54,7 @@ public sealed class LayerTemplate {
         _ = await SeedHydrator.HydrateAsync(building, _tree, _schema, layer, editing: false, SeedHydrator.Anchor(_clock), cancellationToken);
       },
       cancellationToken);
-    return (name, built);
+    return new(name, built);
   }
 
   private async Task<string> NameAsync(string schemaName, string layer, CancellationToken cancellationToken) {

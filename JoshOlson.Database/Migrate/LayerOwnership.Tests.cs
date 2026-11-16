@@ -49,7 +49,7 @@ public sealed class LayerOwnershipTests : IDisposable {
       "{ bar_id: 1002, name: Four, note: x }",
       await _repository.ReadLayerAsync("child"),
       StringComparison.Ordinal);
-    Assert.Contains(("extra", true), result.Layers);
+    Assert.Contains(new("extra", Rewritten: true), result.Layers);
     Assert.Equal(FooSchema.ExtraLayer("x"), await _repository.ReadLayerAsync("extra"));
     Assert.Equal([await _repository.ChecksumOfAsync("base")], await _repository.RecordedLayersAsync());
     Assert.NotEqual(recorded, await _repository.ChecksumOfAsync("base"));
