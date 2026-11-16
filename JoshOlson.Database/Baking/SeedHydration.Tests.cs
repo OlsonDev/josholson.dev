@@ -18,7 +18,7 @@ public sealed class SeedHydrationTests {
     var exception = await Assert.ThrowsAsync<SeedFormatException>(
       () => SeedHydration.ReadAsync(connection, anchorIfUnrecorded: null, _cancellationToken));
 
-    Assert.Equal((_Anchor, null, false), read);
+    Assert.Equal(new(_Anchor, Layer: null, Editing: false), read);
     Assert.Contains("no seed.hydration row", exception.Message, StringComparison.Ordinal);
   }
 
@@ -30,9 +30,9 @@ public sealed class SeedHydrationTests {
     await using var database = await ScratchDatabase.CreateAsync(_cancellationToken);
     await using var connection = await database.OpenAsync(_cancellationToken);
 
-    await SeedHydration.RecordAsync(connection, layer, editing, _Anchor, _cancellationToken);
+    await SeedHydration.RecordAsync(connection, new(_Anchor, layer, editing), _cancellationToken);
 
-    Assert.Equal((_Anchor, layer, editing), await SeedHydration.ReadAsync(connection, _Later, _cancellationToken));
+    Assert.Equal(new(_Anchor, layer, editing), await SeedHydration.ReadAsync(connection, _Later, _cancellationToken));
   }
 
   [Fact]
@@ -42,17 +42,17 @@ public sealed class SeedHydrationTests {
 
     await SeedHydration.RecordExportAsync(connection, "foo", _Anchor, _cancellationToken);
 
-    Assert.Equal((_Anchor, "foo", true), await SeedHydration.ReadAsync(connection, _Later, _cancellationToken));
+    Assert.Equal(new(_Anchor, "foo", Editing: true), await SeedHydration.ReadAsync(connection, _Later, _cancellationToken));
   }
 
   [Fact]
   public async Task RecordExportAsync_RowThere_ChangesTheLayerAndKeepsTheAnchor() {
     await using var database = await ScratchDatabase.CreateAsync(_cancellationToken);
     await using var connection = await database.OpenAsync(_cancellationToken);
-    await SeedHydration.RecordAsync(connection, "foo", editing: false, _Anchor, _cancellationToken);
+    await SeedHydration.RecordAsync(connection, new(_Anchor, "foo", Editing: false), _cancellationToken);
 
     await SeedHydration.RecordExportAsync(connection, "bar", _Later, _cancellationToken);
 
-    Assert.Equal((_Anchor, "bar", true), await SeedHydration.ReadAsync(connection, anchorIfUnrecorded: null, _cancellationToken));
+    Assert.Equal(new(_Anchor, "bar", Editing: true), await SeedHydration.ReadAsync(connection, anchorIfUnrecorded: null, _cancellationToken));
   }
 }

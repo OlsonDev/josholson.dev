@@ -14,9 +14,7 @@ public static class SeedHydration {
   // A database that was just filled. It has no row yet.
   public static async Task RecordAsync(
     NpgsqlConnection connection,
-    string? layer,
-    bool editing,
-    Instant anchor,
+    HydrationRecord record,
     CancellationToken cancellationToken
   ) {
     var sql = """
@@ -31,9 +29,9 @@ public static class SeedHydration {
       );
       """;
     var parameters = new {
-      layer,
-      editing,
-      anchor = anchor.ToDateTimeUtc(),
+      record.Layer,
+      record.Editing,
+      anchor = record.Anchor.ToDateTimeUtc(),
     };
     await connection.ExecuteAsync(sql, parameters, cancellationToken);
   }
@@ -69,7 +67,7 @@ public static class SeedHydration {
 
   // What the row says, inside the caller's transaction if it has one. A database that was not built by the seed tool has
   // no row, so no anchor, and is refused unless the caller gives one to measure from.
-  public static async Task<(Instant Anchor, string? Layer, bool Editing)> ReadAsync(
+  public static async Task<HydrationRecord> ReadAsync(
     NpgsqlConnection connection,
     Instant? anchorIfUnrecorded,
     CancellationToken cancellationToken
@@ -85,12 +83,12 @@ public static class SeedHydration {
     await using var command = new NpgsqlCommand(sql, connection);
     await using var reader = await command.ExecuteReaderAsync(cancellationToken);
     return await reader.ReadAsync(cancellationToken)
-      ? (
+      ? new(
         Instant.FromDateTimeUtc(DateTime.SpecifyKind(reader.GetDateTime(0), DateTimeKind.Utc)),
         await reader.IsDBNullAsync(1, cancellationToken) ? null : reader.GetString(1),
         reader.GetBoolean(2))
       : anchorIfUnrecorded is { } fallback
-        ? (fallback, null, false)
+        ? new(fallback, Layer: null, Editing: false)
         : throw new SeedFormatException("The database has no seed.hydration row, so it was not built by the seed tool and has no anchor to measure relative times from.");
   }
 }

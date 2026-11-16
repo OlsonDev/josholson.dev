@@ -64,8 +64,8 @@ public sealed class LayerExporter {
     await using (var source = await DatabaseEnvironment.OpenOwnerAsync(database, cancellationToken)) {
       child = await SeedStateReader.ReadAsync(source, _schema, cancellationToken, SeedHydrator.Anchor(_clock));
     }
-    var recorded = child.Layer is null ? null : _tree.Get(child.Layer);
-    var editing = child.Editing && recorded is not null;
+    var recorded = child.Hydration.Layer is null ? null : _tree.Get(child.Hydration.Layer);
+    var editing = child.Hydration.Editing && recorded is not null;
     var replaced = editing && (name is null || string.Equals(name, recorded!.Name, StringComparison.Ordinal));
     var parent = editing ? recorded!.Extends : recorded?.Name;
     name ??= replaced ? recorded!.Name : throw new SeedFormatException("Give the new layer a --name.");
@@ -105,7 +105,7 @@ public sealed class LayerExporter {
     var template = parent is null
       ? (await _schemaTemplate.EnsureAsync(owner, cancellationToken)).Name
       : (await _layerTemplate.EnsureAsync(owner, parent, cancellationToken)).Name;
-    var baseline = await SeedStateReader.ReadTemplateAsync(_databases, owner, template, "export", _schema, cancellationToken, child.Anchor);
+    var baseline = await SeedStateReader.ReadTemplateAsync(_databases, owner, template, "export", _schema, cancellationToken, child.Hydration.Anchor);
     var from = parent is null ? "the schema template" : $"the template for {parent}";
     var diff = LayerDiff.Between(baseline.Rows, child.Rows, name, parent, description, _schema)
       ?? throw new SeedFormatException($"There is nothing to export: {source} holds the same rows as {from}.");
@@ -113,7 +113,7 @@ public sealed class LayerExporter {
       throw new InvalidOperationException($"The layer does not give back the rows of {source} when it is applied to {from}. This is a bug in the export.");
     }
     return diff.ReadsBack
-      ? new(diff.Layer, diff.Yaml, child.Anchor, exists)
+      ? new(diff.Layer, diff.Yaml, child.Hydration.Anchor, exists)
       : throw new InvalidOperationException("The layer does not read back as the text it was written as. This is a bug in the export.");
   }
 

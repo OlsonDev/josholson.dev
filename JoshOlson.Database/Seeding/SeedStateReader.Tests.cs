@@ -77,11 +77,10 @@ public sealed class SeedStateReaderTests {
       anchor);
 
     Assert.Contains("not built by the seed tool", unrecorded.Message, StringComparison.Ordinal);
-    Assert.Equal(anchor, bare.Anchor);
-    Assert.Null(bare.Layer);
+    Assert.Equal(new(anchor, Layer: null, Editing: false), bare.Hydration);
     Assert.Empty(bare.Rows.Tables["tag.tag"]);
-    Assert.NotEqual(anchor, root.Anchor);
-    Assert.Equal(FixtureSeeds.Root, root.Layer);
+    Assert.NotEqual(anchor, root.Hydration.Anchor);
+    Assert.Equal(FixtureSeeds.Root, root.Hydration.Layer);
     Assert.Equal(FixtureSeeds.RootRows, root.Rows.Tables["tag.tag"].Count);
     Assert.Empty(await databases.ListAsync(owner, $"{SeedDatabaseNames.Prefix}{purpose}_", _cancellationToken));
   }
@@ -148,6 +147,6 @@ public sealed class SeedStateReaderTests {
     var second = read.Rows.Tables["foo.kind"][[new SeedValue.Integer(2)]];
     Assert.Equal(new SeedValue.Integer(2), second["id"]);
     Assert.All(second.Where(cell => cell.Key is not "id"), cell => Assert.Null(cell.Value));
-    Assert.Equal(Instant.FromUtc(2026, 1, 1, 12, 0), read.Anchor);
+    Assert.Equal(Instant.FromUtc(2026, 1, 1, 12, 0), read.Hydration.Anchor);
   }
 }

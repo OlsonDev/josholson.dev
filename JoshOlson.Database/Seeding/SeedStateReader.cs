@@ -32,13 +32,13 @@ public static class SeedStateReader {
   ) {
     await using var transaction = await connection.BeginTransactionAsync(IsolationLevel.RepeatableRead, cancellationToken);
     await ExecuteAsync(connection, transaction, "SET LOCAL TIME ZONE 'UTC'; SET LOCAL DateStyle = 'ISO, YMD'; SET LOCAL bytea_output = 'hex';", cancellationToken);
-    var (anchor, layer, editing) = await SeedHydration.ReadAsync(connection, anchorIfUnrecorded, cancellationToken);
+    var hydration = await SeedHydration.ReadAsync(connection, anchorIfUnrecorded, cancellationToken);
     var state = new SeedState();
     foreach (var table in schema.InsertOrder().Where(table => !table.Table.Ignored)) {
-      state.Tables[table.Table.Name] = await ReadTableAsync(connection, transaction, table, anchor, cancellationToken);
+      state.Tables[table.Table.Name] = await ReadTableAsync(connection, transaction, table, hydration.Anchor, cancellationToken);
     }
     await transaction.CommitAsync(cancellationToken);
-    return new(state, anchor, layer, editing);
+    return new(state, hydration);
   }
 
   // The same for a template, which refuses connections: a clone of it is read and dropped (`purpose` is in the clone's

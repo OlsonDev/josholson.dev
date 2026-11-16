@@ -94,7 +94,7 @@ public static class SeedHydrator {
       rows = await SeedApplier.ApplyAsync(transaction, tree, schema, layer, anchor, cancellationToken);
       await transaction.CommitAsync(cancellationToken);
     }
-    await SeedHydration.RecordAsync(connection, layer, editing, anchor, cancellationToken);
+    await SeedHydration.RecordAsync(connection, new(anchor, layer, editing), cancellationToken);
     _ = forMigration
       ? await SequencePositioner.RootAsync(connection, tree, schema, layer, cancellationToken)
       : await SequencePositioner.ChainAsync(connection, tree, schema, layer, editing, cancellationToken);

@@ -1,4 +1,3 @@
-using NodaTime;
 using Xunit;
 
 namespace JoshOlson.Database.Baking;
@@ -47,7 +46,7 @@ public sealed class LayerExporterTests : IAsyncLifetime {
   public async ValueTask DisposeAsync()
     => await _exports.DisposeAsync();
 
-  private async Task<(Instant Anchor, string? Layer, bool Editing)> ReadHydrationAsync(string database) {
+  private async Task<HydrationRecord> ReadHydrationAsync(string database) {
     await using var connection = await DatabaseEnvironment.OpenOwnerAsync(database, _cancellationToken);
     return await SeedHydration.ReadAsync(connection, anchorIfUnrecorded: null, _cancellationToken);
   }
@@ -176,7 +175,7 @@ public sealed class LayerExporterTests : IAsyncLifetime {
 
     Assert.Null(unrecorded.Layer.Extends);
     Assert.Contains(FixtureSeeds.TagRow(1, "Foo"), unrecorded.Yaml, StringComparison.Ordinal);
-    Assert.Equal((unrecorded.Anchor, "foo-bar", true), recorded);
+    Assert.Equal(new(unrecorded.Anchor, "foo-bar", Editing: true), recorded);
     Assert.Contains("There is no layer named 'no-such-layer'", layerIsGone, StringComparison.Ordinal);
     Assert.Equal(
       $$"""
