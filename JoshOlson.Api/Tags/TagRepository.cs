@@ -45,13 +45,13 @@ public sealed class TagRepository {
   // (uq_tag_slug, ux_tag_name_lower). Pass null for a field that is not worth checking and its statement is left out.
   // exceptTagId is the tag being updated, so it does not collide with itself; null means no tag is excluded (a create).
   // Names are unique ignoring case.
-  public async Task<(bool IsSlugTaken, bool IsNameTaken)> CheckTakenAsync(
+  public async Task<TakenTagFields> CheckTakenAsync(
     string? slugToCheck,
     string? nameToCheck,
     int? exceptTagId,
     CancellationToken cancellationToken
   ) {
-    if (slugToCheck is null && nameToCheck is null) return (false, false);
+    if (slugToCheck is null && nameToCheck is null) return new(IsSlugTaken: false, IsNameTaken: false);
 
     var sql = _CheckTakenSql.ForValues(slugToCheck is not null, nameToCheck is not null, exceptTagId is not null);
     var parameters = new {
@@ -63,7 +63,7 @@ public sealed class TagRepository {
     // The results come back in the order the statements were built: slug first, then name.
     var isSlugTaken = slugToCheck is not null && await data.ReadSingleAsync<bool>();
     var isNameTaken = nameToCheck is not null && await data.ReadSingleAsync<bool>();
-    return (isSlugTaken, isNameTaken);
+    return new(isSlugTaken, isNameTaken);
   }
 
   private static readonly SqlMemoizer<bool, bool, bool> _CheckTakenSql = new((checkSlug, checkName, exceptTag) => {

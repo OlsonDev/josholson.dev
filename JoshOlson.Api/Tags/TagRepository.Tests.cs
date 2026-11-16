@@ -105,6 +105,8 @@ public class TagRepositoryTests {
     }
   }
 
-  private async Task<(bool Slug, bool Name)> Taken(string? slug, string? name, int? excludeTagId)
-    => await _tagRepository.CheckTakenAsync(slug, name, excludeTagId, _cancellationToken);
+  private async Task<(bool Slug, bool Name)> Taken(string? slug, string? name, int? excludeTagId) {
+    var (isSlugTaken, isNameTaken) = await _tagRepository.CheckTakenAsync(slug, name, excludeTagId, _cancellationToken);
+    return (isSlugTaken, isNameTaken);
+  }
 }
