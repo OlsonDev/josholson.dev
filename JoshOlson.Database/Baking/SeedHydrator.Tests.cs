@@ -27,13 +27,14 @@ public sealed class SeedHydratorTests {
     await using var database = await ScratchDatabase.CreateAsync(_cancellationToken);
     var anchor = Instant.FromUtc(2026, 1, 2, 3, 4, 5).PlusNanoseconds(678_000);
 
-    var rows = await SeedHydrator.HydrateAsync(
+    var hydrated = await SeedHydrator.HydrateAsync(
       database.Name,
       tree,
       FixtureSeeds.Child,
       editing: false,
       anchor,
       _cancellationToken);
+    var rows = hydrated.OrThrow();
 
     await using var connection = await database.OpenAsync(_cancellationToken);
     var stored = await connection.QuerySingleAsync<DateTime>(

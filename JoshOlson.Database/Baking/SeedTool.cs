@@ -80,7 +80,7 @@ public sealed class SeedTool {
     var (schemaName, schemaBuilt) = await _schemaTemplate.EnsureAsync(owner, cancellationToken);
     var baked = new List<BakedLayer> { new("(schema)", schemaName, schemaBuilt) };
     foreach (var layer in Tree.InBakeOrder()) {
-      var (name, built) = await _layerTemplate.EnsureAsync(owner, layer.Name, cancellationToken);
+      var (name, built) = (await _layerTemplate.EnsureAsync(owner, layer.Name, cancellationToken)).OrThrow();
       baked.Add(new(layer.Name, name, built));
     }
     return baked;
@@ -90,14 +90,10 @@ public sealed class SeedTool {
   // is tried, so the problems come back together, but one whose parent failed is skipped (it would fail the same way).
   // A failed build leaves nothing behind. Returns the problems, empty when all the layers apply.
   public async Task<List<string>> CheckAsync(NpgsqlConnection owner, CancellationToken cancellationToken)
-    => await Tree.VisitParentFirstAsync(async layer => {
-      try {
-        _ = await _layerTemplate.EnsureAsync(owner, layer.Name, cancellationToken);
-        return null;
-      } catch (SeedFormatException exception) {
-        return $"{layer.Name}: {exception.Message}";
-      }
-    });
+    => await Tree.VisitParentFirstAsync(async layer
+      => await _layerTemplate.EnsureAsync(owner, layer.Name, cancellationToken) is SeedProblems unbuilt
+        ? $"{layer.Name}: {unbuilt}"
+        : null);
 
   // `seeds:check`, the layers' half: every layer must be in the canonical form `LayerWriter` writes (so the diff of a
   // change is only the change), build into a template, and give itself back: the rows of a database built from it, read
@@ -115,7 +111,7 @@ public sealed class SeedTool {
       return $"{layer.Name}: {path} is not in canonical form ({FirstDifference(canonical, onDisk)}).";
     }
     try {
-      var (template, _) = await _layerTemplate.EnsureAsync(owner, layer.Name, cancellationToken);
+      var (template, _) = (await _layerTemplate.EnsureAsync(owner, layer.Name, cancellationToken)).OrThrow();
       var state = await SeedStateReader.ReadTemplateAsync(_databases, owner, template, "check", Tree.Schema, cancellationToken);
       var again = await Exporter.DiffAsync(owner, template, state, layer.Header, cancellationToken);
       return string.Equals(again.Yaml, canonical, StringComparison.Ordinal)
@@ -147,7 +143,7 @@ public sealed class SeedTool {
     if (await _databases.ExistsAsync(owner, name, cancellationToken)) {
       throw new SeedFormatException($"{name} already exists. Drop it with seed:clean, or pick another id.");
     }
-    var (template, _) = await _layerTemplate.EnsureAsync(owner, layer, cancellationToken);
+    var (template, _) = (await _layerTemplate.EnsureAsync(owner, layer, cancellationToken)).OrThrow();
     await _databases.CloneAsync(owner, template, name, cancellationToken);
     return name;
   }
@@ -163,7 +159,7 @@ public sealed class SeedTool {
     var (schemaName, _) = await _schemaTemplate.EnsureAsync(owner, cancellationToken);
     await _databases.DropDevelopmentAsync(owner, Development, cancellationToken);
     await _databases.CloneDevelopmentAsync(owner, schemaName, Development, cancellationToken);
-    return await SeedHydrator.HydrateAsync(Development, Tree, layer, editing, SeedHydrator.Anchor(_clock), cancellationToken);
+    return (await SeedHydrator.HydrateAsync(Development, Tree, layer, editing, SeedHydrator.Anchor(_clock), cancellationToken)).OrThrow();
   }
 
   // `seed:clean`: drops every seed tool database except the templates the current files name (all of them with

@@ -72,12 +72,13 @@ public sealed class SequencePositionerTests {
     await using var database = await ScratchDatabase.CreateAsync(_cancellationToken);
     await using var connection = await database.OpenAsync(_cancellationToken);
     await using (var transaction = await connection.BeginTransactionAsync(_cancellationToken)) {
-      _ = await SeedApplier.ApplyAsync(
+      var applied = await SeedApplier.ApplyAsync(
         transaction,
         FixtureSeeds.Tree,
         FixtureSeeds.Child,
         SampleLayers.Anchor,
         _cancellationToken);
+      _ = applied.OrThrow();
       await transaction.CommitAsync(_cancellationToken);
     }
 

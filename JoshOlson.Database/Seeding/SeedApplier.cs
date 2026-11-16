@@ -1,4 +1,5 @@
 using JoshOlson.Database.Layers;
+using JoshOlson.Shared.Results;
 using NodaTime;
 using Npgsql;
 
@@ -10,20 +11,26 @@ namespace JoshOlson.Database.Seeding;
 // The tables are expected to be empty; a row that collides with one already there fails the insert and the caller's
 // transaction with it.
 public static class SeedApplier {
-  // Returns how many rows went in.
-  public static async Task<int> ApplyAsync(
+  // Returns how many rows went in, or why they did not: the chain does not merge, a value cannot be written, or
+  // Postgres refused a row. The caller's transaction is then no use for anything but rolling back.
+  public static async Task<Result<int, SeedProblems>> ApplyAsync(
     NpgsqlTransaction transaction,
     LayerTree tree,
     string layer,
     Instant anchor,
     CancellationToken cancellationToken
   ) {
-    var state = LayerMerger.Merge(tree.ChainTo(layer), tree.Schema).OrThrow();
-    var statements = SeedSql.Build(state, tree.Schema, anchor).OrThrow();
-    return await ApplyAsync(transaction, statements, cancellationToken);
+    var merged = LayerMerger.Merge(tree.ChainTo(layer), tree.Schema);
+    if (merged is SeedProblems unmerged) {
+      return unmerged;
+    }
+    var built = SeedSql.Build(merged.OrThrow(), tree.Schema, anchor);
+    return built is SeedProblems unbuilt
+      ? unbuilt
+      : await ApplyAsync(transaction, built.OrThrow(), cancellationToken);
   }
 
-  public static async Task<int> ApplyAsync(
+  public static async Task<Result<int, SeedProblems>> ApplyAsync(
     NpgsqlTransaction transaction,
     List<SeedStatement> statements,
     CancellationToken cancellationToken
@@ -39,7 +46,7 @@ public static class SeedApplier {
       try {
         rows += await command.ExecuteNonQueryAsync(cancellationToken);
       } catch (PostgresException exception) {
-        throw new SeedFormatException($"Inserting into {statement.Table} failed: {exception.MessageText}", exception);
+        return SeedProblems.Of($"Inserting into {statement.Table} failed: {exception.MessageText}");
       }
     }
     return rows;

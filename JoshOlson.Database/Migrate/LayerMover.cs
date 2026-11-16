@@ -100,7 +100,7 @@ public sealed class LayerMover {
   // One layer's full state at the newest schema: its chain put into a database at the old one and migrated on.
   private async Task<SeedState> MigrateLayerAsync(string fromTemplate, string layer) {
     await using var scratch = await _options.Databases.CloneScratchAsync(_owner, fromTemplate, "move", _cancellationToken);
-    _ = await SeedHydrator.HydrateForMigrationAsync(scratch.Name, _move.OldTree, layer, _anchor, _cancellationToken);
+    _ = (await SeedHydrator.HydrateForMigrationAsync(scratch.Name, _move.OldTree, layer, _anchor, _cancellationToken)).OrThrow();
     try {
       await _options.Template.MigrateToNewestAsync(scratch.Name, _cancellationToken);
     } catch (InvalidOperationException exception) {

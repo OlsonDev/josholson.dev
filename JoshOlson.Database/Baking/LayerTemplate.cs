@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
 using JoshOlson.Database.Layers;
+using JoshOlson.Shared.Results;
 using NodaTime;
 using Npgsql;
 
@@ -40,18 +41,32 @@ public sealed class LayerTemplate {
     => await NameAsync(await _schemaTemplate.NameAsync(cancellationToken), layer, cancellationToken);
 
   // Makes sure the template for the layer exists and returns its name. `Built` says whether this call did the work.
-  public async Task<BuiltTemplate> EnsureAsync(NpgsqlConnection owner, string layer, CancellationToken cancellationToken) {
+  // A layer whose chain does not go into a database comes back as its problems, and nothing is left behind.
+  public async Task<Result<BuiltTemplate, SeedProblems>> EnsureAsync(
+    NpgsqlConnection owner,
+    string layer,
+    CancellationToken cancellationToken
+  ) {
     var (schemaName, _) = await _schemaTemplate.EnsureAsync(owner, cancellationToken);
     var name = await NameAsync(schemaName, layer, cancellationToken);
-    var built = await _databases.EnsureTemplateAsync(
-      owner,
-      name,
-      async building => {
-        await _databases.CloneAsync(owner, schemaName, building, cancellationToken);
-        _ = await SeedHydrator.HydrateAsync(building, _tree, layer, editing: false, SeedHydrator.Anchor(_clock), cancellationToken);
-      },
-      cancellationToken);
-    return new(name, built);
+    // The build is a callback, and the only way out of it that drops the half-built database is to throw. The problems
+    // are kept as they are and handed back once it has.
+    SeedProblems? refused = null;
+    try {
+      var built = await _databases.EnsureTemplateAsync(
+        owner,
+        name,
+        async building => {
+          await _databases.CloneAsync(owner, schemaName, building, cancellationToken);
+          var hydrated = await SeedHydrator.HydrateAsync(building, _tree, layer, editing: false, SeedHydrator.Anchor(_clock), cancellationToken);
+          refused = hydrated.Value as SeedProblems;
+          _ = hydrated.OrThrow();
+        },
+        cancellationToken);
+      return new BuiltTemplate(name, built);
+    } catch (SeedFormatException) when (refused is not null) {
+      return refused;
+    }
   }
 
   private async Task<string> NameAsync(string schemaName, string layer, CancellationToken cancellationToken) {

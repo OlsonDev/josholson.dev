@@ -94,7 +94,7 @@ public sealed class LayerExporter {
     var parent = header.Extends;
     var template = parent is null
       ? (await _schemaTemplate.EnsureAsync(owner, cancellationToken)).Name
-      : (await _layerTemplate.EnsureAsync(owner, parent, cancellationToken)).Name;
+      : (await _layerTemplate.EnsureAsync(owner, parent, cancellationToken)).OrThrow().Name;
     var baseline = await SeedStateReader.ReadTemplateAsync(_databases, owner, template, "export", _tree.Schema, cancellationToken, child.Hydration.Anchor);
     var from = parent is null ? "the schema template" : $"the template for {parent}";
     var diff = LayerDiff.Between(baseline.Rows, child.Rows, header, _tree.Schema)

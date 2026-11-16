@@ -1,6 +1,7 @@
 using JoshOlson.Database.Layers;
 using JoshOlson.Database.Seeding;
 using JoshOlson.Shared.Data;
+using JoshOlson.Shared.Results;
 using NodaTime;
 using Npgsql;
 
@@ -17,8 +18,9 @@ public static class SeedHydrator {
   public static Instant Anchor(IClock clock)
     => Instant.FromUnixTimeTicks(clock.GetCurrentInstant().ToUnixTimeTicks() / 10 * 10);
 
-  // Returns how many rows the layer chain put in.
-  public static async Task<int> HydrateAsync(
+  // Returns how many rows the layer chain put in, or why it could not be (`SeedApplier.ApplyAsync`); nothing is then
+  // committed or recorded.
+  public static async Task<Result<int, SeedProblems>> HydrateAsync(
     string database,
     LayerTree tree,
     string layer,
@@ -34,7 +36,7 @@ public static class SeedHydrator {
   // a newer schema and so could not be applied here, and the rows are checked against the real constraints afterwards, at
   // the newest version. And the sequences are positioned by the root layer alone (`SequencePositioner.RootAsync`), so a
   // migration that generates IDs gives a parent and every child the same ones.
-  public static async Task<int> HydrateForMigrationAsync(
+  public static async Task<Result<int, SeedProblems>> HydrateForMigrationAsync(
     string database,
     LayerTree tree,
     string layer,
@@ -61,10 +63,8 @@ public static class SeedHydrator {
     var problems = new List<string>();
     foreach (var layer in layers) {
       await using var scratch = await databases.CloneScratchAsync(owner, template, purpose, cancellationToken);
-      try {
-        _ = await HydrateAsync(scratch.Name, tree, layer, editing: false, anchor, cancellationToken);
-      } catch (SeedFormatException exception) {
-        problems.Add(problem(layer, exception.Message));
+      if (await HydrateAsync(scratch.Name, tree, layer, editing: false, anchor, cancellationToken) is SeedProblems unbuilt) {
+        problems.Add(problem(layer, unbuilt.ToString()));
       }
     }
     return problems;
@@ -72,7 +72,7 @@ public static class SeedHydrator {
 
   // Both of the above. `forMigration` is the two things that differ: foreign keys are not enforced while the rows go
   // in, and the sequences are positioned by the root layer alone.
-  private static async Task<int> FillAsync(
+  private static async Task<Result<int, SeedProblems>> FillAsync(
     string database,
     LayerTree tree,
     string layer,
@@ -87,7 +87,11 @@ public static class SeedHydrator {
       if (forMigration) {
         await connection.ExecuteAsync("SET LOCAL session_replication_role = replica;", cancellationToken);
       }
-      rows = await SeedApplier.ApplyAsync(transaction, tree, layer, anchor, cancellationToken);
+      var applied = await SeedApplier.ApplyAsync(transaction, tree, layer, anchor, cancellationToken);
+      if (applied is SeedProblems refused) {
+        return refused;
+      }
+      rows = applied.OrThrow();
       await transaction.CommitAsync(cancellationToken);
     }
     await SeedHydration.RecordAsync(connection, new(anchor, layer, editing), cancellationToken);
