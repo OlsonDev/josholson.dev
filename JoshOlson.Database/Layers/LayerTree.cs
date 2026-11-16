@@ -5,12 +5,14 @@ using JoshOlson.Shared.Extensions;
 namespace JoshOlson.Database.Layers;
 
 // The layers as a tree: each names its parent with `extends`, and a layer with none is a root. Building the tree is
-// where a duplicate name, a missing parent, or a cycle is found.
+// where a duplicate name, a missing parent, or a cycle is found. The tree carries the schema its layers were read
+// against, since a layer's values mean nothing without it and whoever takes the tree needs both.
 public sealed class LayerTree {
   private readonly Dictionary<string, SeedLayer> _layers = [with(StringComparer.Ordinal)];
   private readonly Dictionary<string, List<SeedLayer>> _children = [with(StringComparer.Ordinal)];
 
-  public LayerTree(List<SeedLayer> layers) {
+  public LayerTree(SeedSchema schema, List<SeedLayer> layers) {
+    Schema = schema;
     foreach (var layer in layers) {
       if (!_layers.TryAdd(layer.Name, layer)) {
         throw new SeedFormatException($"Two layers are named '{layer.Name}'.");
@@ -34,17 +36,19 @@ public sealed class LayerTree {
     }
   }
 
+  public SeedSchema Schema { get; }
+
   public List<SeedLayer> Roots { get; } = [];
 
   // The rows a layer inserts take their identity keys from the block of the layer's depth (`IdBlocks`, ADR 0015, seed ID
   // blocks): two layers at different depths cannot both claim an ID, and a migration that generates IDs cannot reach
   // into a layer's. This names each insert that is outside its block, for a table whose primary key is one identity column.
-  public List<string> IdBlockProblems(SeedSchema schema) {
+  public List<string> IdBlockProblems() {
     var problems = new List<string>();
     foreach (var layer in _layers.Values.OrderBy(layer => layer.Name, StringComparer.Ordinal)) {
       var depth = ChainTo(layer.Name).Count - 1;
       foreach (var change in layer.Tables) {
-        if (schema.Find(change.Table) is not { Table.PrimaryKey: [var key] } table
+        if (Schema.Find(change.Table) is not { Table.PrimaryKey: [var key] } table
             || table.Columns[key].Column.GeneratedAs is not (GeneratedAs.IdentityAlways or GeneratedAs.IdentityByDefault)) {
           continue;
         }

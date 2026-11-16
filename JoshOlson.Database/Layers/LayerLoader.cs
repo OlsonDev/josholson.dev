@@ -25,9 +25,9 @@ public static class LayerLoader {
     foreach (var (name, yaml) in texts.OrderBy(entry => entry.Key, StringComparer.Ordinal)) {
       layers.Add(LayerParser.Parse(name, yaml, schema));
     }
-    var tree = new LayerTree(layers);
+    var tree = new LayerTree(schema, layers);
     var problems = new SeedProblems("The layers have", "ID block problems");
-    problems.AddRange(tree.IdBlockProblems(schema));
+    problems.AddRange(tree.IdBlockProblems());
     problems.ThrowIfAny();
     return tree;
   }

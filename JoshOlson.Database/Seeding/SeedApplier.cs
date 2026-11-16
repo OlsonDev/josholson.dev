@@ -14,13 +14,12 @@ public static class SeedApplier {
   public static async Task<int> ApplyAsync(
     NpgsqlTransaction transaction,
     LayerTree tree,
-    SeedSchema schema,
     string layer,
     Instant anchor,
     CancellationToken cancellationToken
   ) {
-    var state = LayerMerger.Merge(tree.ChainTo(layer), schema);
-    var statements = SeedSql.Build(state, schema, anchor);
+    var state = LayerMerger.Merge(tree.ChainTo(layer), tree.Schema);
+    var statements = SeedSql.Build(state, tree.Schema, anchor);
     return await ApplyAsync(transaction, statements, cancellationToken);
   }
 

@@ -30,7 +30,6 @@ public sealed class SeedHydratorTests {
     var rows = await SeedHydrator.HydrateAsync(
       database.Name,
       tree,
-      schema,
       FixtureSeeds.Child,
       editing: false,
       anchor,
@@ -77,7 +76,7 @@ public sealed class SeedHydratorTests {
             - {FixtureSeeds.TagRow(1001, "Baz")}
 
       """;
-    var tree = new LayerTree([
+    var tree = new LayerTree(schema, [
       FixtureSeeds.Tree.Get(FixtureSeeds.Root),
       LayerParser.Parse("foo", refused, schema),
     ]);
@@ -91,7 +90,6 @@ public sealed class SeedHydratorTests {
       template,
       purpose,
       tree,
-      schema,
       [FixtureSeeds.Root, "foo"],
       Instant.FromUtc(2026, 1, 2, 3, 4, 5),
       (name, error) => $"{name} is refused: {error}",

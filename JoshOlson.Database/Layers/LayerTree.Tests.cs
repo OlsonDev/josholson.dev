@@ -12,7 +12,7 @@ public class LayerTreeTests {
     };
 
   private static LayerTree NewTree()
-    => new([
+    => new(SampleLayers.Schema, [
       Layer("stress", "base"),
       Layer("minimal", "base"),
       Layer("other"),
@@ -81,18 +81,18 @@ public class LayerTreeTests {
 
   [Fact]
   public void Constructor_DuplicateName_Throws()
-    => Assert.Throws<SeedFormatException>(() => new LayerTree([Layer("foo"), Layer("foo")]));
+    => Assert.Throws<SeedFormatException>(() => new LayerTree(SampleLayers.Schema, [Layer("foo"), Layer("foo")]));
 
   [Fact]
   public void Constructor_MissingParent_Throws() {
-    var exception = Assert.Throws<SeedFormatException>(() => new LayerTree([Layer("foo", "bar")]));
+    var exception = Assert.Throws<SeedFormatException>(() => new LayerTree(SampleLayers.Schema, [Layer("foo", "bar")]));
 
     Assert.Contains("'bar'", exception.Message, StringComparison.Ordinal);
   }
 
   [Fact]
   public void Constructor_Cycle_Throws() {
-    var exception = Assert.Throws<SeedFormatException>(() => new LayerTree([
+    var exception = Assert.Throws<SeedFormatException>(() => new LayerTree(SampleLayers.Schema, [
       Layer("foo", "bar"),
       Layer("bar", "baz"),
       Layer("baz", "foo"),

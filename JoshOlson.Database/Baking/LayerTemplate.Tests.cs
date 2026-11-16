@@ -24,8 +24,8 @@ public sealed class LayerTemplateTests : IDisposable {
       var yaml = await File.ReadAllTextAsync(path, _cancellationToken);
       layers.Add(LayerParser.Parse(name, yaml, schema));
     }
-    var tree = new LayerTree(layers);
-    return new(SeedTestServer.RealTemplate, SeedTestServer.Databases, tree, schema, _directory, SeedTestServer.Clock);
+    var tree = new LayerTree(schema, layers);
+    return new(SeedTestServer.RealTemplate, SeedTestServer.Databases, tree, _directory, SeedTestServer.Clock);
   }
 
   private async Task WriteAsync(string name, string yaml)

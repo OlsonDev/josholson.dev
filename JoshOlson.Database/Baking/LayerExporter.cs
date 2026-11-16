@@ -14,7 +14,6 @@ public sealed class LayerExporter {
   private readonly LayerTemplate _layerTemplate;
   private readonly ServerDatabases _databases;
   private readonly LayerTree _tree;
-  private readonly SeedSchema _schema;
   private readonly IClock _clock;
 
   public LayerExporter(
@@ -22,14 +21,12 @@ public sealed class LayerExporter {
     LayerTemplate layerTemplate,
     ServerDatabases databases,
     LayerTree tree,
-    SeedSchema schema,
     IClock clock
   ) {
     _schemaTemplate = schemaTemplate;
     _layerTemplate = layerTemplate;
     _databases = databases;
     _tree = tree;
-    _schema = schema;
     _clock = clock;
   }
 
@@ -62,7 +59,7 @@ public sealed class LayerExporter {
     }
     DatabaseState child;
     await using (var source = await DatabaseEnvironment.OpenOwnerAsync(database, cancellationToken)) {
-      child = await SeedStateReader.ReadAsync(source, _schema, cancellationToken, SeedHydrator.Anchor(_clock));
+      child = await SeedStateReader.ReadAsync(source, _tree.Schema, cancellationToken, SeedHydrator.Anchor(_clock));
     }
     var recorded = child.Hydration.Layer is null ? null : _tree.Get(child.Hydration.Layer);
     var editing = child.Hydration.Editing && recorded is not null;
@@ -105,9 +102,9 @@ public sealed class LayerExporter {
     var template = parent is null
       ? (await _schemaTemplate.EnsureAsync(owner, cancellationToken)).Name
       : (await _layerTemplate.EnsureAsync(owner, parent, cancellationToken)).Name;
-    var baseline = await SeedStateReader.ReadTemplateAsync(_databases, owner, template, "export", _schema, cancellationToken, child.Hydration.Anchor);
+    var baseline = await SeedStateReader.ReadTemplateAsync(_databases, owner, template, "export", _tree.Schema, cancellationToken, child.Hydration.Anchor);
     var from = parent is null ? "the schema template" : $"the template for {parent}";
-    var diff = LayerDiff.Between(baseline.Rows, child.Rows, name, parent, description, _schema)
+    var diff = LayerDiff.Between(baseline.Rows, child.Rows, name, parent, description, _tree.Schema)
       ?? throw new SeedFormatException($"There is nothing to export: {source} holds the same rows as {from}.");
     if (!diff.GivesBackTheState) {
       throw new InvalidOperationException($"The layer does not give back the rows of {source} when it is applied to {from}. This is a bug in the export.");
@@ -123,14 +120,14 @@ public sealed class LayerExporter {
   // names of the layer and every layer below it, the ones whose chains now differ.
   private (LayerTree Tree, List<string> Affected) CheckAgainstTheOthers(SeedLayer layer, bool replaced) {
     var others = _tree.InBakeOrder().Where(other => !string.Equals(other.Name, layer.Name, StringComparison.Ordinal));
-    var tree = new LayerTree([.. others, layer]);
+    var tree = new LayerTree(_tree.Schema, [.. others, layer]);
     var problems = new SeedProblems();
     var below = new Stack<SeedLayer>(tree.ChildrenOf(layer.Name));
     var names = new List<string> { layer.Name };
     while (below.TryPop(out var descendant)) {
       names.Add(descendant.Name);
       try {
-        _ = LayerMerger.Merge(tree.ChainTo(descendant.Name), _schema);
+        _ = LayerMerger.Merge(tree.ChainTo(descendant.Name), _tree.Schema);
       } catch (SeedFormatException exception) {
         problems.Add($"{descendant.Name} no longer applies: {exception.Message}");
       }
@@ -138,7 +135,7 @@ public sealed class LayerExporter {
         below.Push(grandchild);
       }
     }
-    var blocks = tree.IdBlockProblems(_schema)
+    var blocks = tree.IdBlockProblems()
       .Where(problem => names.Exists(name => problem.StartsWith($"{name}:", StringComparison.Ordinal)))
       .ToList();
     if (blocks.Count > 0) {
@@ -159,7 +156,6 @@ public sealed class LayerExporter {
       (await _schemaTemplate.EnsureAsync(owner, cancellationToken)).Name,
       "check",
       tree,
-      _schema,
       affected,
       SeedHydrator.Anchor(_clock),
       (name, error) => $"{name} does not build: {error}",

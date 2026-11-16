@@ -30,7 +30,6 @@ public sealed class SequencePositionerTests {
     => await SequencePositioner.RootAsync(
       connection,
       FixtureSeeds.Tree,
-      _schema,
       FixtureSeeds.Child,
       _cancellationToken);
 
@@ -38,14 +37,13 @@ public sealed class SequencePositionerTests {
     => await SequencePositioner.ChainAsync(
       connection,
       FixtureSeeds.Tree,
-      _schema,
       FixtureSeeds.Child,
       editing,
       _cancellationToken);
 
   // The fixture root and a child of it with a row far past the depth-1 block.
   private LayerTree ChainPastItsBlock()
-    => new([
+    => new(_schema, [
       FixtureSeeds.Tree.Get(FixtureSeeds.Root),
       LayerParser.Parse(
         "foo",
@@ -77,7 +75,6 @@ public sealed class SequencePositionerTests {
       _ = await SeedApplier.ApplyAsync(
         transaction,
         FixtureSeeds.Tree,
-        _schema,
         FixtureSeeds.Child,
         SampleLayers.Anchor,
         _cancellationToken);
@@ -104,7 +101,6 @@ public sealed class SequencePositionerTests {
     _ = await SequencePositioner.ChainAsync(
       connection,
       ChainPastItsBlock(),
-      _schema,
       "foo",
       editing: false,
       _cancellationToken);

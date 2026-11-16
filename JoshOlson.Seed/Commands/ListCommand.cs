@@ -19,11 +19,15 @@ public sealed class ListCommand : AsyncCommand {
   public override async Task<int> ExecuteAsync(CommandContext context, CancellationToken cancellationToken) {
     var tree = await LoadTreeAsync(cancellationToken);
     var widget = new Tree("Seed layers");
-    foreach (var root in tree.Roots) {
-      Add(widget, tree, root);
+    var count = 0;
+    if (tree is not null) {
+      count = tree.Count;
+      foreach (var root in tree.Roots) {
+        Add(widget, tree, root);
+      }
     }
     _console.Write(widget);
-    _console.WriteLine($"{tree.Count.ToInvariantString()} layer(s).");
+    _console.WriteLine($"{count.ToInvariantString()} layer(s).");
     return 0;
   }
 
@@ -39,9 +43,9 @@ public sealed class ListCommand : AsyncCommand {
   }
 
   // Layer values are typed by the lock, so the lock has to exist before there is a layer to read.
-  // With neither a lock nor a layer there is nothing to list, and that is not an error.
-  private async Task<LayerTree> LoadTreeAsync(CancellationToken cancellationToken)
+  // With neither a lock nor a layer there is nothing to list (null), and that is not an error.
+  private async Task<LayerTree?> LoadTreeAsync(CancellationToken cancellationToken)
     => File.Exists(_paths.LockFile) || LayerLoader.Files(_paths.Seeds).Count > 0
       ? await LayerLoader.LoadAsync(_paths.Seeds, await SeedSchema.LoadAsync(_paths, cancellationToken), cancellationToken)
-      : new LayerTree([]);
+      : null;
 }

@@ -14,7 +14,6 @@ public sealed class SeedTool {
   private readonly SchemaTemplate _schemaTemplate;
   private readonly LayerTemplate _layerTemplate;
   private readonly ServerDatabases _databases;
-  private readonly SeedSchema _schema;
   private readonly IClock _clock;
 
   private SeedTool(
@@ -22,7 +21,6 @@ public sealed class SeedTool {
     LayerTemplate layerTemplate,
     ServerDatabases databases,
     LayerTree tree,
-    SeedSchema schema,
     IClock clock,
     string development
   ) {
@@ -30,10 +28,9 @@ public sealed class SeedTool {
     _layerTemplate = layerTemplate;
     _databases = databases;
     Tree = tree;
-    _schema = schema;
     _clock = clock;
     Development = development;
-    Exporter = new(schemaTemplate, layerTemplate, databases, tree, schema, clock);
+    Exporter = new(schemaTemplate, layerTemplate, databases, tree, clock);
   }
 
   public LayerTree Tree { get; }
@@ -46,7 +43,7 @@ public sealed class SeedTool {
 
   // The same tool for another development database, which is how a test rebuilds one of its own.
   public SeedTool WithDevelopment(string development)
-    => new(_schemaTemplate, _layerTemplate, _databases, Tree, _schema, _clock, development);
+    => new(_schemaTemplate, _layerTemplate, _databases, Tree, _clock, development);
 
   // Reads the lock and the layers under the repository root and sets everything up, with the database operations and the
   // container tools the caller has, which is how the command line shares one of each across a run. The lock has to
@@ -72,8 +69,8 @@ public sealed class SeedTool {
   ) {
     var tree = await LayerLoader.LoadAsync(paths.Seeds, schema, cancellationToken);
     var schemaTemplate = new SchemaTemplate(SchemaTemplateOptions.ForRepository(paths), tools, databases);
-    var layerTemplate = new LayerTemplate(schemaTemplate, databases, tree, schema, paths.Seeds, clock);
-    return new(schemaTemplate, layerTemplate, databases, tree, schema, clock, DatabaseEnvironment.DevelopmentDatabase());
+    var layerTemplate = new LayerTemplate(schemaTemplate, databases, tree, paths.Seeds, clock);
+    return new(schemaTemplate, layerTemplate, databases, tree, clock, DatabaseEnvironment.DevelopmentDatabase());
   }
 
   // Builds the schema template and then every layer's template, parent first. Templates that exist for the current
@@ -111,7 +108,7 @@ public sealed class SeedTool {
     => await Tree.VisitParentFirstAsync(layer => CheckFileAsync(owner, seedsDirectory, layer, cancellationToken));
 
   private async Task<string?> CheckFileAsync(NpgsqlConnection owner, string seedsDirectory, SeedLayer layer, CancellationToken cancellationToken) {
-    var canonical = LayerWriter.Write(layer, _schema);
+    var canonical = LayerWriter.Write(layer, Tree.Schema);
     var path = LayerLoader.PathOf(seedsDirectory, layer.Name);
     var onDisk = await File.ReadAllTextAsync(path, cancellationToken);
     if (!string.Equals(onDisk, canonical, StringComparison.Ordinal)) {
@@ -119,7 +116,7 @@ public sealed class SeedTool {
     }
     try {
       var (template, _) = await _layerTemplate.EnsureAsync(owner, layer.Name, cancellationToken);
-      var state = await SeedStateReader.ReadTemplateAsync(_databases, owner, template, "check", _schema, cancellationToken);
+      var state = await SeedStateReader.ReadTemplateAsync(_databases, owner, template, "check", Tree.Schema, cancellationToken);
       var again = await Exporter.DiffAsync(owner, template, state, layer.Extends, layer.Name, layer.Description, exists: true, cancellationToken);
       return string.Equals(again.Yaml, canonical, StringComparison.Ordinal)
         ? null
@@ -166,7 +163,7 @@ public sealed class SeedTool {
     var (schemaName, _) = await _schemaTemplate.EnsureAsync(owner, cancellationToken);
     await _databases.DropDevelopmentAsync(owner, Development, cancellationToken);
     await _databases.CloneDevelopmentAsync(owner, schemaName, Development, cancellationToken);
-    return await SeedHydrator.HydrateAsync(Development, Tree, _schema, layer, editing, SeedHydrator.Anchor(_clock), cancellationToken);
+    return await SeedHydrator.HydrateAsync(Development, Tree, layer, editing, SeedHydrator.Anchor(_clock), cancellationToken);
   }
 
   // `seed:clean`: drops every seed tool database except the templates the current files name (all of them with

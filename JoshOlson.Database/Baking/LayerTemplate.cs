@@ -19,7 +19,6 @@ public sealed class LayerTemplate {
   private readonly SchemaTemplate _schemaTemplate;
   private readonly ServerDatabases _databases;
   private readonly LayerTree _tree;
-  private readonly SeedSchema _schema;
   private readonly string _seedsDirectory;
   private readonly IClock _clock;
 
@@ -27,14 +26,12 @@ public sealed class LayerTemplate {
     SchemaTemplate schemaTemplate,
     ServerDatabases databases,
     LayerTree tree,
-    SeedSchema schema,
     string seedsDirectory,
     IClock clock
   ) {
     _schemaTemplate = schemaTemplate;
     _databases = databases;
     _tree = tree;
-    _schema = schema;
     _seedsDirectory = seedsDirectory;
     _clock = clock;
   }
@@ -51,7 +48,7 @@ public sealed class LayerTemplate {
       name,
       async building => {
         await _databases.CloneAsync(owner, schemaName, building, cancellationToken);
-        _ = await SeedHydrator.HydrateAsync(building, _tree, _schema, layer, editing: false, SeedHydrator.Anchor(_clock), cancellationToken);
+        _ = await SeedHydrator.HydrateAsync(building, _tree, layer, editing: false, SeedHydrator.Anchor(_clock), cancellationToken);
       },
       cancellationToken);
     return new(name, built);

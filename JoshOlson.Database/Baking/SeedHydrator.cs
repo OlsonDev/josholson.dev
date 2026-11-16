@@ -21,13 +21,12 @@ public static class SeedHydrator {
   public static async Task<int> HydrateAsync(
     string database,
     LayerTree tree,
-    SeedSchema schema,
     string layer,
     bool editing,
     Instant anchor,
     CancellationToken cancellationToken
   )
-    => await FillAsync(database, tree, schema, layer, editing, anchor, forMigration: false, cancellationToken);
+    => await FillAsync(database, tree, layer, editing, anchor, forMigration: false, cancellationToken);
 
   // The same for `seeds:migrate`, which puts a layer's chain into a database at the schema it was written for before the
   // newer migrations run over it. Two things differ. Foreign keys are not enforced while the rows go in (`session_replication_role`
@@ -38,12 +37,11 @@ public static class SeedHydrator {
   public static async Task<int> HydrateForMigrationAsync(
     string database,
     LayerTree tree,
-    SeedSchema schema,
     string layer,
     Instant anchor,
     CancellationToken cancellationToken
   )
-    => await FillAsync(database, tree, schema, layer, editing: false, anchor, forMigration: true, cancellationToken);
+    => await FillAsync(database, tree, layer, editing: false, anchor, forMigration: true, cancellationToken);
 
   // Whether each of `layers` builds: its chain is put into a clone of `template` (the schema template the tree is
   // written for), which is then dropped. The merge of a chain is in memory and Postgres has not seen the rows, so a
@@ -55,7 +53,6 @@ public static class SeedHydrator {
     string template,
     string purpose,
     LayerTree tree,
-    SeedSchema schema,
     List<string> layers,
     Instant anchor,
     Func<string, string, string> problem,
@@ -65,7 +62,7 @@ public static class SeedHydrator {
     foreach (var layer in layers) {
       await using var scratch = await databases.CloneScratchAsync(owner, template, purpose, cancellationToken);
       try {
-        _ = await HydrateAsync(scratch.Name, tree, schema, layer, editing: false, anchor, cancellationToken);
+        _ = await HydrateAsync(scratch.Name, tree, layer, editing: false, anchor, cancellationToken);
       } catch (SeedFormatException exception) {
         problems.Add(problem(layer, exception.Message));
       }
@@ -78,7 +75,6 @@ public static class SeedHydrator {
   private static async Task<int> FillAsync(
     string database,
     LayerTree tree,
-    SeedSchema schema,
     string layer,
     bool editing,
     Instant anchor,
@@ -91,13 +87,13 @@ public static class SeedHydrator {
       if (forMigration) {
         await connection.ExecuteAsync("SET LOCAL session_replication_role = replica;", cancellationToken);
       }
-      rows = await SeedApplier.ApplyAsync(transaction, tree, schema, layer, anchor, cancellationToken);
+      rows = await SeedApplier.ApplyAsync(transaction, tree, layer, anchor, cancellationToken);
       await transaction.CommitAsync(cancellationToken);
     }
     await SeedHydration.RecordAsync(connection, new(anchor, layer, editing), cancellationToken);
     _ = forMigration
-      ? await SequencePositioner.RootAsync(connection, tree, schema, layer, cancellationToken)
-      : await SequencePositioner.ChainAsync(connection, tree, schema, layer, editing, cancellationToken);
+      ? await SequencePositioner.RootAsync(connection, tree, layer, cancellationToken)
+      : await SequencePositioner.ChainAsync(connection, tree, layer, editing, cancellationToken);
     return rows;
   }
 }

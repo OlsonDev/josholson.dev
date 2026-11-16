@@ -12,7 +12,7 @@ public sealed class SeedApplierTests {
   [Fact]
   public async Task ApplyAsync_Chain_InsertsTheMergedRowsInForeignKeyOrder() {
     var schema = SeedTestServer.Schema;
-    var tree = new LayerTree([
+    var tree = new LayerTree(schema, [
       LayerParser.Parse(
         "foo",
         """
@@ -41,7 +41,7 @@ public sealed class SeedApplierTests {
     await using var connection = await DatabaseEnvironment.OpenOwnerAsync(_cancellationToken);
     await using var transaction = await connection.BeginTransactionAsync(_cancellationToken);
 
-    var rows = await SeedApplier.ApplyAsync(transaction, tree, schema, "bar", SampleLayers.Anchor, _cancellationToken);
+    var rows = await SeedApplier.ApplyAsync(transaction, tree, "bar", SampleLayers.Anchor, _cancellationToken);
 
     var description = await connection.QuerySingleAsync<string>(
       "SELECT description FROM tag.tag WHERE tag_id = 900001;",
@@ -59,7 +59,7 @@ public sealed class SeedApplierTests {
   [Fact]
   public async Task ApplyAsync_RowThatBreaksAConstraint_NamesTheTable() {
     var schema = SeedTestServer.Schema;
-    var tree = new LayerTree([
+    var tree = new LayerTree(schema, [
       LayerParser.Parse(
         "foo",
         """
@@ -75,7 +75,7 @@ public sealed class SeedApplierTests {
     await using var transaction = await connection.BeginTransactionAsync(_cancellationToken);
 
     var exception = await Assert.ThrowsAsync<SeedFormatException>(
-      () => SeedApplier.ApplyAsync(transaction, tree, schema, "foo", SampleLayers.Anchor, _cancellationToken));
+      () => SeedApplier.ApplyAsync(transaction, tree, "foo", SampleLayers.Anchor, _cancellationToken));
 
     Assert.Contains("tag.alias", exception.Message, StringComparison.Ordinal);
   }

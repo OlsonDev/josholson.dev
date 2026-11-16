@@ -40,7 +40,6 @@ public static class LayerMover {
     HashSet<string> dropped,
     CancellationToken cancellationToken
   ) {
-    var oldSchema = new SeedSchema(existing);
     var newSchema = new SeedSchema(updated);
     var anchor = SeedHydrator.Anchor(options.Clock);
 
@@ -52,7 +51,7 @@ public static class LayerMover {
     var problems = new SeedProblems();
     problems.AddRange(await oldTree.VisitParentFirstAsync(async layer => {
       try {
-        states[layer.Name] = await MigrateLayerAsync(owner, options, fromTemplate, oldTree, oldSchema, newSchema, layer.Name, onDisk, anchor, cancellationToken);
+        states[layer.Name] = await MigrateLayerAsync(owner, options, fromTemplate, oldTree, newSchema, layer.Name, onDisk, anchor, cancellationToken);
         return null;
       } catch (SeedFormatException exception) {
         return $"{layer.Name}: {exception.Message}";
@@ -78,8 +77,7 @@ public static class LayerMover {
         owner,
         headTemplate,
         "move",
-        new LayerTree([.. moved.ConvertAll(layer => layer.Layer)]),
-        newSchema,
+        new LayerTree(newSchema, [.. moved.ConvertAll(layer => layer.Layer)]),
         moved.ConvertAll(layer => layer.Layer.Name),
         anchor,
         (name, error) => $"{name}: does not build at the newest version: {error}",
@@ -100,7 +98,6 @@ public static class LayerMover {
     MigrateOptions options,
     string fromTemplate,
     LayerTree oldTree,
-    SeedSchema oldSchema,
     SeedSchema newSchema,
     string layer,
     List<MigrationFile> onDisk,
@@ -108,7 +105,7 @@ public static class LayerMover {
     CancellationToken cancellationToken
   ) {
     await using var scratch = await options.Databases.CloneScratchAsync(owner, fromTemplate, "move", cancellationToken);
-    _ = await SeedHydrator.HydrateForMigrationAsync(scratch.Name, oldTree, oldSchema, layer, anchor, cancellationToken);
+    _ = await SeedHydrator.HydrateForMigrationAsync(scratch.Name, oldTree, layer, anchor, cancellationToken);
     try {
       await options.Template.MigrateToNewestAsync(scratch.Name, cancellationToken);
     } catch (InvalidOperationException exception) {
@@ -144,7 +141,7 @@ public static class LayerMover {
     if (problems.Count > 0) {
       return [];
     }
-    problems.AddRange(new LayerTree(diffs.ConvertAll(diff => diff.Layer)).IdBlockProblems(newSchema));
+    problems.AddRange(new LayerTree(newSchema, diffs.ConvertAll(diff => diff.Layer)).IdBlockProblems());
     var moved = new List<MovedLayer>(diffs.Count);
     foreach (var diff in diffs) {
       var name = diff.Layer.Name;
@@ -183,7 +180,7 @@ public static class LayerMover {
       return [];
     }
     try {
-      problems.AddRange(new LayerTree([.. all.ConvertAll(layer => layer.Layer)]).IdBlockProblems(newSchema));
+      problems.AddRange(new LayerTree(newSchema, [.. all.ConvertAll(layer => layer.Layer)]).IdBlockProblems());
     } catch (SeedFormatException exception) {
       problems.Add(exception.Message);
     }

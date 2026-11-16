@@ -41,7 +41,7 @@ public static class FixtureSeeds {
 
     """;
 
-  private static readonly Lazy<LayerTree> _Tree = new(() => new([
+  private static readonly Lazy<LayerTree> _Tree = new(() => new(SeedTestServer.Schema, [
     LayerParser.Parse(Root, RootLayer, SeedTestServer.Schema),
     LayerParser.Parse(Child, ChildLayer, SeedTestServer.Schema),
   ]));
