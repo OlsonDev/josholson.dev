@@ -89,120 +89,110 @@ public static class LayerParser {
     } else if (known.Table.PrimaryKey.Count is 0) {
       problems.Add($"{layer}: {table} has no primary key, and a layer finds its rows by it.");
     }
+    var reader = new TableReader(layer, table, known, problems);
     return new() {
       Table = table,
-      Inserts = Rows(layer, table, "insert", map, known, problems),
-      Updates = Rows(layer, table, "update", map, known, problems),
-      Deletes = Rows(layer, table, "delete", map, known, problems),
+      Inserts = reader.Rows("insert", map),
+      Updates = reader.Rows("update", map),
+      Deletes = reader.Rows("delete", map),
     };
   }
 
-  private static List<Dictionary<string, SeedValue?>> Rows(
-    string layer,
-    string table,
-    string key,
-    YamlMappingNode map,
-    SeedTable? known,
-    SeedProblems problems
-  ) {
-    if (YamlNodes.Find(map, key) is not { } node) {
-      return [];
-    }
-    var sequence = node as YamlSequenceNode
-      ?? throw new SeedFormatException($"{layer}: {table}.{key} must be a list of rows.");
-    var rows = new List<Dictionary<string, SeedValue?>>(sequence.Children.Count);
-    foreach (var item in sequence.Children) {
-      var row = item as YamlMappingNode
-        ?? throw new SeedFormatException($"{layer}: every {table}.{key} row must be a mapping of column to value.");
-      if (row.Children.Count is 0) {
-        throw new SeedFormatException($"{layer}: a {table}.{key} row is empty.");
+  // One table's rows in one layer, read as the table's columns when the lock knows the table.
+  private sealed record TableReader(string Layer, string Table, SeedTable? Known, SeedProblems Problems) {
+    public List<Dictionary<string, SeedValue?>> Rows(string key, YamlMappingNode map) {
+      if (YamlNodes.Find(map, key) is not { } node) {
+        return [];
       }
-      var where = $"{layer}: {table} {key} row {(rows.Count + 1).ToInvariantString()}";
-      var values = new Dictionary<string, SeedValue?>(row.Children.Count, StringComparer.Ordinal);
-      foreach (var (column, value) in row.Children) {
-        var columnName = YamlNodes.Key(layer, column);
-        if (values.ContainsKey(columnName)) {
-          throw new SeedFormatException($"{layer}: a {table}.{key} row repeats column '{columnName}'.");
+      var sequence = node as YamlSequenceNode
+        ?? throw new SeedFormatException($"{Layer}: {Table}.{key} must be a list of rows.");
+      var rows = new List<Dictionary<string, SeedValue?>>(sequence.Children.Count);
+      foreach (var item in sequence.Children) {
+        var row = item as YamlMappingNode
+          ?? throw new SeedFormatException($"{Layer}: every {Table}.{key} row must be a mapping of column to value.");
+        if (row.Children.Count is 0) {
+          throw new SeedFormatException($"{Layer}: a {Table}.{key} row is empty.");
         }
-        values[columnName] = ReadValue(where, columnName, value, known, key is not "delete", problems);
+        var where = $"{Layer}: {Table} {key} row {(rows.Count + 1).ToInvariantString()}";
+        var values = new Dictionary<string, SeedValue?>(row.Children.Count, StringComparer.Ordinal);
+        foreach (var (column, value) in row.Children) {
+          var columnName = YamlNodes.Key(Layer, column);
+          if (values.ContainsKey(columnName)) {
+            throw new SeedFormatException($"{Layer}: a {Table}.{key} row repeats column '{columnName}'.");
+          }
+          values[columnName] = ReadValue(where, columnName, value, key is not "delete");
+        }
+        if (Known is { } known) {
+          CheckKey(where, values, known);
+          switch (key) {
+            case "insert":
+              CheckComplete(where, values, known);
+              break;
+            case "update":
+              CheckChanges(where, values, known);
+              break;
+            default:
+              CheckOnlyKey(where, values, known);
+              break;
+          }
+        }
+        rows.Add(values);
       }
-      if (known is not null) {
-        CheckKey(where, values, known, problems);
-        switch (key) {
-          case "insert":
-            CheckComplete(where, values, known, problems);
-            break;
-          case "update":
-            CheckChanges(where, values, known, problems);
-            break;
-          default:
-            CheckOnlyKey(where, values, known, problems);
-            break;
+      return rows;
+    }
+
+    // The value as the column's type, or null with a problem noted when it is not (or when the column is unknown, which
+    // is noted too, so the one fault is reported once).
+    private SeedValue? ReadValue(string where, string column, YamlNode node, bool isSet) {
+      if (Known is not { } known) {
+        return null;
+      }
+      if (!known.Columns.TryGetValue(column, out var seedColumn)) {
+        Problems.Add($"{where}: {column} is not a column of {known.Table.Name}.");
+        return null;
+      }
+      if (isSet && seedColumn.Column.GeneratedAs is GeneratedAs.ExpressionStored or GeneratedAs.ExpressionVirtual) {
+        Problems.Add($"{where}: {column} is generated from an expression, so a seed cannot set it.");
+        return null;
+      }
+      if (SeedValueReader.Read(seedColumn, node, out var value) is { } problem) {
+        Problems.Add($"{where}: {column} {problem}");
+        return null;
+      }
+      return value;
+    }
+
+    private void CheckKey(string where, Dictionary<string, SeedValue?> values, SeedTable known) {
+      foreach (var column in known.Table.PrimaryKey) {
+        if (!values.ContainsKey(column)) {
+          Problems.Add($"{where}: the primary key column {column} is missing.");
         }
       }
-      rows.Add(values);
     }
-    return rows;
-  }
 
-  // The value as the column's type, or null with a problem noted when it is not (or when the column is unknown, which
-  // is noted too, so the one fault is reported once).
-  private static SeedValue? ReadValue(
-    string where,
-    string column,
-    YamlNode node,
-    SeedTable? known,
-    bool isSet,
-    SeedProblems problems
-  ) {
-    if (known is null) {
-      return null;
-    }
-    if (!known.Columns.TryGetValue(column, out var seedColumn)) {
-      problems.Add($"{where}: {column} is not a column of {known.Table.Name}.");
-      return null;
-    }
-    if (isSet && seedColumn.Column.GeneratedAs is GeneratedAs.ExpressionStored or GeneratedAs.ExpressionVirtual) {
-      problems.Add($"{where}: {column} is generated from an expression, so a seed cannot set it.");
-      return null;
-    }
-    if (SeedValueReader.Read(seedColumn, node, out var value) is { } problem) {
-      problems.Add($"{where}: {column} {problem}");
-      return null;
-    }
-    return value;
-  }
-
-  private static void CheckKey(string where, Dictionary<string, SeedValue?> values, SeedTable known, SeedProblems problems) {
-    foreach (var column in known.Table.PrimaryKey) {
-      if (!values.ContainsKey(column)) {
-        problems.Add($"{where}: the primary key column {column} is missing.");
+    // An insert leaves nothing to a default, which a later migration could change under the seed (ADR 0014, hierarchical seed
+    // layers): it names every column that can be set, a NULL one as `~`.
+    private void CheckComplete(string where, Dictionary<string, SeedValue?> values, SeedTable known) {
+      var missing = known.Table.Columns
+        .Where(column => column.GeneratedAs is not (GeneratedAs.ExpressionStored or GeneratedAs.ExpressionVirtual))
+        .Select(column => column.Name)
+        .Where(column => !values.ContainsKey(column))
+        .ToList();
+      if (missing.Count > 0) {
+        Problems.Add($"{where}: an insert names every column, and it leaves out {string.Join(", ", missing)}.");
       }
     }
-  }
 
-  // An insert leaves nothing to a default, which a later migration could change under the seed (ADR 0014, hierarchical seed
-  // layers): it names every column that can be set, a NULL one as `~`.
-  private static void CheckComplete(string where, Dictionary<string, SeedValue?> values, SeedTable known, SeedProblems problems) {
-    var missing = known.Table.Columns
-      .Where(column => column.GeneratedAs is not (GeneratedAs.ExpressionStored or GeneratedAs.ExpressionVirtual))
-      .Select(column => column.Name)
-      .Where(column => !values.ContainsKey(column))
-      .ToList();
-    if (missing.Count > 0) {
-      problems.Add($"{where}: an insert names every column, and it leaves out {string.Join(", ", missing)}.");
+    private void CheckChanges(string where, Dictionary<string, SeedValue?> values, SeedTable known) {
+      if (values.Keys.All(column => known.Table.PrimaryKey.Contains(column) || !known.Columns.ContainsKey(column))) {
+        Problems.Add($"{where}: an update names the key and the columns it changes, and it changes none.");
+      }
     }
-  }
 
-  private static void CheckChanges(string where, Dictionary<string, SeedValue?> values, SeedTable known, SeedProblems problems) {
-    if (values.Keys.All(column => known.Table.PrimaryKey.Contains(column) || !known.Columns.ContainsKey(column))) {
-      problems.Add($"{where}: an update names the key and the columns it changes, and it changes none.");
-    }
-  }
-
-  private static void CheckOnlyKey(string where, Dictionary<string, SeedValue?> values, SeedTable known, SeedProblems problems) {
-    foreach (var column in values.Keys.Where(column => known.Columns.ContainsKey(column) && !known.Table.PrimaryKey.Contains(column))) {
-      problems.Add($"{where}: a delete holds only the primary key, so {column} does not belong.");
+    private void CheckOnlyKey(string where, Dictionary<string, SeedValue?> values, SeedTable known) {
+      foreach (var column in values.Keys.Where(column => known.Columns.ContainsKey(column) && !known.Table.PrimaryKey.Contains(column))) {
+        Problems.Add($"{where}: a delete holds only the primary key, so {column} does not belong.");
+      }
     }
   }
 

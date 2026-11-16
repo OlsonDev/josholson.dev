@@ -28,90 +28,74 @@ public static class SeedSql {
     var problems = new SeedProblems("The rows have");
     foreach (var table in schema.InsertOrder()) {
       if (state.Tables.TryGetValue(table.Table.Name, out var rows) && rows.Count > 0) {
-        AddTable(table, rows, anchor, statements, problems);
+        new TableInsert(table, anchor, problems).AddTo(statements, rows);
       }
     }
     problems.ThrowIfAny();
     return statements;
   }
 
-  private static void AddTable(
-    SeedTable table,
-    SortedDictionary<SeedValue[], Dictionary<string, SeedValue?>> rows,
-    Instant anchor,
-    List<SeedStatement> statements,
-    SeedProblems problems
-  ) {
-    var columns = table.Table.Columns
-      .Where(column => column.GeneratedAs is not (GeneratedAs.ExpressionStored or GeneratedAs.ExpressionVirtual))
-      .Select(column => table.Columns[column.Name])
-      .ToList();
-    var perStatement = Math.Max(1, _MaxParameters / columns.Count);
-    foreach (var chunk in rows.Values.Chunk(perStatement)) {
-      statements.Add(Statement(table, columns, chunk, anchor, problems));
-    }
-  }
-
-  private static SeedStatement Statement(
-    SeedTable table,
-    List<SeedColumn> columns,
-    Dictionary<string, SeedValue?>[] rows,
-    Instant anchor,
-    SeedProblems problems
-  ) {
-    var sql = new StringBuilder();
-    sql.Append("INSERT INTO ").Append(table.Table.Name).Append(" (\n");
-    for (var i = 0; i < columns.Count; i++) {
-      sql.Append(i is 0 ? "    " : "  , ").Append(columns[i].Column.Name).Append('\n');
-    }
-    sql.Append(')');
-    if (columns.Any(column => column.Column.GeneratedAs is GeneratedAs.IdentityAlways or GeneratedAs.IdentityByDefault)) {
-      sql.Append(" OVERRIDING SYSTEM VALUE");
-    }
-    sql.Append(" VALUES\n");
-
-    var parameters = new List<NpgsqlParameter>();
-    for (var r = 0; r < rows.Length; r++) {
-      sql.Append(r is 0 ? "    (" : "  , (");
-      for (var c = 0; c < columns.Count; c++) {
-        if (c > 0) {
-          sql.Append(", ");
-        }
-        sql.Append(Placeholder(table, columns[c], rows[r], anchor, parameters, problems));
+  // The `INSERT`s for one table's rows.
+  private sealed record TableInsert(SeedTable Table, Instant Anchor, SeedProblems Problems) {
+    public void AddTo(List<SeedStatement> statements, SortedDictionary<SeedValue[], Dictionary<string, SeedValue?>> rows) {
+      var columns = Table.Table.Columns
+        .Where(column => column.GeneratedAs is not (GeneratedAs.ExpressionStored or GeneratedAs.ExpressionVirtual))
+        .Select(column => Table.Columns[column.Name])
+        .ToList();
+      var perStatement = Math.Max(1, _MaxParameters / columns.Count);
+      foreach (var chunk in rows.Values.Chunk(perStatement)) {
+        statements.Add(Statement(columns, chunk));
       }
-      sql.Append(")\n");
     }
-    sql.Append(';');
-    return new() {
-      Table = table.Table.Name,
-      RowCount = rows.Length,
-      Sql = sql.ToString(),
-      Parameters = parameters,
-    };
-  }
 
-  // `NULL` when the row says NULL, and otherwise the next parameter. A row that leaves the column out is refused.
-  private static string Placeholder(
-    SeedTable table,
-    SeedColumn column,
-    Dictionary<string, SeedValue?> row,
-    Instant anchor,
-    List<NpgsqlParameter> parameters,
-    SeedProblems problems
-  ) {
-    if (!row.TryGetValue(column.Column.Name, out var value)) {
-      throw new SeedFormatException($"{table.Table.Name}: a row leaves out {column.Column.Name}, and a seed names every column.");
+    private SeedStatement Statement(List<SeedColumn> columns, Dictionary<string, SeedValue?>[] rows) {
+      var sql = new StringBuilder();
+      sql.Append("INSERT INTO ").Append(Table.Table.Name).Append(" (\n");
+      for (var i = 0; i < columns.Count; i++) {
+        sql.Append(i is 0 ? "    " : "  , ").Append(columns[i].Column.Name).Append('\n');
+      }
+      sql.Append(')');
+      if (columns.Any(column => column.Column.GeneratedAs is GeneratedAs.IdentityAlways or GeneratedAs.IdentityByDefault)) {
+        sql.Append(" OVERRIDING SYSTEM VALUE");
+      }
+      sql.Append(" VALUES\n");
+
+      var parameters = new List<NpgsqlParameter>();
+      for (var r = 0; r < rows.Length; r++) {
+        sql.Append(r is 0 ? "    (" : "  , (");
+        for (var c = 0; c < columns.Count; c++) {
+          if (c > 0) {
+            sql.Append(", ");
+          }
+          sql.Append(Placeholder(columns[c], rows[r], parameters));
+        }
+        sql.Append(")\n");
+      }
+      sql.Append(';');
+      return new() {
+        Table = Table.Table.Name,
+        RowCount = rows.Length,
+        Sql = sql.ToString(),
+        Parameters = parameters,
+      };
     }
-    if (value is null) {
-      return "NULL";
-    }
-    try {
-      var name = string.Create(CultureInfo.InvariantCulture, $"p{parameters.Count}");
-      parameters.Add(new(name, TypeOf(column.Type)) { Value = Convert(column.Type.Seed, value, anchor) });
-      return "@" + name;
-    } catch (Exception exception) when (exception is OverflowException or ArgumentOutOfRangeException or InvalidOperationException) {
-      problems.Add($"{table.Table.Name}: {column.Column.Name} holds a time outside the dates the anchor and a timestamptz can reach.");
-      return "NULL";
+
+    // `NULL` when the row says NULL, and otherwise the next parameter. A row that leaves the column out is refused.
+    private string Placeholder(SeedColumn column, Dictionary<string, SeedValue?> row, List<NpgsqlParameter> parameters) {
+      if (!row.TryGetValue(column.Column.Name, out var value)) {
+        throw new SeedFormatException($"{Table.Table.Name}: a row leaves out {column.Column.Name}, and a seed names every column.");
+      }
+      if (value is null) {
+        return "NULL";
+      }
+      try {
+        var name = string.Create(CultureInfo.InvariantCulture, $"p{parameters.Count}");
+        parameters.Add(new(name, TypeOf(column.Type)) { Value = Convert(column.Type.Seed, value, Anchor) });
+        return "@" + name;
+      } catch (Exception exception) when (exception is OverflowException or ArgumentOutOfRangeException or InvalidOperationException) {
+        Problems.Add($"{Table.Table.Name}: {column.Column.Name} holds a time outside the dates the anchor and a timestamptz can reach.");
+        return "NULL";
+      }
     }
   }
 

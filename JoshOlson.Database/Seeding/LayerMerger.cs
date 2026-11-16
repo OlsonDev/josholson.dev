@@ -23,62 +23,54 @@ public static class LayerMerger {
         if (!state.Tables.TryGetValue(change.Table, out var rows)) {
           state.Tables[change.Table] = rows = [with(RowKeyComparer.Instance)];
         }
-        Delete(layer, change, table, rows, problems);
-        Insert(layer, change, table, rows, problems);
-        Update(layer, change, table, rows, problems);
+        var merge = new TableMerge(layer, change, table, rows, problems);
+        merge.Delete();
+        merge.Insert();
+        merge.Update();
       }
     }
     problems.ThrowIfAny();
     return state;
   }
 
-  private static void Delete(
-    SeedLayer layer,
-    TableChange change,
-    SeedTable table,
-    SortedDictionary<SeedValue[], Dictionary<string, SeedValue?>> rows,
-    SeedProblems problems
+  // One layer's changes to one table, folded into the rows the layers before it came to.
+  private sealed record TableMerge(
+    SeedLayer Layer,
+    TableChange Change,
+    SeedTable Table,
+    SortedDictionary<SeedValue[], Dictionary<string, SeedValue?>> Rows,
+    SeedProblems Problems
   ) {
-    foreach (var row in change.Deletes) {
-      var key = KeyOf(row, table);
-      if (!rows.Remove(key)) {
-        problems.Add($"{layer.Name}: {change.Table} deletes the row with key {Describe(key)}, which no layer before it gives.");
+    public void Delete() {
+      foreach (var row in Change.Deletes) {
+        var key = KeyOf(row, Table);
+        if (!Rows.Remove(key)) {
+          Problems.Add($"{Layer.Name}: {Change.Table} deletes the row with key {Describe(key)}, which no layer before it gives.");
+        }
       }
     }
-  }
 
-  private static void Insert(
-    SeedLayer layer,
-    TableChange change,
-    SeedTable table,
-    SortedDictionary<SeedValue[], Dictionary<string, SeedValue?>> rows,
-    SeedProblems problems
-  ) {
-    foreach (var row in change.Inserts) {
-      var key = KeyOf(row, table);
-      if (rows.ContainsKey(key)) {
-        problems.Add($"{layer.Name}: {change.Table} inserts the row with key {Describe(key)}, which a layer before it (or this one) already gives.");
-        continue;
+    public void Insert() {
+      foreach (var row in Change.Inserts) {
+        var key = KeyOf(row, Table);
+        if (Rows.ContainsKey(key)) {
+          Problems.Add($"{Layer.Name}: {Change.Table} inserts the row with key {Describe(key)}, which a layer before it (or this one) already gives.");
+          continue;
+        }
+        Rows[key] = new Dictionary<string, SeedValue?>(row, StringComparer.Ordinal);
       }
-      rows[key] = new Dictionary<string, SeedValue?>(row, StringComparer.Ordinal);
     }
-  }
 
-  private static void Update(
-    SeedLayer layer,
-    TableChange change,
-    SeedTable table,
-    SortedDictionary<SeedValue[], Dictionary<string, SeedValue?>> rows,
-    SeedProblems problems
-  ) {
-    foreach (var row in change.Updates) {
-      var key = KeyOf(row, table);
-      if (!rows.TryGetValue(key, out var merged)) {
-        problems.Add($"{layer.Name}: {change.Table} updates the row with key {Describe(key)}, which no layer before it gives.");
-        continue;
-      }
-      foreach (var (column, value) in row) {
-        merged[column] = value;
+    public void Update() {
+      foreach (var row in Change.Updates) {
+        var key = KeyOf(row, Table);
+        if (!Rows.TryGetValue(key, out var merged)) {
+          Problems.Add($"{Layer.Name}: {Change.Table} updates the row with key {Describe(key)}, which no layer before it gives.");
+          continue;
+        }
+        foreach (var (column, value) in row) {
+          merged[column] = value;
+        }
       }
     }
   }
