@@ -1,5 +1,6 @@
 using JoshOlson.Database.Layers;
 using JoshOlson.Database.Seeding;
+using JoshOlson.Shared.Results;
 using NodaTime;
 using Npgsql;
 
@@ -66,7 +67,8 @@ public sealed class LayerExporter {
     if (exists && !replaced && !request.Overwrite) {
       throw new SeedFormatException($"There is already a layer named '{name}'. Pass --overwrite to replace it, or pick another name.");
     }
-    var export = await DiffAsync(owner, request.Database, child, new(name, parent, description), cancellationToken) with { Replaces = exists };
+    var diffed = await DiffAsync(owner, request.Database, child, new(name, parent, description), cancellationToken);
+    var export = diffed.OrThrow() with { Replaces = exists };
     var (tree, affected) = CheckAgainstTheOthers(export.Layer, replaced);
     await CheckTheyBuildAsync(owner, tree, affected, cancellationToken);
     return export;
@@ -84,7 +86,8 @@ public sealed class LayerExporter {
   // template for a root, which has no anchor and so is measured from the child's), checked against the baseline
   // (`LayerDiff`). `source` only names where the rows came from in a message. `seeds:check` uses it too, to see that a
   // layer's own template exports as the layer. Whether the layer replaces one is the caller's to say, and is false here.
-  internal async Task<LayerExport> DiffAsync(
+  // The problems are a parent whose template does not build, or that there is no difference to make a layer from.
+  internal async Task<Result<LayerExport, SeedProblems>> DiffAsync(
     NpgsqlConnection owner,
     string source,
     DatabaseState child,
@@ -92,18 +95,27 @@ public sealed class LayerExporter {
     CancellationToken cancellationToken
   ) {
     var parent = header.Extends;
-    var template = parent is null
-      ? (await _schemaTemplate.EnsureAsync(owner, cancellationToken)).Name
-      : (await _layerTemplate.EnsureAsync(owner, parent, cancellationToken)).OrThrow().Name;
+    string template;
+    if (parent is null) {
+      template = (await _schemaTemplate.EnsureAsync(owner, cancellationToken)).Name;
+    } else {
+      var ensured = await _layerTemplate.EnsureAsync(owner, parent, cancellationToken);
+      if (ensured is SeedProblems unbuilt) {
+        return unbuilt;
+      }
+      template = ensured.OrThrow().Name;
+    }
     var baseline = await SeedStateReader.ReadTemplateAsync(_databases, owner, template, "export", _tree.Schema, cancellationToken, child.Hydration.Anchor);
     var from = parent is null ? "the schema template" : $"the template for {parent}";
-    var diff = LayerDiff.Between(baseline.Rows, child.Rows, header, _tree.Schema)
-      ?? throw new SeedFormatException($"There is nothing to export: {source} holds the same rows as {from}.");
+    var diff = LayerDiff.Between(baseline.Rows, child.Rows, header, _tree.Schema);
+    if (diff is null) {
+      return SeedProblems.Of($"There is nothing to export: {source} holds the same rows as {from}.");
+    }
     if (!diff.GivesBackTheState) {
       throw new InvalidOperationException($"The layer does not give back the rows of {source} when it is applied to {from}. This is a bug in the export.");
     }
     return diff.ReadsBack
-      ? new(diff.Layer, diff.Yaml, child.Hydration.Anchor, Replaces: false)
+      ? new LayerExport(diff.Layer, diff.Yaml, child.Hydration.Anchor, Replaces: false)
       : throw new InvalidOperationException("The layer does not read back as the text it was written as. This is a bug in the export.");
   }
 

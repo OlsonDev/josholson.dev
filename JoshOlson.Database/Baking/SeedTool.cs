@@ -110,16 +110,20 @@ public sealed class SeedTool {
     if (!string.Equals(onDisk, canonical, StringComparison.Ordinal)) {
       return $"{layer.Name}: {path} is not in canonical form ({FirstDifference(canonical, onDisk)}).";
     }
-    try {
-      var (template, _) = (await _layerTemplate.EnsureAsync(owner, layer.Name, cancellationToken)).OrThrow();
-      var state = await SeedStateReader.ReadTemplateAsync(_databases, owner, template, "check", Tree.Schema, cancellationToken);
-      var again = await Exporter.DiffAsync(owner, template, state, layer.Header, cancellationToken);
-      return string.Equals(again.Yaml, canonical, StringComparison.Ordinal)
-        ? null
-        : $"{layer.Name}: a database built from it exports as something else ({FirstDifference(canonical, again.Yaml)}).";
-    } catch (SeedFormatException exception) {
-      return $"{layer.Name}: {exception.Message}";
+    var ensured = await _layerTemplate.EnsureAsync(owner, layer.Name, cancellationToken);
+    if (ensured is SeedProblems unbuilt) {
+      return $"{layer.Name}: {unbuilt}";
     }
+    var template = ensured.OrThrow().Name;
+    var state = await SeedStateReader.ReadTemplateAsync(_databases, owner, template, "check", Tree.Schema, cancellationToken);
+    var diffed = await Exporter.DiffAsync(owner, template, state, layer.Header, cancellationToken);
+    if (diffed is SeedProblems undiffed) {
+      return $"{layer.Name}: {undiffed}";
+    }
+    var again = diffed.OrThrow().Yaml;
+    return string.Equals(again, canonical, StringComparison.Ordinal)
+      ? null
+      : $"{layer.Name}: a database built from it exports as something else ({FirstDifference(canonical, again)}).";
   }
 
   // Where two texts first part ways, for a message: the line number and both lines.
