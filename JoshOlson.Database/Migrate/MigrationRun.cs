@@ -1,6 +1,7 @@
 using JoshOlson.Database.Layers;
 using JoshOlson.Database.Locks;
 using JoshOlson.Shared.Extensions;
+using JoshOlson.Shared.Results;
 using Npgsql;
 
 namespace JoshOlson.Database.Migrate;
@@ -53,8 +54,12 @@ internal sealed class MigrationRun {
     var generated = SeedMigrator.HasLayers(_options)
       ? await GeneratedLayers.FindAsync(_options.SeedsDirectory, previous, SnapshotAsync, _cancellationToken)
       : [];
-    var (moved, recorded, kept) = await MoveLayersAsync(input, derivation, check, schemaLock, onDisk, generated, problems);
+    var outcome = await MoveLayersAsync(input, derivation, check, schemaLock, onDisk, generated);
+    if (outcome is SeedProblems unmoved) {
+      problems.AddRange(unmoved.Messages);
+    }
     Refuse(problems);
+    var (moved, recorded, kept) = outcome.OrThrow();
 
     var layers = await WriteLayersAsync(moved);
     schemaLock = schemaLock with { Layers = await RecordLayersAsync(moved, recorded) };
@@ -116,41 +121,49 @@ internal sealed class MigrationRun {
     return string.Join("\n", lines);
   }
 
-  private async Task<LayerOutcome> MoveLayersAsync(
+  // The layers after the run, or why there are none to write. A move that fails is one problem, the text of all it found;
+  // layers that are only checked give a problem each.
+  private async Task<Result<LayerOutcome, SeedProblems>> MoveLayersAsync(
     SchemaLock? input,
     Derivation? derivation,
     LockCheck? check,
     SchemaLock schemaLock,
     List<MigrationFile> onDisk,
-    HashSet<string> generated,
-    SeedProblems problems
+    HashSet<string> generated
   ) {
-    try {
-      if (derivation is not null) {
-        return await DeriveLayersAsync(derivation, schemaLock, onDisk, generated);
-      }
-      if (input is not null && check is { Pending.Count: > 0 } && SeedMigrator.HasLayers(_options)) {
-        var move = new LayerMove {
-          From = input,
-          To = schemaLock,
-          OnDisk = onDisk,
-          OldTree = await LoadWorkingTreeAsync(input),
-        };
-        return new(await new LayerMover(_owner, _options, move, _cancellationToken).MoveAsync(), generated, []);
-      }
-    } catch (SeedFormatException exception) {
-      problems.Add(exception.Message);
-      return new([], [], []);
+    if (derivation is not null) {
+      return await DeriveLayersAsync(derivation, schemaLock, onDisk, generated);
     }
+    if (input is not null && check is { Pending.Count: > 0 } && SeedMigrator.HasLayers(_options)) {
+      var loaded = await LayerLoader.LoadAsync(_options.SeedsDirectory, new SeedSchema(input), _cancellationToken);
+      if (loaded is SeedProblems unread) {
+        return SeedProblems.Of(
+          $"The layers do not read against the schema they were written for (version {input.Version.ToInvariantString()}):\n{unread}");
+      }
+      var move = new LayerMove {
+        From = input,
+        To = schemaLock,
+        OnDisk = onDisk,
+        OldTree = loaded.OrThrow(),
+      };
+      return await MoveAsync(move, generated, kept: []);
+    }
+    var problems = new SeedProblems();
     problems.AddRange(await SeedMigrator.CheckLayersAsync(_options, schemaLock, _cancellationToken));
-    return new([], generated, []);
+    return problems.Any ? problems : new LayerOutcome([], generated, []);
   }
+
+  private async Task<Result<LayerOutcome, SeedProblems>> MoveAsync(LayerMove move, HashSet<string> recorded, List<string> kept)
+    => await new LayerMover(_owner, _options, move, _cancellationToken).MoveAsync() switch {
+      List<MovedLayer> moved => new LayerOutcome(moved, recorded, kept),
+      SeedProblems unmoved => SeedProblems.Of(unmoved.ToString()),
+    };
 
   // The base's layers moved through the migrations after its lock. The layers in the working tree decide what becomes of
   // each: one the tool wrote (or that is the base's own copy) is made again; one that is somebody's own is kept as it is,
   // whether the base has a layer of that name or not; one the base has and the working tree does not was deleted on the
   // branch.
-  private async Task<LayerOutcome> DeriveLayersAsync(
+  private async Task<Result<LayerOutcome, SeedProblems>> DeriveLayersAsync(
     Derivation derivation,
     SchemaLock schemaLock,
     List<MigrationFile> onDisk,
@@ -167,27 +180,17 @@ internal sealed class MigrationRun {
     var dropped = derivation.Snapshot.Layers.Keys.Where(name => !working.ContainsKey(name)).ToHashSet(StringComparer.Ordinal);
     var loaded = LayerLoader.Load(derivation.Snapshot.Layers, new SeedSchema(derivation.BaseLock));
     if (loaded is SeedProblems unread) {
-      throw new SeedFormatException($"{derivation.Snapshot.Description}'s layers do not read against its own lock:\n{unread}");
+      return SeedProblems.Of($"{derivation.Snapshot.Description}'s layers do not read against its own lock:\n{unread}");
     }
-    var oldTree = loaded.OrThrow();
     var move = new LayerMove {
       From = derivation.BaseLock,
       To = schemaLock,
       OnDisk = onDisk,
-      OldTree = oldTree,
+      OldTree = loaded.OrThrow(),
       Authored = authored,
       Dropped = dropped,
     };
-    var moved = await new LayerMover(_owner, _options, move, _cancellationToken).MoveAsync();
-    return new(moved, remade, [.. authored.Keys.Order(StringComparer.Ordinal)]);
-  }
-
-  private async Task<LayerTree> LoadWorkingTreeAsync(SchemaLock input) {
-    var loaded = await LayerLoader.LoadAsync(_options.SeedsDirectory, new SeedSchema(input), _cancellationToken);
-    return loaded is SeedProblems unread
-      ? throw new SeedFormatException(
-        $"The layers do not read against the schema they were written for (version {input.Version.ToInvariantString()}):\n{unread}")
-      : loaded.OrThrow();
+    return await MoveAsync(move, remade, [.. authored.Keys.Order(StringComparer.Ordinal)]);
   }
 
   // Only the layers whose text changed are rewritten, so a migration that leaves a layer as it was leaves its file alone, and

@@ -83,12 +83,11 @@ public sealed class MigrateCommand : AsyncCommand<MigrateCommand.Settings> {
   // What the lock asks of the layers: every one must still build into a template from the migrations on disk. Layers
   // that cannot be read at all are a problem like any other.
   private async Task<List<string>> CheckLayersAsync(SeedSchema schema, CancellationToken cancellationToken) {
-    try {
-      var tool = await _factory.OpenAsync(schema, cancellationToken);
-      var owner = await _connections.MaintenanceAsync(cancellationToken);
-      return await tool.CheckAsync(owner, cancellationToken);
-    } catch (SeedFormatException exception) {
-      return [exception.Message];
+    var opened = await _factory.OpenAsync(schema, cancellationToken);
+    if (opened is SeedProblems unread) {
+      return [unread.ToString()];
     }
+    var owner = await _connections.MaintenanceAsync(cancellationToken);
+    return await opened.OrThrow().CheckAsync(owner, cancellationToken);
   }
 }

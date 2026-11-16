@@ -23,7 +23,7 @@ public static class SeedTestServer {
 
   // Opened with no token of a test's, so a test that is canceled does not leave a canceled task for the others.
   private static readonly Lazy<Task<SeedTool>> _RealTool = new(
-    () => SeedTool.OpenAsync(Paths, Databases, Tools, Schema, Clock, CancellationToken.None));
+    async () => (await SeedTool.OpenAsync(Paths, Databases, Tools, Schema, Clock, CancellationToken.None)).OrThrow());
 
   public static SeedPaths Paths
     => SeedPaths.ForRepository();

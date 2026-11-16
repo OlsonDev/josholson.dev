@@ -2,6 +2,7 @@ using JoshOlson.Database;
 using JoshOlson.Database.Baking;
 using JoshOlson.Database.Layers;
 using JoshOlson.Database.Migrate;
+using JoshOlson.Shared.Results;
 using NodaTime;
 
 namespace JoshOlson.Seed;
@@ -49,7 +50,11 @@ public sealed class SeedToolFactory {
   public async Task<SeedTool> OpenAsync(CancellationToken cancellationToken)
     => (await SeedTool.OpenAsync(_paths, Databases, _tools, Clock, cancellationToken)).WithDevelopment(_development);
 
-  // For a schema the caller already has, as `seeds:migrate` has before the lock is written.
-  public async Task<SeedTool> OpenAsync(SeedSchema schema, CancellationToken cancellationToken)
-    => (await SeedTool.OpenAsync(_paths, Databases, _tools, schema, Clock, cancellationToken)).WithDevelopment(_development);
+  // For a schema the caller already has, as `seeds:migrate` has before the lock is written. Layers that do not read
+  // against it come back as the problems.
+  public async Task<Result<SeedTool, SeedProblems>> OpenAsync(SeedSchema schema, CancellationToken cancellationToken)
+    => await SeedTool.OpenAsync(_paths, Databases, _tools, schema, Clock, cancellationToken) switch {
+      SeedTool tool => tool.WithDevelopment(_development),
+      SeedProblems unread => unread,
+    };
 }

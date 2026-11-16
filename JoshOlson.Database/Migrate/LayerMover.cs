@@ -2,6 +2,7 @@ using JoshOlson.Database.Baking;
 using JoshOlson.Database.Layers;
 using JoshOlson.Database.Seeding;
 using JoshOlson.Shared.Extensions;
+using JoshOlson.Shared.Results;
 using NodaTime;
 using Npgsql;
 
@@ -49,19 +50,20 @@ public sealed class LayerMover {
     _anchor = SeedHydrator.Anchor(options.Clock);
   }
 
-  public async Task<List<MovedLayer>> MoveAsync() {
+  // The layers at the newest schema, or every problem that kept one of them from getting there.
+  public async Task<Result<List<MovedLayer>, SeedProblems>> MoveAsync() {
     var (fromTemplate, _) = await _options.Template.EnsureAsync(_owner, _move.From.Version, _cancellationToken);
     var skipped = await _options.Template.SkippedAsync(_owner, fromTemplate, _cancellationToken);
     var (headTemplate, _) = await _options.Template.EnsureAsync(_owner, _cancellationToken);
 
     var states = new Dictionary<string, SeedState>(StringComparer.Ordinal);
     _problems.AddRange(await _move.OldTree.VisitParentFirstAsync(async layer => {
-      try {
-        states[layer.Name] = await MigrateLayerAsync(fromTemplate, layer.Name);
-        return null;
-      } catch (SeedFormatException exception) {
-        return $"{layer.Name}: {exception.Message}";
+      var migrated = await MigrateLayerAsync(fromTemplate, layer.Name);
+      if (migrated is SeedProblems unmoved) {
+        return $"{layer.Name}: {unmoved}";
       }
+      states[layer.Name] = migrated.OrThrow();
+      return null;
     }));
     // The rows of the newest template, which is what a root layer's state is measured from: it holds the reference data
     // every database has.
@@ -93,24 +95,25 @@ public sealed class LayerMover {
         $"Without {string.Join(", ", skipped.Select(repeatable => repeatable.File))} (which cannot apply at version {_move.From.Version.ToInvariantString()}) "
         + "a row may have pointed at reference data that was not there yet, which is not checked until the newest version.");
     }
-    _problems.ThrowIfAny();
-    return moved;
+    return _problems.Any ? _problems : moved;
   }
 
   // One layer's full state at the newest schema: its chain put into a database at the old one and migrated on.
-  private async Task<SeedState> MigrateLayerAsync(string fromTemplate, string layer) {
+  private async Task<Result<SeedState, SeedProblems>> MigrateLayerAsync(string fromTemplate, string layer) {
     await using var scratch = await _options.Databases.CloneScratchAsync(_owner, fromTemplate, "move", _cancellationToken);
-    _ = (await SeedHydrator.HydrateForMigrationAsync(scratch.Name, _move.OldTree, layer, _anchor, _cancellationToken)).OrThrow();
+    if (await SeedHydrator.HydrateForMigrationAsync(scratch.Name, _move.OldTree, layer, _anchor, _cancellationToken) is SeedProblems refused) {
+      return refused;
+    }
     try {
       await _options.Template.MigrateToNewestAsync(scratch.Name, _cancellationToken);
     } catch (InvalidOperationException exception) {
-      throw new SeedFormatException($"the migrations failed on its rows: {SchemaTemplate.FirstError(exception.Message)}", exception);
+      return SeedProblems.Of($"the migrations failed on its rows: {SchemaTemplate.FirstError(exception.Message)}");
     }
     await using var connection = await scratch.OpenAsync(_cancellationToken);
     var history = MigrationHistory.Check(_move.OnDisk, await MigrationHistory.ReadAsync(connection, _cancellationToken));
     return history.Count is 0
       ? (await SeedStateReader.ReadAsync(connection, _newSchema, _cancellationToken)).Rows
-      : throw new SeedFormatException(string.Join(" ", history));
+      : SeedProblems.Of(string.Join(" ", history));
   }
 
   // Each layer again, as the difference between its migrated state and its parent's, and checked in memory: the parent's
@@ -163,11 +166,12 @@ public sealed class LayerMover {
     if (_problems.Any) {
       return [];
     }
-    try {
-      _problems.AddRange(new LayerTree(_newSchema, [.. all.ConvertAll(layer => layer.Layer)]).IdBlockProblems());
-    } catch (SeedFormatException exception) {
-      _problems.Add(exception.Message);
+    var tree = LayerTree.Create(_newSchema, [.. all.ConvertAll(layer => layer.Layer)]);
+    if (tree is SeedProblems unsound) {
+      _problems.Add(unsound.ToString());
+      return all;
     }
+    _problems.AddRange(tree.OrThrow().IdBlockProblems());
     return all;
   }
 }

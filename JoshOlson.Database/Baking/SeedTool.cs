@@ -1,6 +1,7 @@
 using JoshOlson.Database.Layers;
 using JoshOlson.Database.Seeding;
 using JoshOlson.Shared.Extensions;
+using JoshOlson.Shared.Results;
 using NodaTime;
 using Npgsql;
 
@@ -55,11 +56,11 @@ public sealed class SeedTool {
     IClock clock,
     CancellationToken cancellationToken
   )
-    => await OpenAsync(paths, databases, tools, await SeedSchema.LoadAsync(paths, cancellationToken), clock, cancellationToken);
+    => (await OpenAsync(paths, databases, tools, await SeedSchema.LoadAsync(paths, cancellationToken), clock, cancellationToken)).OrThrow();
 
   // The same, for a schema the caller already has: `seeds:migrate` checks the layers against the lock it is about to
-  // write, which is not on disk yet.
-  public static async Task<SeedTool> OpenAsync(
+  // write, which is not on disk yet, and layers that do not read against it are the problems it reports.
+  public static async Task<Result<SeedTool, SeedProblems>> OpenAsync(
     SeedPaths paths,
     ServerDatabases databases,
     ComposeTools tools,
@@ -67,10 +68,14 @@ public sealed class SeedTool {
     IClock clock,
     CancellationToken cancellationToken
   ) {
-    var tree = (await LayerLoader.LoadAsync(paths.Seeds, schema, cancellationToken)).OrThrow();
+    var loaded = await LayerLoader.LoadAsync(paths.Seeds, schema, cancellationToken);
+    if (loaded is SeedProblems unread) {
+      return unread;
+    }
+    var tree = loaded.OrThrow();
     var schemaTemplate = new SchemaTemplate(SchemaTemplateOptions.ForRepository(paths), tools, databases);
     var layerTemplate = new LayerTemplate(schemaTemplate, databases, tree, paths.Seeds, clock);
-    return new(schemaTemplate, layerTemplate, databases, tree, clock, DatabaseEnvironment.DevelopmentDatabase());
+    return new SeedTool(schemaTemplate, layerTemplate, databases, tree, clock, DatabaseEnvironment.DevelopmentDatabase());
   }
 
   // Builds the schema template and then every layer's template, parent first. Templates that exist for the current

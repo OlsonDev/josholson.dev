@@ -1,6 +1,7 @@
 using JoshOlson.Database.Schema;
 using JoshOlson.Database.Seeding;
 using JoshOlson.Shared.Extensions;
+using JoshOlson.Shared.Results;
 
 namespace JoshOlson.Database.Layers;
 
@@ -33,6 +34,15 @@ public sealed class LayerTree {
     }
     foreach (var layer in _layers.Values) {
       ChainTo(layer.Name);
+    }
+  }
+
+  // The tree, or the one thing that keeps the layers from being one, for a caller that reports it and carries on.
+  public static Result<LayerTree, SeedProblems> Create(SeedSchema schema, List<SeedLayer> layers) {
+    try {
+      return new LayerTree(schema, layers);
+    } catch (SeedFormatException exception) {
+      return SeedProblems.Of(exception.Message);
     }
   }
 

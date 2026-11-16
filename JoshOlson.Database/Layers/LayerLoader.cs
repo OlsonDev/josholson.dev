@@ -32,12 +32,11 @@ public static class LayerLoader {
       }
       layers.Add(parsed.OrThrow());
     }
-    LayerTree tree;
-    try {
-      tree = new(schema, layers);
-    } catch (SeedFormatException exception) {
-      return SeedProblems.Of(exception.Message);
+    var created = LayerTree.Create(schema, layers);
+    if (created is SeedProblems unsound) {
+      return unsound;
     }
+    var tree = created.OrThrow();
     var problems = new SeedProblems("The layers have", "ID block problems");
     problems.AddRange(tree.IdBlockProblems());
     return problems.Any ? problems : tree;
