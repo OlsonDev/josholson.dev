@@ -18,8 +18,8 @@ public static class SeedApplier {
     Instant anchor,
     CancellationToken cancellationToken
   ) {
-    var state = LayerMerger.Merge(tree.ChainTo(layer), tree.Schema);
-    var statements = SeedSql.Build(state, tree.Schema, anchor);
+    var state = LayerMerger.Merge(tree.ChainTo(layer), tree.Schema).OrThrow();
+    var statements = SeedSql.Build(state, tree.Schema, anchor).OrThrow();
     return await ApplyAsync(transaction, statements, cancellationToken);
   }
 

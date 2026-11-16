@@ -30,7 +30,7 @@ public static class SequencePositioner {
     // The chain's length is the next depth (a layer at depth 1 has a chain of two), and the layer's own depth is one less.
     return await SetAsync(
       connection,
-      LayerMerger.Merge(chain, tree.Schema),
+      LayerMerger.Merge(chain, tree.Schema).OrThrow(),
       tree.Schema,
       IdBlocks.Start(editing ? chain.Count - 1 : chain.Count),
       cancellationToken);
@@ -42,7 +42,7 @@ public static class SequencePositioner {
     string layer,
     CancellationToken cancellationToken
   )
-    => await SetAsync(connection, LayerMerger.Merge([tree.ChainTo(layer)[0]], tree.Schema), tree.Schema, floor: null, cancellationToken);
+    => await SetAsync(connection, LayerMerger.Merge([tree.ChainTo(layer)[0]], tree.Schema).OrThrow(), tree.Schema, floor: null, cancellationToken);
 
   // Without a `floor`, only the tables the state has rows for move, each to its largest ID. With one, every identity
   // column in the schema moves (but not a table that is `@seed ignore`: its rows are runtime data, outside the blocks),

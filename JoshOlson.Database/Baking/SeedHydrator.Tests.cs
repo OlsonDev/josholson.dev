@@ -49,7 +49,7 @@ public sealed class SeedHydratorTests {
     Assert.Equal(anchor, Instant.FromDateTimeUtc(stored));
     Assert.Equal(new(anchor, FixtureSeeds.Child, Editing: false), read.Hydration);
     // The database holds the layers' rows and the reference data its migrations made, so the layers' are a part of it.
-    foreach (var (table, merged) in LayerMerger.Merge(tree.ChainTo(FixtureSeeds.Child), schema).Tables) {
+    foreach (var (table, merged) in LayerMerger.Merge(tree.ChainTo(FixtureSeeds.Child), schema).OrThrow().Tables) {
       foreach (var (key, row) in merged) {
         foreach (var (column, value) in row) {
           Assert.True(

@@ -1,5 +1,6 @@
 using JoshOlson.Database.Layers;
 using JoshOlson.Shared.Extensions;
+using JoshOlson.Shared.Results;
 
 namespace JoshOlson.Database.Seeding;
 
@@ -8,10 +9,10 @@ namespace JoshOlson.Database.Seeding;
 // inserting it again. An insert makes a row that is not there, with every column the parser made it name; an update
 // changes only the columns it names, in a row that is there.
 //
-// Every problem is collected and thrown together: a delete or an update of a row that is not there, and an insert of one
-// that is (a key two layers both claim, which an overwrite would hide).
+// Every problem is collected and they are returned together, in place of the rows: a delete or an update of a row that is
+// not there, and an insert of one that is (a key two layers both claim, which an overwrite would hide).
 public static class LayerMerger {
-  public static SeedState Merge(List<SeedLayer> chain, SeedSchema schema) {
+  public static Result<SeedState, SeedProblems> Merge(List<SeedLayer> chain, SeedSchema schema) {
     var state = new SeedState();
     var problems = new SeedProblems("The layers have");
     foreach (var layer in chain) {
@@ -29,8 +30,7 @@ public static class LayerMerger {
         merge.Update();
       }
     }
-    problems.ThrowIfAny();
-    return state;
+    return problems.Any ? problems : state;
   }
 
   // One layer's changes to one table, folded into the rows the layers before it came to.

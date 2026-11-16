@@ -3,6 +3,7 @@ using JoshOlson.Database.Schema;
 using JoshOlson.Database.Seeding;
 using JoshOlson.Shared.Extensions;
 using NodaTime;
+using Xunit;
 
 namespace JoshOlson.Database.Layers;
 
@@ -54,6 +55,11 @@ internal static class SampleLayers {
     return LayerParser.Parse(name, $"description: {name}\n{parent}tables:\n{tables}", Schema);
   }
 
+  // The rows a chain comes to, for a test that expects it to merge.
   public static SeedState Merge(params SeedLayer[] chain)
-    => LayerMerger.Merge([.. chain], Schema);
+    => LayerMerger.Merge([.. chain], Schema).OrThrow();
+
+  // The problems of a chain that is expected not to merge, as their text.
+  public static string MergeProblems(params SeedLayer[] chain)
+    => Assert.IsType<SeedProblems>(LayerMerger.Merge([.. chain], Schema).Value).ToString();
 }

@@ -61,10 +61,10 @@ public static class FixtureSeeds {
   // How many rows a database built from the root, or from the child, has of the layers' own (the reference data the
   // migrations made is not counted).
   public static int RootRows
-    => LayerMerger.Merge(Tree.ChainTo(Root), SeedTestServer.Schema).RowCount;
+    => LayerMerger.Merge(Tree.ChainTo(Root), SeedTestServer.Schema).OrThrow().RowCount;
 
   public static int ChildRows
-    => LayerMerger.Merge(Tree.ChainTo(Child), SeedTestServer.Schema).RowCount;
+    => LayerMerger.Merge(Tree.ChainTo(Child), SeedTestServer.Schema).OrThrow().RowCount;
 
   // The tool over a workspace with the two layers, opened once per test run. `SeedTool` only reads what it was opened
   // with (its fields are read-only, and so are the templates and the tree it holds), and `WithDevelopment` returns

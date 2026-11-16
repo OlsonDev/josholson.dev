@@ -4,6 +4,7 @@ using System.Numerics;
 using System.Text;
 using JoshOlson.Database.Layers;
 using JoshOlson.Database.Schema;
+using JoshOlson.Shared.Results;
 using NodaTime;
 using Npgsql;
 using NpgsqlTypes;
@@ -23,7 +24,9 @@ public static class SeedSql {
   // Postgres takes 65,535 parameters in a statement; this stays well under it.
   private const int _MaxParameters = 60_000;
 
-  public static List<SeedStatement> Build(SeedState state, SeedSchema schema, Instant anchor) {
+  // The statements, or every value that cannot be written as its column's type. A row that leaves a column out is a
+  // fault in the caller, and is thrown.
+  public static Result<List<SeedStatement>, SeedProblems> Build(SeedState state, SeedSchema schema, Instant anchor) {
     var statements = new List<SeedStatement>();
     var problems = new SeedProblems("The rows have");
     foreach (var table in schema.InsertOrder()) {
@@ -31,8 +34,7 @@ public static class SeedSql {
         new TableInsert(table, anchor, problems).AddTo(statements, rows);
       }
     }
-    problems.ThrowIfAny();
-    return statements;
+    return problems.Any ? problems : statements;
   }
 
   // The `INSERT`s for one table's rows.

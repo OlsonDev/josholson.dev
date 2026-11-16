@@ -119,10 +119,8 @@ public sealed class LayerExporter {
     var names = new List<string> { layer.Name };
     while (below.TryPop(out var descendant)) {
       names.Add(descendant.Name);
-      try {
-        _ = LayerMerger.Merge(tree.ChainTo(descendant.Name), _tree.Schema);
-      } catch (SeedFormatException exception) {
-        problems.Add($"{descendant.Name} no longer applies: {exception.Message}");
+      if (LayerMerger.Merge(tree.ChainTo(descendant.Name), _tree.Schema) is SeedProblems merge) {
+        problems.Add($"{descendant.Name} no longer applies: {merge}");
       }
       foreach (var grandchild in tree.ChildrenOf(descendant.Name)) {
         below.Push(grandchild);

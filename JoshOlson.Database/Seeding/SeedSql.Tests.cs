@@ -79,7 +79,7 @@ public class SeedSqlTests {
     state.Tables["foo.tag"][[new SeedValue.Integer(1)]] = new() { ["tag_id"] = new SeedValue.Integer(1) };
 
     var exception = Assert.Throws<SeedFormatException>(
-      () => SeedSql.Build(state, SampleLayers.Schema, SampleLayers.Anchor));
+      () => _ = SeedSql.Build(state, SampleLayers.Schema, SampleLayers.Anchor));
 
     Assert.Equal("foo.tag: a row leaves out price, and a seed names every column.", exception.Message);
   }
@@ -163,5 +163,5 @@ public class SeedSqlTests {
     => SampleLayers.Layer("base", extends: null, tables);
 
   private static List<SeedStatement> Build(SeedLayer layer)
-    => SeedSql.Build(SampleLayers.Merge(layer), SampleLayers.Schema, SampleLayers.Anchor);
+    => SeedSql.Build(SampleLayers.Merge(layer), SampleLayers.Schema, SampleLayers.Anchor).OrThrow();
 }

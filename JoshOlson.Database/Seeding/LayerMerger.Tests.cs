@@ -139,7 +139,7 @@ public class LayerMergerTests {
             - { bar_id: 7 }
       """);
 
-    var exception = Assert.Throws<SeedFormatException>(() => SampleLayers.Merge(@base, child));
+    var problems = SampleLayers.MergeProblems(@base, child);
 
     Assert.Equal(
       """
@@ -148,7 +148,7 @@ public class LayerMergerTests {
       - child: foo.bar inserts the row with key 1, which a layer before it (or this one) already gives.
       - child: foo.bar updates the row with key 8, which no layer before it gives.
       """,
-      exception.Message.Replace("\r", "", StringComparison.Ordinal));
+      problems.Replace("\r", "", StringComparison.Ordinal));
   }
 
   [Fact]
@@ -160,11 +160,11 @@ public class LayerMergerTests {
             - {{SampleLayers.Bar(1, "Again")}}
       """);
 
-    var exception = Assert.Throws<SeedFormatException>(() => SampleLayers.Merge(@base));
+    var problems = SampleLayers.MergeProblems(@base);
 
     Assert.Equal(
       "base: foo.bar inserts the row with key 1, which a layer before it (or this one) already gives.",
-      exception.Message);
+      problems);
   }
 
   [Fact]
@@ -175,9 +175,9 @@ public class LayerMergerTests {
             - { bar_id: 1, name: Nobody }
       """);
 
-    var exception = Assert.Throws<SeedFormatException>(() => SampleLayers.Merge(@base));
+    var problems = SampleLayers.MergeProblems(@base);
 
-    Assert.Equal("base: foo.bar updates the row with key 1, which no layer before it gives.", exception.Message);
+    Assert.Equal("base: foo.bar updates the row with key 1, which no layer before it gives.", problems);
   }
 
   [Fact]
