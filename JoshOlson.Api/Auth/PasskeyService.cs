@@ -90,15 +90,15 @@ public sealed class PasskeyService {
     return new(_changes.Add(new PendingAddition(registration, request.Nickname), BindingKey(principal)));
   }
 
-  public async Task<(RemovalOutcome Outcome, PendingChangeResponse? Change)> StartRemovalAsync(
+  public async Task<RemovalResult> StartRemovalAsync(
     SessionPrincipal principal,
     int passkeyId,
     CancellationToken cancellationToken
   ) {
     var passkeys = await _passkeyRepository.GetAllAsync(principal.User.UserId, cancellationToken);
-    if (passkeys.All(passkey => passkey.PasskeyId != passkeyId)) return (RemovalOutcome.NotFound, null);
-    if (passkeys.Count < 2) return (RemovalOutcome.LastPasskey, null);
-    return (RemovalOutcome.Started, new(_changes.Add(new PendingRemoval(passkeyId), BindingKey(principal))));
+    if (passkeys.All(passkey => passkey.PasskeyId != passkeyId)) return new PasskeyNotFound();
+    if (passkeys.Count < 2) return new LastPasskey();
+    return new PendingChangeResponse(_changes.Add(new PendingRemoval(passkeyId), BindingKey(principal)));
   }
 
   // Assertion options for the passkeys already registered, with a challenge bound to the pending change.

@@ -73,6 +73,16 @@ public sealed record CeremonyResponse<TOptions>(string AttemptToken, TOptions Op
 
 public sealed record PendingChangeResponse(string ChangeToken);
 
+// What asking to remove a passkey comes to: the pending change to confirm, or one of the two reasons there is none.
+// The controller gives each case a status code, and a case added here does not compile there until it has one.
+public readonly union RemovalResult(PendingChangeResponse, PasskeyNotFound, LastPasskey);
+
+// The user has no passkey with that ID.
+public sealed record PasskeyNotFound;
+
+// It is the user's only passkey, and removing it would lock them out.
+public sealed record LastPasskey;
+
 public sealed record PasskeyResponse {
   public required int PasskeyId { get; init; }
   public required string Nickname { get; init; }

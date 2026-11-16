@@ -127,6 +127,13 @@ public class PasskeyControllerTests : IAsyncLifetime {
   }
 
   [Fact]
+  public async Task Remove_UnknownPasskey_ReturnsNotFound() {
+    var response = await _client.PostAsync(PasskeyUrl(0, "/removal"), content: null, _cancellationToken);
+
+    Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+  }
+
+  [Fact]
   public async Task Rename_ChangesTheNickname() {
     var only = Assert.Single(await ListAsync());
 

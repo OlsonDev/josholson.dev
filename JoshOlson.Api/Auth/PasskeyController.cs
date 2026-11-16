@@ -35,11 +35,11 @@ public sealed class PasskeyController : ControllerBase {
   [HttpPost("{passkeyId:int}/removal")]
   public async Task<ActionResult<PendingChangeResponse>> Remove(int passkeyId, CancellationToken cancellationToken) {
     var principal = HttpContext.GetSession();
-    var (outcome, change) = await _passkeyService.StartRemovalAsync(principal, passkeyId, cancellationToken);
-    return outcome switch {
-      RemovalOutcome.Started => change!,
-      RemovalOutcome.NotFound => NotFound(),
-      _ => Conflict(),
+    var result = await _passkeyService.StartRemovalAsync(principal, passkeyId, cancellationToken);
+    return result switch {
+      PendingChangeResponse change => change,
+      PasskeyNotFound => NotFound(),
+      LastPasskey => Conflict(),
     };
   }
 

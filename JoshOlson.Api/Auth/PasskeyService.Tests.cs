@@ -47,25 +47,29 @@ public class PasskeyServiceTests : IAsyncLifetime {
     return await _passkeyRepository.CreateAsync(passkey, _cancellationToken);
   }
 
+  // The pending change for a removal that is expected to start.
+  private async Task<PendingChangeResponse> StartRemovalAsync(int passkeyId) {
+    var result = await _passkeyService.StartRemovalAsync(_principal, passkeyId, _cancellationToken);
+    return Assert.IsType<PendingChangeResponse>(result.Value);
+  }
+
   [Fact]
   public async Task StartRemoval_UnknownPasskey_IsNotFound() {
     await AddPasskeyAsync();
     await AddPasskeyAsync();
 
-    var (outcome, change) = await _passkeyService.StartRemovalAsync(_principal, 0, _cancellationToken);
+    var result = await _passkeyService.StartRemovalAsync(_principal, 0, _cancellationToken);
 
-    Assert.Equal(RemovalOutcome.NotFound, outcome);
-    Assert.Null(change);
+    _ = Assert.IsType<PasskeyNotFound>(result.Value);
   }
 
   [Fact]
   public async Task StartRemoval_TheOnlyPasskey_IsRefused() {
     var only = await AddPasskeyAsync();
 
-    var (outcome, change) = await _passkeyService.StartRemovalAsync(_principal, only, _cancellationToken);
+    var result = await _passkeyService.StartRemovalAsync(_principal, only, _cancellationToken);
 
-    Assert.Equal(RemovalOutcome.LastPasskey, outcome);
-    Assert.Null(change);
+    _ = Assert.IsType<LastPasskey>(result.Value);
   }
 
   [Fact]
@@ -73,10 +77,9 @@ public class PasskeyServiceTests : IAsyncLifetime {
     var first = await AddPasskeyAsync();
     await AddPasskeyAsync();
 
-    var (outcome, change) = await _passkeyService.StartRemovalAsync(_principal, first, _cancellationToken);
+    var result = await _passkeyService.StartRemovalAsync(_principal, first, _cancellationToken);
 
-    Assert.Equal(RemovalOutcome.Started, outcome);
-    Assert.NotNull(change);
+    _ = Assert.IsType<PendingChangeResponse>(result.Value);
     Assert.Equal(2, (await _passkeyRepository.GetAllAsync(_userId, _cancellationToken)).Count);
   }
 
@@ -84,11 +87,11 @@ public class PasskeyServiceTests : IAsyncLifetime {
   public async Task StartConfirmation_ChangeHeldBy_AnotherSession_ReturnsNull() {
     var first = await AddPasskeyAsync();
     await AddPasskeyAsync();
-    var (_, change) = await _passkeyService.StartRemovalAsync(_principal, first, _cancellationToken);
+    var change = await StartRemovalAsync(first);
 
     var started = await _passkeyService.StartConfirmationAsync(
       _principal with { SessionId = 2 },
-      change!.ChangeToken,
+      change.ChangeToken,
       _cancellationToken);
 
     Assert.Null(started);
@@ -98,9 +101,9 @@ public class PasskeyServiceTests : IAsyncLifetime {
   public async Task StartConfirmation_OffersEveryRegisteredPasskey() {
     var first = await AddPasskeyAsync();
     await AddPasskeyAsync();
-    var (_, change) = await _passkeyService.StartRemovalAsync(_principal, first, _cancellationToken);
+    var change = await StartRemovalAsync(first);
 
-    var started = await _passkeyService.StartConfirmationAsync(_principal, change!.ChangeToken, _cancellationToken);
+    var started = await _passkeyService.StartConfirmationAsync(_principal, change.ChangeToken, _cancellationToken);
 
     Assert.Equal(2, started?.Options.AllowCredentials.Count);
   }
