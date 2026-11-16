@@ -37,7 +37,8 @@ var countPassed = 0;
 var countFailed = 0;
 
 foreach (var test in tests) {
-  var (success, error) = BranchNameValidator.ValidateBranchName(test.Input);
+  var error = BranchNameValidator.ValidateBranchName(test.Input);
+  var success = error is null;
 
   var outcomeMatches = test.ShouldPass == success;
   var errorMatches = test.ExpectedError is null || error!.Contains(test.ExpectedError);

@@ -8,8 +8,7 @@ var gitDir = Git("rev-parse --git-dir");
 // Branch names don't matter while a rebase replays commits
 if (Directory.Exists(Path.Combine(gitDir, "rebase-merge")) || Directory.Exists(Path.Combine(gitDir, "rebase-apply"))) return 0;
 
-var (success, error) = BranchNameValidator.ValidateBranchName(Git("branch --show-current"));
-if (!success) {
+if (BranchNameValidator.ValidateBranchName(Git("branch --show-current")) is { } error) {
   Console.Error.WriteLine(error);
   return 1;
 }

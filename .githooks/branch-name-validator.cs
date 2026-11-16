@@ -17,15 +17,16 @@ internal static partial class BranchNameValidator {
   [GeneratedRegex("^[A-Za-z][A-Za-z0-9-]*$")]
   private static partial Regex NamePattern();
 
-  public static (bool Success, string? Error) ValidateBranchName(string branchName) {
-    if (branchName is "main") return (true, null);
+  // What is wrong with the name, or null when it is fine.
+  public static string? ValidateBranchName(string branchName) {
+    if (branchName is "main") return null;
     var slash = branchName.IndexOf('/');
     if (slash < 0 || !_AllowedPrefixes.Contains(branchName[..slash])) {
       var prefixes = string.Join(", ", _AllowedPrefixes.Select(p => $"\"{p}/\""));
-      return (false, $"Invalid branch name \"{branchName}\". Start it with one of {prefixes}.");
+      return $"Invalid branch name \"{branchName}\". Start it with one of {prefixes}.";
     }
     return NamePattern().IsMatch(branchName[(slash + 1)..])
-      ? (true, null)
-      : (false, $"Invalid branch name \"{branchName}\". After the prefix, start with a letter and use only letters, digits, and hyphens.");
+      ? null
+      : $"Invalid branch name \"{branchName}\". After the prefix, start with a letter and use only letters, digits, and hyphens.";
   }
 }

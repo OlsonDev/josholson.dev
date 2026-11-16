@@ -10,7 +10,8 @@ internal static class CommitMessageValidator {
   // - A meaningful message (at least 5 characters)
   // - No emojis in the message
   // - No leading or trailing whitespace
-  public static (bool Success, string? Error) ValidateCommitMessage(string commitMsg) {
+  // Returns what is wrong with the message, or null when it is fine.
+  public static string? ValidateCommitMessage(string commitMsg) {
     var corrections = new List<string>();
 
     if (commitMsg.Length > 0 && char.IsWhiteSpace(commitMsg[0]))
@@ -72,8 +73,8 @@ internal static class CommitMessageValidator {
       corrections.Add("remove all trailing whitespace");
 
     return corrections.Count is 0
-      ? (true, null)
-      : (false, $"Invalid commit message format. Please {ToFriendlyList(corrections)}.");
+      ? null
+      : $"Invalid commit message format. Please {ToFriendlyList(corrections)}.";
   }
 
   private static string ToFriendlyList(List<string> items, string conjunction = "and") {
