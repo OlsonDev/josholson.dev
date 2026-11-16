@@ -26,8 +26,6 @@ public sealed class SeedAppTests {
 
     using var provider = services.BuildServiceProvider(new ServiceProviderOptions { ValidateOnBuild = true });
     Assert.NotNull(provider.GetRequiredService<SeedToolFactory>());
-    Assert.NotNull(provider.GetRequiredService<OwnerConnections>());
-    Assert.NotNull(provider.GetRequiredService<SeedToolSession>());
     Assert.Same(provider.GetRequiredService<ServerDatabases>(), provider.GetRequiredService<ServerDatabases>());
     Assert.Same(provider.GetRequiredService<ComposeTools>(), provider.GetRequiredService<ComposeTools>());
   }

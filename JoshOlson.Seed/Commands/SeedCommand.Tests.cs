@@ -14,10 +14,8 @@ public sealed class SeedCommandTests : IAsyncLifetime {
   public ValueTask InitializeAsync()
     => ValueTask.CompletedTask;
 
-  public async ValueTask DisposeAsync() {
-    await using var owner = await SeedTestServer.OpenMaintenanceAsync(CancellationToken.None);
-    await SeedTestServer.Databases.DropAsync(owner, _development, CancellationToken.None);
-  }
+  public async ValueTask DisposeAsync()
+    => await SeedTestServer.Databases.DropAsync(_development, CancellationToken.None);
 
   private Action<IServiceCollection> Configure(SeedPaths paths)
     => services => services.AddSingleton(SeedAppRunner.FactoryFor(paths, _development));

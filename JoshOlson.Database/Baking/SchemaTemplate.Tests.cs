@@ -1,5 +1,4 @@
 using JoshOlson.Shared.Data;
-using Npgsql;
 using Xunit;
 
 namespace JoshOlson.Database.Baking;
@@ -83,8 +82,8 @@ public sealed class SchemaTemplateTests : IDisposable {
     await using var owner = await DatabaseEnvironment.OpenOwnerAsync(_cancellationToken);
     var name = await template.NameAsync(_cancellationToken);
     try {
-      var first = await template.EnsureAsync(owner, _cancellationToken);
-      var second = await template.EnsureAsync(owner, _cancellationToken);
+      var first = await template.EnsureAsync(_cancellationToken);
+      var second = await template.EnsureAsync(_cancellationToken);
 
       var allowConnections = await owner.QuerySingleAsync<bool>(
         "SELECT datallowconn FROM pg_database WHERE datname = @name;",
@@ -93,9 +92,9 @@ public sealed class SchemaTemplateTests : IDisposable {
       Assert.Equal(new(name, Built: true), first);
       Assert.Equal(new(name, Built: false), second);
       Assert.False(allowConnections);
-      Assert.False(await databases.ExistsAsync(owner, SeedDatabaseNames.Building(name), _cancellationToken));
+      Assert.False(await databases.ExistsAsync(SeedDatabaseNames.Building(name), _cancellationToken));
     } finally {
-      await databases.DropAsync(owner, name, CancellationToken.None);
+      await databases.DropAsync(name, CancellationToken.None);
     }
   }
 
@@ -145,14 +144,13 @@ public sealed class SchemaTemplateTests : IDisposable {
   public async Task EnsureAsync_RepeatableThatCannotApplyAtAnOlderVersion_IsSkippedAndNoted() {
     var template = await FakeTemplateAsync("INSERT INTO bar (baz) VALUES (1);\n");
     var databases = SeedTestServer.Databases;
-    await using var owner = await SeedTestServer.OpenMaintenanceAsync(_cancellationToken);
-    var (old, _) = await template.EnsureAsync(owner, 1, _cancellationToken);
-    var (newest, _) = await template.EnsureAsync(owner, _cancellationToken);
-    var historyAtOne = await HistoryOfAsync(databases, owner, old);
-    var historyAtTwo = await HistoryOfAsync(databases, owner, newest);
+    var (old, _) = await template.EnsureAsync(1, _cancellationToken);
+    var (newest, _) = await template.EnsureAsync(_cancellationToken);
+    var historyAtOne = await HistoryOfAsync(databases, old);
+    var historyAtTwo = await HistoryOfAsync(databases, newest);
 
-    var skippedAtOne = await template.SkippedAsync(owner, old, _cancellationToken);
-    var skippedAtTwo = await template.SkippedAsync(owner, newest, _cancellationToken);
+    var skippedAtOne = await template.SkippedAsync(old, _cancellationToken);
+    var skippedAtTwo = await template.SkippedAsync(newest, _cancellationToken);
 
     var skipped = Assert.Single(skippedAtOne);
     Assert.Equal("R__qux.sql", skipped.File);
@@ -165,29 +163,28 @@ public sealed class SchemaTemplateTests : IDisposable {
 
   // The scripts Waypoint recorded for a template's clone, with whether each succeeded folded in: a failed one is listed
   // as `FAILED <script>`.
-  private async Task<List<string>> HistoryOfAsync(ServerDatabases databases, NpgsqlConnection owner, string template) {
+  private async Task<List<string>> HistoryOfAsync(ServerDatabases databases, string template) {
     var clone = $"{SeedDatabaseNames.Prefix}history_{Guid.NewGuid():N}";
-    await databases.CloneAsync(owner, template, clone, _cancellationToken);
+    await databases.CloneAsync(template, clone, _cancellationToken);
     try {
       await using var connection = await DatabaseEnvironment.OpenOwnerAsync(clone, _cancellationToken);
       return await connection.QueryAsync<string>(
         "SELECT CASE WHEN success THEN script ELSE 'FAILED ' || script END FROM public.waypoint_schema_history ORDER BY installed_rank;",
         _cancellationToken);
     } finally {
-      await databases.DropAsync(owner, clone, CancellationToken.None);
+      await databases.DropAsync(clone, CancellationToken.None);
     }
   }
 
   [Fact]
   public async Task EnsureAsync_RepeatableThatFailsAtTheNewestVersion_FailsTheBuildAndLeavesNothing() {
     var template = await FakeTemplateAsync("INSERT INTO nope (baz) VALUES (1);\n", Guid.NewGuid().ToString("N"));
-    await using var owner = await SeedTestServer.OpenMaintenanceAsync(_cancellationToken);
     var name = await template.NameAsync(_cancellationToken);
 
-    _ = await Assert.ThrowsAsync<InvalidOperationException>(() => template.EnsureAsync(owner, _cancellationToken));
+    _ = await Assert.ThrowsAsync<InvalidOperationException>(() => template.EnsureAsync(_cancellationToken));
 
     var databases = SeedTestServer.Databases;
-    Assert.False(await databases.ExistsAsync(owner, name, _cancellationToken));
-    Assert.False(await databases.ExistsAsync(owner, SeedDatabaseNames.Building(name), _cancellationToken));
+    Assert.False(await databases.ExistsAsync(name, _cancellationToken));
+    Assert.False(await databases.ExistsAsync(SeedDatabaseNames.Building(name), _cancellationToken));
   }
 }

@@ -19,13 +19,11 @@ namespace JoshOlson.Seed.Commands;
 public sealed class MigrateCommand : AsyncCommand<MigrateCommand.Settings> {
   private readonly SeedPaths _paths;
   private readonly SeedToolFactory _factory;
-  private readonly OwnerConnections _connections;
   private readonly IAnsiConsole _console;
 
-  public MigrateCommand(SeedPaths paths, SeedToolFactory factory, OwnerConnections connections, IAnsiConsole console) {
+  public MigrateCommand(SeedPaths paths, SeedToolFactory factory, IAnsiConsole console) {
     _paths = paths;
     _factory = factory;
-    _connections = connections;
     _console = console;
   }
 
@@ -44,7 +42,6 @@ public sealed class MigrateCommand : AsyncCommand<MigrateCommand.Settings> {
   }
 
   public override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken) {
-    var owner = await _connections.MaintenanceAsync(cancellationToken);
     var options = MigrateOptions.For(_paths, _factory.OpenSchemaTemplate(), _factory.Databases, _factory.Clock) with {
       Relock = settings.Relock,
       LayerCheck = CheckLayersAsync,
@@ -52,7 +49,7 @@ public sealed class MigrateCommand : AsyncCommand<MigrateCommand.Settings> {
       Base = settings.Base,
       Fetch = !settings.NoFetch,
     };
-    var result = await SeedMigrator.MigrateAsync(owner, options, cancellationToken);
+    var result = await SeedMigrator.MigrateAsync(options, cancellationToken);
     foreach (var warning in result.Warnings) {
       _console.MarkupLineInterpolated($"[yellow]Warning:[/] {warning}");
     }
@@ -87,7 +84,6 @@ public sealed class MigrateCommand : AsyncCommand<MigrateCommand.Settings> {
     if (opened is SeedProblems unread) {
       return [unread.ToString()];
     }
-    var owner = await _connections.MaintenanceAsync(cancellationToken);
-    return await opened.OrThrow().CheckAsync(owner, cancellationToken);
+    return await opened.OrThrow().CheckAsync(cancellationToken);
   }
 }

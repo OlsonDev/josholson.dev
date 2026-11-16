@@ -3,7 +3,6 @@ using JoshOlson.Database.Catalog;
 using JoshOlson.Database.Layers;
 using JoshOlson.Database.Locks;
 using JoshOlson.Shared.Extensions;
-using Npgsql;
 
 namespace JoshOlson.Database.Migrate;
 
@@ -35,18 +34,17 @@ public static class SeedMigrator {
   // never moves ahead of a layer it would break. When the base is needed (a branch re-editing a migration it has not merged,
   // or `--base`) the lock and layers are derived from the base's instead (`MigrationRun`).
   // `Relock` starts the lock over instead of carrying the old one forward (see `MigrateOptions.Relock`).
-  public static async Task<MigrateResult> MigrateAsync(NpgsqlConnection owner, MigrateOptions options, CancellationToken cancellationToken)
-    => await new MigrationRun(owner, options, cancellationToken).RunAsync();
+  public static async Task<MigrateResult> MigrateAsync(MigrateOptions options, CancellationToken cancellationToken)
+    => await new MigrationRun(options, cancellationToken).RunAsync();
 
   // The catalog and Waypoint's history of the template for the newest migration. The template refuses connections, so a
   // clone is read and dropped.
   internal static async Task<(CatalogSchema Catalog, List<AppliedMigration> Applied)> InspectAsync(
-    NpgsqlConnection owner,
     MigrateOptions options,
     CancellationToken cancellationToken
   ) {
-    var (template, _) = await options.Template.EnsureAsync(owner, cancellationToken);
-    await using var scratch = await options.Databases.CloneScratchAsync(owner, template, "migrate", cancellationToken);
+    var (template, _) = await options.Template.EnsureAsync(cancellationToken);
+    await using var scratch = await options.Databases.CloneScratchAsync(template, "migrate", cancellationToken);
     await using var connection = await scratch.OpenAsync(cancellationToken);
     return (
       await SchemaCatalog.ReadAsync(connection, new(), cancellationToken),

@@ -1,19 +1,11 @@
-using Npgsql;
 using Xunit;
 
 namespace JoshOlson.Database.Baking;
 
 // The real layers are checked where they are, since a check writes nothing. A test that breaks a layer does it in a
 // workspace of its own with the fixture layers.
-public sealed class SeedToolCheckTests : IAsyncLifetime {
+public sealed class SeedToolCheckTests {
   private readonly CancellationToken _cancellationToken = TestContext.Current.CancellationToken;
-  private NpgsqlConnection _owner = null!;
-
-  public async ValueTask InitializeAsync()
-    => _owner = await SeedTestServer.OpenMaintenanceAsync(_cancellationToken);
-
-  public async ValueTask DisposeAsync()
-    => await _owner.DisposeAsync();
 
   // The problems `CheckFilesAsync` finds in the fixture layers once `from` in one of them reads `to`.
   private async Task<List<string>> CheckWithAsync(string layer, string from, string to) {
@@ -22,14 +14,14 @@ public sealed class SeedToolCheckTests : IAsyncLifetime {
     Assert.Contains(from, text, StringComparison.Ordinal);
     await workspace.WriteLayerAsync(layer, text.Replace(from, to, StringComparison.Ordinal), _cancellationToken);
     var tool = await workspace.OpenToolAsync(_cancellationToken);
-    return await tool.CheckFilesAsync(_owner, workspace.Paths.Seeds, _cancellationToken);
+    return await tool.CheckFilesAsync(workspace.Paths.Seeds, _cancellationToken);
   }
 
   [Fact]
   public async Task CheckFilesAsync_TheRealLayers_HaveNoProblems() {
     var tool = await SeedTestServer.RealTool;
 
-    Assert.Empty(await tool.CheckFilesAsync(_owner, SeedTestServer.Paths.Seeds, _cancellationToken));
+    Assert.Empty(await tool.CheckFilesAsync(SeedTestServer.Paths.Seeds, _cancellationToken));
   }
 
   [Fact]

@@ -2,14 +2,13 @@ using JoshOlson.Database.Layers;
 using JoshOlson.Database.Seeding;
 using JoshOlson.Shared.Results;
 using NodaTime;
-using Npgsql;
 
 namespace JoshOlson.Database.Baking;
 
 // `seeds:export`: makes a seed layer from what is in a database (ADR 0014, hierarchical seed layers), and checks it
 // against the layers that are already there. `SeedTool.Exporter` hands one out, over the same templates, tree, and
-// schema as the tool. Like the tool, it takes an owner connection to a database other than the one it works on,
-// normally the maintenance database `postgres`.
+// schema as the tool. Like the tool, it takes no connection: what it does to the server's databases goes through
+// `ServerDatabases`, which opens its own.
 public sealed class LayerExporter {
   private readonly SchemaTemplate _schemaTemplate;
   private readonly LayerTemplate _layerTemplate;
@@ -44,7 +43,7 @@ public sealed class LayerExporter {
   // applied is exactly the database's rows, every layer that extends one it replaces still merges, and the layer and
   // those below it build in a database. Nothing is written to disk, and the database is not changed
   // (`RecordExportAsync` does that once the file is written).
-  public async Task<LayerExport> ExportAsync(NpgsqlConnection owner, ExportRequest request, CancellationToken cancellationToken) {
+  public async Task<LayerExport> ExportAsync(ExportRequest request, CancellationToken cancellationToken) {
     var name = request.Name;
     var description = request.Description;
     if (name is not null && !LayerName.IsValid(name)) {
@@ -67,10 +66,10 @@ public sealed class LayerExporter {
     if (exists && !replaced && !request.Overwrite) {
       throw new SeedFormatException($"There is already a layer named '{name}'. Pass --overwrite to replace it, or pick another name.");
     }
-    var diffed = await DiffAsync(owner, request.Database, child, new(name, parent, description), cancellationToken);
+    var diffed = await DiffAsync(request.Database, child, new(name, parent, description), cancellationToken);
     var export = diffed.OrThrow() with { Replaces = exists };
     var (tree, affected) = CheckAgainstTheOthers(export.Layer, replaced);
-    await CheckTheyBuildAsync(owner, tree, affected, cancellationToken);
+    await CheckTheyBuildAsync(tree, affected, cancellationToken);
     return export;
   }
 
@@ -88,7 +87,6 @@ public sealed class LayerExporter {
   // layer's own template exports as the layer. Whether the layer replaces one is the caller's to say, and is false here.
   // The problems are a parent whose template does not build, or that there is no difference to make a layer from.
   internal async Task<Result<LayerExport, SeedProblems>> DiffAsync(
-    NpgsqlConnection owner,
     string source,
     DatabaseState child,
     LayerHeader header,
@@ -97,15 +95,15 @@ public sealed class LayerExporter {
     var parent = header.Extends;
     string template;
     if (parent is null) {
-      template = (await _schemaTemplate.EnsureAsync(owner, cancellationToken)).Name;
+      template = (await _schemaTemplate.EnsureAsync(cancellationToken)).Name;
     } else {
-      var ensured = await _layerTemplate.EnsureAsync(owner, parent, cancellationToken);
+      var ensured = await _layerTemplate.EnsureAsync(parent, cancellationToken);
       if (ensured is SeedProblems unbuilt) {
         return unbuilt;
       }
       template = ensured.OrThrow().Name;
     }
-    var baseline = await SeedStateReader.ReadTemplateAsync(_databases, owner, template, "export", _tree.Schema, cancellationToken, child.Hydration.Anchor);
+    var baseline = await SeedStateReader.ReadTemplateAsync(_databases, template, "export", _tree.Schema, cancellationToken, child.Hydration.Anchor);
     var from = parent is null ? "the schema template" : $"the template for {parent}";
     var diff = LayerDiff.Between(baseline.Rows, child.Rows, header, _tree.Schema);
     if (diff is null) {
@@ -152,11 +150,10 @@ public sealed class LayerExporter {
 
   // Each affected layer's chain is applied to a clone of the schema template (`SeedHydrator.BuildProblemsAsync`), so a
   // layer that would not build is found here, naming it, instead of at the next bake.
-  private async Task CheckTheyBuildAsync(NpgsqlConnection owner, LayerTree tree, List<string> affected, CancellationToken cancellationToken) {
+  private async Task CheckTheyBuildAsync(LayerTree tree, List<string> affected, CancellationToken cancellationToken) {
     var problems = await SeedHydrator.BuildProblemsAsync(
       _databases,
-      owner,
-      (await _schemaTemplate.EnsureAsync(owner, cancellationToken)).Name,
+      (await _schemaTemplate.EnsureAsync(cancellationToken)).Name,
       "check",
       tree,
       affected,

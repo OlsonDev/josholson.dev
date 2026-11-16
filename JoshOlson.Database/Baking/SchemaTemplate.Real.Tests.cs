@@ -46,14 +46,13 @@ public sealed class SchemaTemplateRealTests {
     var databases = SeedTestServer.Databases;
     var tools = SeedTestServer.Tools;
     var template = SeedTestServer.RealTemplate;
-    await using var owner = await SeedTestServer.OpenMaintenanceAsync(_cancellationToken);
-    var (name, _) = await template.EnsureAsync(owner, 3, _cancellationToken);
+    var (name, _) = await template.EnsureAsync(3, _cancellationToken);
     var clone = $"{SeedDatabaseNames.Prefix}versioned_{Guid.NewGuid():N}";
-    await databases.CloneAsync(owner, name, clone, _cancellationToken);
+    await databases.CloneAsync(name, clone, _cancellationToken);
     try {
       await using var connection = await DatabaseEnvironment.OpenOwnerAsync(clone, _cancellationToken);
       var applied = await MigrationHistory.ReadAsync(connection, _cancellationToken);
-      var skipped = await template.SkippedAsync(owner, name, _cancellationToken);
+      var skipped = await template.SkippedAsync(name, _cancellationToken);
       var hasMimeTypes = await connection.QuerySingleAsync<bool>(
         "SELECT to_regclass('blob.mime_type') IS NOT NULL;",
         _cancellationToken);
@@ -74,7 +73,7 @@ public sealed class SchemaTemplateRealTests {
         _cancellationToken);
       Assert.True(mimeTypes > 0);
     } finally {
-      await databases.DropAsync(owner, clone, CancellationToken.None);
+      await databases.DropAsync(clone, CancellationToken.None);
     }
   }
 }

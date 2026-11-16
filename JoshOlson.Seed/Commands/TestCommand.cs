@@ -7,11 +7,11 @@ namespace JoshOlson.Seed.Commands;
 // `seed test <id> <layer>` (`mise run seed:test <id> <layer>`): a database of its own, `seed_test_<id>`, cloned from the
 // layer's template (ADR 0033, a scoped database per test), and prints its name. `seed clean` drops it.
 public sealed class TestCommand : AsyncCommand<TestCommand.Settings> {
-  private readonly SeedToolSession _session;
+  private readonly SeedToolFactory _factory;
   private readonly IAnsiConsole _console;
 
-  public TestCommand(SeedToolSession session, IAnsiConsole console) {
-    _session = session;
+  public TestCommand(SeedToolFactory factory, IAnsiConsole console) {
+    _factory = factory;
     _console = console;
   }
 
@@ -26,8 +26,8 @@ public sealed class TestCommand : AsyncCommand<TestCommand.Settings> {
   }
 
   public override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken) {
-    var (tool, owner) = await _session.OpenAsync(cancellationToken);
-    var name = await tool.CreateTestDatabaseAsync(owner, settings.Id, settings.Layer, cancellationToken);
+    var tool = await _factory.OpenAsync(cancellationToken);
+    var name = await tool.CreateTestDatabaseAsync(settings.Id, settings.Layer, cancellationToken);
     _console.WriteLine(name);
     return 0;
   }

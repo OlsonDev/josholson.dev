@@ -15,12 +15,12 @@ namespace JoshOlson.Seed.Commands;
 // so a row that should not be there (a real account you enrolled) is not a surprise in the diff.
 public sealed class ExportCommand : AsyncCommand<ExportCommand.Settings> {
   private readonly SeedPaths _paths;
-  private readonly SeedToolSession _session;
+  private readonly SeedToolFactory _factory;
   private readonly IAnsiConsole _console;
 
-  public ExportCommand(SeedPaths paths, SeedToolSession session, IAnsiConsole console) {
+  public ExportCommand(SeedPaths paths, SeedToolFactory factory, IAnsiConsole console) {
     _paths = paths;
-    _session = session;
+    _factory = factory;
     _console = console;
   }
 
@@ -43,7 +43,7 @@ public sealed class ExportCommand : AsyncCommand<ExportCommand.Settings> {
   }
 
   public override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken) {
-    var (tool, owner) = await _session.OpenAsync(cancellationToken);
+    var tool = await _factory.OpenAsync(cancellationToken);
     var database = settings.Database ?? tool.Development;
     var request = new ExportRequest {
       Database = database,
@@ -53,7 +53,7 @@ public sealed class ExportCommand : AsyncCommand<ExportCommand.Settings> {
     };
     var export = await _console.Status().StartAsync(
       $"Exporting {database}",
-      _ => tool.Exporter.ExportAsync(owner, request, cancellationToken));
+      _ => tool.Exporter.ExportAsync(request, cancellationToken));
 
     var table = new Table()
       .AddColumn("Table")

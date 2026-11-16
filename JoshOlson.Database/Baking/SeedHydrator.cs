@@ -3,7 +3,6 @@ using JoshOlson.Database.Seeding;
 using JoshOlson.Shared.Data;
 using JoshOlson.Shared.Results;
 using NodaTime;
-using Npgsql;
 
 namespace JoshOlson.Database.Baking;
 
@@ -51,7 +50,6 @@ public static class SeedHydrator {
   // Returns one problem for each layer that does not build, worded by `problem` from the layer's name and the error.
   public static async Task<List<string>> BuildProblemsAsync(
     ServerDatabases databases,
-    NpgsqlConnection owner,
     string template,
     string purpose,
     LayerTree tree,
@@ -62,7 +60,7 @@ public static class SeedHydrator {
   ) {
     var problems = new List<string>();
     foreach (var layer in layers) {
-      await using var scratch = await databases.CloneScratchAsync(owner, template, purpose, cancellationToken);
+      await using var scratch = await databases.CloneScratchAsync(template, purpose, cancellationToken);
       if (await HydrateAsync(scratch.Name, tree, layer, editing: false, anchor, cancellationToken) is SeedProblems unbuilt) {
         problems.Add(problem(layer, unbuilt.ToString()));
       }

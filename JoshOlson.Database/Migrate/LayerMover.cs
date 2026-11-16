@@ -4,7 +4,6 @@ using JoshOlson.Database.Seeding;
 using JoshOlson.Shared.Extensions;
 using JoshOlson.Shared.Results;
 using NodaTime;
-using Npgsql;
 
 namespace JoshOlson.Database.Migrate;
 
@@ -30,10 +29,9 @@ namespace JoshOlson.Database.Migrate;
 // and a child differs from its parent only by what the child's layer says. A default of `now()` on a new column would make
 // a child seem to update every row it inherits.
 //
-// A mover is made for one move and holds what every step of it needs: the owner connection, the options, the move, the
+// A mover is made for one move and holds what every step of it needs: the options, the move, the
 // new schema, the anchor, and the problems found so far.
 public sealed class LayerMover {
-  private readonly NpgsqlConnection _owner;
   private readonly MigrateOptions _options;
   private readonly LayerMove _move;
   private readonly CancellationToken _cancellationToken;
@@ -41,8 +39,7 @@ public sealed class LayerMover {
   private readonly Instant _anchor;
   private readonly SeedProblems _problems = new();
 
-  public LayerMover(NpgsqlConnection owner, MigrateOptions options, LayerMove move, CancellationToken cancellationToken) {
-    _owner = owner;
+  public LayerMover(MigrateOptions options, LayerMove move, CancellationToken cancellationToken) {
     _options = options;
     _move = move;
     _cancellationToken = cancellationToken;
@@ -52,9 +49,9 @@ public sealed class LayerMover {
 
   // The layers at the newest schema, or every problem that kept one of them from getting there.
   public async Task<Result<List<MovedLayer>, SeedProblems>> MoveAsync() {
-    var (fromTemplate, _) = await _options.Template.EnsureAsync(_owner, _move.From.Version, _cancellationToken);
-    var skipped = await _options.Template.SkippedAsync(_owner, fromTemplate, _cancellationToken);
-    var (headTemplate, _) = await _options.Template.EnsureAsync(_owner, _cancellationToken);
+    var (fromTemplate, _) = await _options.Template.EnsureAsync(_move.From.Version, _cancellationToken);
+    var skipped = await _options.Template.SkippedAsync(fromTemplate, _cancellationToken);
+    var (headTemplate, _) = await _options.Template.EnsureAsync(_cancellationToken);
 
     var states = new Dictionary<string, SeedState>(StringComparer.Ordinal);
     _problems.AddRange(await _move.OldTree.VisitParentFirstAsync(async layer => {
@@ -67,7 +64,7 @@ public sealed class LayerMover {
     }));
     // The rows of the newest template, which is what a root layer's state is measured from: it holds the reference data
     // every database has.
-    var head = await SeedStateReader.ReadTemplateAsync(_options.Databases, _owner, headTemplate, "move", _newSchema, _cancellationToken, _anchor);
+    var head = await SeedStateReader.ReadTemplateAsync(_options.Databases, headTemplate, "move", _newSchema, _cancellationToken, _anchor);
 
     var moved = new List<MovedLayer>();
     if (!_problems.Any) {
@@ -81,7 +78,6 @@ public sealed class LayerMover {
       // cannot. The reference data from the repeatable migrations is there by now.
       _problems.AddRange(await SeedHydrator.BuildProblemsAsync(
         _options.Databases,
-        _owner,
         headTemplate,
         "move",
         new LayerTree(_newSchema, [.. moved.ConvertAll(layer => layer.Layer)]),
@@ -100,7 +96,7 @@ public sealed class LayerMover {
 
   // One layer's full state at the newest schema: its chain put into a database at the old one and migrated on.
   private async Task<Result<SeedState, SeedProblems>> MigrateLayerAsync(string fromTemplate, string layer) {
-    await using var scratch = await _options.Databases.CloneScratchAsync(_owner, fromTemplate, "move", _cancellationToken);
+    await using var scratch = await _options.Databases.CloneScratchAsync(fromTemplate, "move", _cancellationToken);
     if (await SeedHydrator.HydrateForMigrationAsync(scratch.Name, _move.OldTree, layer, _anchor, _cancellationToken) is SeedProblems refused) {
       return refused;
     }

@@ -13,12 +13,12 @@ namespace JoshOlson.Seed.Commands;
 // Needs the dev database server and the `tools` container to build a template that is not current.
 public sealed class CheckCommand : AsyncCommand {
   private readonly SeedPaths _paths;
-  private readonly SeedToolSession _session;
+  private readonly SeedToolFactory _factory;
   private readonly IAnsiConsole _console;
 
-  public CheckCommand(SeedPaths paths, SeedToolSession session, IAnsiConsole console) {
+  public CheckCommand(SeedPaths paths, SeedToolFactory factory, IAnsiConsole console) {
     _paths = paths;
-    _session = session;
+    _factory = factory;
     _console = console;
   }
 
@@ -27,8 +27,8 @@ public sealed class CheckCommand : AsyncCommand {
     var layers = 0;
     // The layers are read against the lock, and built from the migrations: neither means anything while the lock is off.
     if (problems.Count is 0) {
-      var (tool, owner) = await _session.OpenAsync(cancellationToken);
-      problems = await _console.Status().StartAsync("Checking the layers", _ => tool.CheckFilesAsync(owner, _paths.Seeds, cancellationToken));
+      var tool = await _factory.OpenAsync(cancellationToken);
+      problems = await _console.Status().StartAsync("Checking the layers", _ => tool.CheckFilesAsync(_paths.Seeds, cancellationToken));
       layers = tool.Tree.Count;
     }
     if (problems.Count is 0) {

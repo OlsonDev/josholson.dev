@@ -1,6 +1,5 @@
 using JoshOlson.Database;
 using JoshOlson.Database.Baking;
-using Npgsql;
 using Xunit;
 
 namespace JoshOlson.Seed.Commands;
@@ -11,21 +10,19 @@ public sealed class CleanCommandTests : IAsyncLifetime {
   private readonly CancellationToken _cancellationToken = TestContext.Current.CancellationToken;
   private readonly string _prefix = $"seed_cleancmd_{Guid.NewGuid():N}_";
   private readonly ServerDatabases _databases = SeedTestServer.Databases;
-  private NpgsqlConnection _owner = null!;
 
-  public async ValueTask InitializeAsync()
-    => _owner = await SeedTestServer.OpenMaintenanceAsync(_cancellationToken);
+  public ValueTask InitializeAsync()
+    => ValueTask.CompletedTask;
 
   public async ValueTask DisposeAsync() {
-    await _databases.DropAsync(_owner, _prefix + "foo", CancellationToken.None);
-    await _databases.DropAsync(_owner, _prefix + "bar_building", CancellationToken.None);
-    await _owner.DisposeAsync();
+    await _databases.DropAsync(_prefix + "foo", CancellationToken.None);
+    await _databases.DropAsync(_prefix + "bar_building", CancellationToken.None);
   }
 
   [Fact]
   public async Task Execute_StaleDatabasesUnderThePrefix_AreDroppedAndCounted() {
-    await _databases.CreateAsync(_owner, _prefix + "foo", _cancellationToken);
-    await _databases.CreateAsync(_owner, _prefix + "bar_building", _cancellationToken);
+    await _databases.CreateAsync(_prefix + "foo", _cancellationToken);
+    await _databases.CreateAsync(_prefix + "bar_building", _cancellationToken);
 
     var (exitCode, output) = await SeedAppRunner.RunAsync("clean", "--prefix", _prefix);
 
@@ -33,8 +30,8 @@ public sealed class CleanCommandTests : IAsyncLifetime {
     Assert.Contains($"Dropped {_prefix}foo", output, StringComparison.Ordinal);
     Assert.Contains($"Dropped {_prefix}bar_building", output, StringComparison.Ordinal);
     Assert.Contains("2 database(s) dropped.", output, StringComparison.Ordinal);
-    Assert.False(await _databases.ExistsAsync(_owner, _prefix + "foo", _cancellationToken));
-    Assert.False(await _databases.ExistsAsync(_owner, _prefix + "bar_building", _cancellationToken));
+    Assert.False(await _databases.ExistsAsync(_prefix + "foo", _cancellationToken));
+    Assert.False(await _databases.ExistsAsync(_prefix + "bar_building", _cancellationToken));
   }
 
   [Fact]

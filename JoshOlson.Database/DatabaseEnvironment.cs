@@ -6,6 +6,15 @@ namespace JoshOlson.Database;
 // How the seed tool reaches the dev database: as its owner (it reads the catalogs and, later, builds databases), through
 // the POSTGRES_* settings in `.env` that the mise tasks load. The defaults are the dev compose file's.
 public static class DatabaseEnvironment {
+  // Connections to the maintenance database `postgres`, which is where the seed tool makes, clones, and drops the
+  // others from. They are pooled: nobody drops or renames that database, so a connection the pool keeps open is in
+  // nobody's way, and an operation that opens one for a single statement does not pay for a new login each time.
+  private static readonly Lazy<NpgsqlDataSource> _Maintenance = new(() => {
+    var builder = Builder();
+    builder.Database = "postgres";
+    return NpgsqlDataSource.Create(builder.ToString());
+  });
+
   public static string OwnerConnectionString()
     => Builder().ToString();
 
@@ -25,6 +34,10 @@ public static class DatabaseEnvironment {
   // The same for another database on the server.
   public static async Task<NpgsqlConnection> OpenOwnerAsync(string database, CancellationToken cancellationToken)
     => await OpenAsync(OwnerConnectionString(database), cancellationToken);
+
+  // An open owner connection to the maintenance database, from the pool, which the caller disposes.
+  public static async Task<NpgsqlConnection> OpenMaintenanceAsync(CancellationToken cancellationToken)
+    => await _Maintenance.Value.OpenConnectionAsync(cancellationToken);
 
   // The dev database's name: the one `seed <layer>` rebuilds.
   public static string DevelopmentDatabase()

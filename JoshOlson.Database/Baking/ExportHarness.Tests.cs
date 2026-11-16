@@ -1,34 +1,28 @@
 using JoshOlson.Shared.Data;
-using Npgsql;
 using Xunit;
 
 namespace JoshOlson.Database.Baking;
 
-// What the tests of `LayerExporter.ExportAsync` share: the tool over the fixture layers, an owner connection, and the
+// What the tests of `LayerExporter.ExportAsync` share: the tool over the fixture layers and the
 // databases a test built from a layer, which are dropped when the test is done. An export is named `foo-bar` and
 // described as `Foo bar` unless the test says otherwise.
 internal sealed class ExportHarness : IAsyncDisposable {
   private readonly CancellationToken _cancellationToken;
-  private readonly NpgsqlConnection _owner;
   private readonly List<string> _created = [];
 
-  private ExportHarness(SeedTool tool, NpgsqlConnection owner, CancellationToken cancellationToken) {
+  private ExportHarness(SeedTool tool, CancellationToken cancellationToken) {
     Tool = tool;
-    _owner = owner;
     _cancellationToken = cancellationToken;
   }
 
   public SeedTool Tool { get; }
 
   public static async Task<ExportHarness> OpenAsync(CancellationToken cancellationToken)
-    => new(
-      await FixtureSeeds.Tool,
-      await SeedTestServer.OpenMaintenanceAsync(cancellationToken),
-      cancellationToken);
+    => new(await FixtureSeeds.Tool, cancellationToken);
 
   // A database built from a layer, as `seed:test` makes one, or as `seed <layer> --edit` records it.
   public async Task<string> DatabaseFromAsync(string layer, bool editing = false) {
-    var name = await Tool.CreateTestDatabaseAsync(_owner, Guid.NewGuid().ToString("N"), layer, _cancellationToken);
+    var name = await Tool.CreateTestDatabaseAsync(Guid.NewGuid().ToString("N"), layer, _cancellationToken);
     _created.Add(name);
     if (editing) {
       await RunAsync(name, "UPDATE seed.hydration SET editing = TRUE;");
@@ -48,7 +42,6 @@ internal sealed class ExportHarness : IAsyncDisposable {
     bool overwrite = false
   )
     => await Tool.Exporter.ExportAsync(
-      _owner,
       new() {
         Database = database,
         Name = name,
@@ -71,8 +64,7 @@ internal sealed class ExportHarness : IAsyncDisposable {
 
   public async ValueTask DisposeAsync() {
     foreach (var name in _created) {
-      await SeedTestServer.Databases.DropAsync(_owner, name, CancellationToken.None);
+      await SeedTestServer.Databases.DropAsync(name, CancellationToken.None);
     }
-    await _owner.DisposeAsync();
   }
 }

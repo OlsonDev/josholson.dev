@@ -3,14 +3,13 @@ using JoshOlson.Database.Seeding;
 using JoshOlson.Shared.Extensions;
 using JoshOlson.Shared.Results;
 using NodaTime;
-using Npgsql;
 
 namespace JoshOlson.Database.Baking;
 
 // What the commands `seeds:bake`, `seeds:check`, `seed`, `seed:test`, and `seed:clean` do (ADR 0033, a scoped database
-// per test), over the repository's own migrations, provisioning, and seeds; `seeds:export` is `Exporter`. Each takes an
-// owner connection to a database other than the one it rebuilds, normally the maintenance database `postgres`:
-// Postgres cannot drop or clone a database somebody is connected to.
+// per test), over the repository's own migrations, provisioning, and seeds; `seeds:export` is `Exporter`. None takes a
+// connection: `ServerDatabases` opens its own to the maintenance database `postgres`, since Postgres cannot drop or
+// clone a database somebody is connected to.
 public sealed class SeedTool {
   private readonly SchemaTemplate _schemaTemplate;
   private readonly LayerTemplate _layerTemplate;
@@ -81,11 +80,11 @@ public sealed class SeedTool {
   // Builds the schema template and then every layer's template, parent first. Templates that exist for the current
   // files are left alone. Returns the layers in the order built, each with its template's name and whether this run
   // built it.
-  public async Task<List<BakedLayer>> BakeAsync(NpgsqlConnection owner, CancellationToken cancellationToken) {
-    var (schemaName, schemaBuilt) = await _schemaTemplate.EnsureAsync(owner, cancellationToken);
+  public async Task<List<BakedLayer>> BakeAsync(CancellationToken cancellationToken) {
+    var (schemaName, schemaBuilt) = await _schemaTemplate.EnsureAsync(cancellationToken);
     var baked = new List<BakedLayer> { new("(schema)", schemaName, schemaBuilt) };
     foreach (var layer in Tree.InBakeOrder()) {
-      var (name, built) = (await _layerTemplate.EnsureAsync(owner, layer.Name, cancellationToken)).OrThrow();
+      var (name, built) = (await _layerTemplate.EnsureAsync(layer.Name, cancellationToken)).OrThrow();
       baked.Add(new(layer.Name, name, built));
     }
     return baked;
@@ -94,9 +93,9 @@ public sealed class SeedTool {
   // What `seeds:migrate` asks of the layers: each has to build into a template from the migrations on disk. Every layer
   // is tried, so the problems come back together, but one whose parent failed is skipped (it would fail the same way).
   // A failed build leaves nothing behind. Returns the problems, empty when all the layers apply.
-  public async Task<List<string>> CheckAsync(NpgsqlConnection owner, CancellationToken cancellationToken)
+  public async Task<List<string>> CheckAsync(CancellationToken cancellationToken)
     => await Tree.VisitParentFirstAsync(async layer
-      => await _layerTemplate.EnsureAsync(owner, layer.Name, cancellationToken) is SeedProblems unbuilt
+      => await _layerTemplate.EnsureAsync(layer.Name, cancellationToken) is SeedProblems unbuilt
         ? $"{layer.Name}: {unbuilt}"
         : null);
 
@@ -105,23 +104,23 @@ public sealed class SeedTool {
   // and diffed against its parent's template, are exactly the layer. Every layer is tried, so the problems come back
   // together, but one whose parent failed is skipped (it would fail the same way). Returns the problems, empty when
   // all the layers pass.
-  public async Task<List<string>> CheckFilesAsync(NpgsqlConnection owner, string seedsDirectory, CancellationToken cancellationToken)
-    => await Tree.VisitParentFirstAsync(layer => CheckFileAsync(owner, seedsDirectory, layer, cancellationToken));
+  public async Task<List<string>> CheckFilesAsync(string seedsDirectory, CancellationToken cancellationToken)
+    => await Tree.VisitParentFirstAsync(layer => CheckFileAsync(seedsDirectory, layer, cancellationToken));
 
-  private async Task<string?> CheckFileAsync(NpgsqlConnection owner, string seedsDirectory, SeedLayer layer, CancellationToken cancellationToken) {
+  private async Task<string?> CheckFileAsync(string seedsDirectory, SeedLayer layer, CancellationToken cancellationToken) {
     var canonical = LayerWriter.Write(layer, Tree.Schema);
     var path = LayerLoader.PathOf(seedsDirectory, layer.Name);
     var onDisk = await File.ReadAllTextAsync(path, cancellationToken);
     if (!string.Equals(onDisk, canonical, StringComparison.Ordinal)) {
       return $"{layer.Name}: {path} is not in canonical form ({FirstDifference(canonical, onDisk)}).";
     }
-    var ensured = await _layerTemplate.EnsureAsync(owner, layer.Name, cancellationToken);
+    var ensured = await _layerTemplate.EnsureAsync(layer.Name, cancellationToken);
     if (ensured is SeedProblems unbuilt) {
       return $"{layer.Name}: {unbuilt}";
     }
     var template = ensured.OrThrow().Name;
-    var state = await SeedStateReader.ReadTemplateAsync(_databases, owner, template, "check", Tree.Schema, cancellationToken);
-    var diffed = await Exporter.DiffAsync(owner, template, state, layer.Header, cancellationToken);
+    var state = await SeedStateReader.ReadTemplateAsync(_databases, template, "check", Tree.Schema, cancellationToken);
+    var diffed = await Exporter.DiffAsync(template, state, layer.Header, cancellationToken);
     if (diffed is SeedProblems undiffed) {
       return $"{layer.Name}: {undiffed}";
     }
@@ -146,14 +145,14 @@ public sealed class SeedTool {
   }
 
   // `seed:test <id> <layer>`: a database of its own for one test, cloned from the layer's template. Returns its name.
-  public async Task<string> CreateTestDatabaseAsync(NpgsqlConnection owner, string id, string layer, CancellationToken cancellationToken) {
+  public async Task<string> CreateTestDatabaseAsync(string id, string layer, CancellationToken cancellationToken) {
     var name = SeedDatabaseNames.Test(id);
     _ = Tree.Get(layer);
-    if (await _databases.ExistsAsync(owner, name, cancellationToken)) {
+    if (await _databases.ExistsAsync(name, cancellationToken)) {
       throw new SeedFormatException($"{name} already exists. Drop it with seed:clean, or pick another id.");
     }
-    var (template, _) = (await _layerTemplate.EnsureAsync(owner, layer, cancellationToken)).OrThrow();
-    await _databases.CloneAsync(owner, template, name, cancellationToken);
+    var (template, _) = (await _layerTemplate.EnsureAsync(layer, cancellationToken)).OrThrow();
+    await _databases.CloneAsync(template, name, cancellationToken);
     return name;
   }
 
@@ -162,12 +161,12 @@ public sealed class SeedTool {
   // baked). Everything in that database is lost. `Development` is its name, POSTGRES_DB unless `WithDevelopment` says
   // otherwise. `editing` is for changing the layer itself: the sequences stay in the layer's own block, so what is made
   // exports back into it, where a database made for a child of the layer (not editing) hands out the next block's.
-  public async Task<int> SeedDevelopmentAsync(NpgsqlConnection owner, string layer, bool editing, CancellationToken cancellationToken) {
+  public async Task<int> SeedDevelopmentAsync(string layer, bool editing, CancellationToken cancellationToken) {
     _ = SeedDatabaseNames.QuoteDevelopment(Development);
     _ = Tree.Get(layer);
-    var (schemaName, _) = await _schemaTemplate.EnsureAsync(owner, cancellationToken);
-    await _databases.DropDevelopmentAsync(owner, Development, cancellationToken);
-    await _databases.CloneDevelopmentAsync(owner, schemaName, Development, cancellationToken);
+    var (schemaName, _) = await _schemaTemplate.EnsureAsync(cancellationToken);
+    await _databases.DropDevelopmentAsync(Development, cancellationToken);
+    await _databases.CloneDevelopmentAsync(schemaName, Development, cancellationToken);
     return (await SeedHydrator.HydrateAsync(Development, Tree, layer, editing, SeedHydrator.Anchor(_clock), cancellationToken)).OrThrow();
   }
 
@@ -175,7 +174,6 @@ public sealed class SeedTool {
   // `everything`): older templates, test databases, and builds that died halfway. Returns the names dropped. Only
   // names that start with `prefix` are considered, `seed_` for the command, so a test can work on a prefix of its own.
   public async Task<List<string>> CleanAsync(
-    NpgsqlConnection owner,
     bool everything,
     string prefix,
     CancellationToken cancellationToken
@@ -187,10 +185,10 @@ public sealed class SeedTool {
         _ = keep.Add(await _layerTemplate.NameAsync(layer.Name, cancellationToken));
       }
     }
-    var names = await _databases.ListAsync(owner, prefix, cancellationToken);
+    var names = await _databases.ListAsync(prefix, cancellationToken);
     var dropped = new List<string>(names.Count);
     foreach (var name in names.Where(name => !keep.Contains(name))) {
-      await _databases.DropAsync(owner, name, cancellationToken);
+      await _databases.DropAsync(name, cancellationToken);
       dropped.Add(name);
     }
     return dropped;

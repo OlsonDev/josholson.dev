@@ -46,14 +46,13 @@ public static class SeedStateReader {
   // template has its own.
   public static async Task<DatabaseState> ReadTemplateAsync(
     ServerDatabases databases,
-    NpgsqlConnection owner,
     string template,
     string purpose,
     SeedSchema schema,
     CancellationToken cancellationToken,
     Instant? anchorIfUnrecorded = null
   ) {
-    await using var scratch = await databases.CloneScratchAsync(owner, template, purpose, cancellationToken);
+    await using var scratch = await databases.CloneScratchAsync(template, purpose, cancellationToken);
     await using var connection = await scratch.OpenAsync(cancellationToken);
     return await ReadAsync(connection, schema, cancellationToken, anchorIfUnrecorded);
   }

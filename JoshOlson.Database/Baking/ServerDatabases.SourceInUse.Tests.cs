@@ -12,17 +12,13 @@ public sealed class ServerDatabasesSourceInUseTests : IAsyncLifetime {
   private readonly string _source = $"seed_serverdb_{Guid.NewGuid():N}";
   private readonly string _target = $"seed_serverdb_{Guid.NewGuid():N}";
   private readonly ServerDatabases _databases = SeedTestServer.Databases;
-  private NpgsqlConnection _owner = null!;
 
-  public async ValueTask InitializeAsync() {
-    _owner = await DatabaseEnvironment.OpenOwnerAsync(_cancellationToken);
-    await _databases.CreateAsync(_owner, _source, _cancellationToken);
-  }
+  public async ValueTask InitializeAsync()
+    => await _databases.CreateAsync(_source, _cancellationToken);
 
   public async ValueTask DisposeAsync() {
-    await _databases.DropAsync(_owner, _target, CancellationToken.None);
-    await _databases.DropAsync(_owner, _source, CancellationToken.None);
-    await _owner.DisposeAsync();
+    await _databases.DropAsync(_target, CancellationToken.None);
+    await _databases.DropAsync(_source, CancellationToken.None);
   }
 
   // Asks the server to read its configuration files again, over and over on a connection of its own, until `waiting`
@@ -50,7 +46,7 @@ public sealed class ServerDatabasesSourceInUseTests : IAsyncLifetime {
     // second beside the other classes and five alone. So it has the server signal them while the clone waits, which
     // takes the wait down to a few hundredths of a second. If a later Postgres waits another way, the test still
     // passes, at five seconds.
-    var cloning = databases.CloneAsync(_owner, _source, _target, _cancellationToken);
+    var cloning = databases.CloneAsync(_source, _target, _cancellationToken);
     await ReloadConfigurationUntilAsync(cloning);
     var exception = await Assert.ThrowsAsync<PostgresException>(() => cloning);
 
@@ -65,11 +61,11 @@ public sealed class ServerDatabasesSourceInUseTests : IAsyncLifetime {
       Delay = TimeSpan.FromMilliseconds(25),
     };
 
-    var cloning = databases.CloneAsync(_owner, _source, _target, _cancellationToken);
+    var cloning = databases.CloneAsync(_source, _target, _cancellationToken);
     await Task.Delay(150, _cancellationToken);
     await holder.DisposeAsync();
     await cloning;
 
-    Assert.True(await _databases.ExistsAsync(_owner, _target, _cancellationToken));
+    Assert.True(await _databases.ExistsAsync(_target, _cancellationToken));
   }
 }

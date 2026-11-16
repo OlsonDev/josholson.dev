@@ -114,11 +114,10 @@ public sealed class FixtureSeedsTests {
   [Fact]
   public async Task Tool_FixtureLayers_AreCanonicalBakeAndGiveADatabaseWithTheChainsRows() {
     var tool = await FixtureSeeds.Tool;
-    await using var owner = await SeedTestServer.OpenMaintenanceAsync(_cancellationToken);
     var id = Guid.NewGuid().ToString("N");
     try {
-      var baked = await tool.BakeAsync(owner, _cancellationToken);
-      var database = await tool.CreateTestDatabaseAsync(owner, id, FixtureSeeds.Child, _cancellationToken);
+      var baked = await tool.BakeAsync(_cancellationToken);
+      var database = await tool.CreateTestDatabaseAsync(id, FixtureSeeds.Child, _cancellationToken);
 
       await using var connection = await DatabaseEnvironment.OpenOwnerAsync(database, _cancellationToken);
       var tags = await connection.QuerySingleAsync<long>("SELECT count(*) FROM tag.tag;", _cancellationToken);
@@ -134,7 +133,7 @@ public sealed class FixtureSeedsTests {
       // The child is at depth 1, so a database built from it hands out IDs from the depth-2 block.
       Assert.Equal(2001, next);
     } finally {
-      await SeedTestServer.Databases.DropAsync(owner, SeedDatabaseNames.Test(id), CancellationToken.None);
+      await SeedTestServer.Databases.DropAsync(SeedDatabaseNames.Test(id), CancellationToken.None);
     }
   }
 }

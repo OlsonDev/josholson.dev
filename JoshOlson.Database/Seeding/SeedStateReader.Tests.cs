@@ -50,18 +50,16 @@ public sealed class SeedStateReaderTests {
     var databases = SeedTestServer.Databases;
     var anchor = Instant.FromUtc(2026, 1, 1, 12, 0);
     var purpose = $"readtest{Guid.NewGuid():N}"[..16];
-    await using var owner = await SeedTestServer.OpenMaintenanceAsync(_cancellationToken);
-    var (schemaTemplate, _) = await SeedTestServer.RealTemplate.EnsureAsync(owner, _cancellationToken);
+    var (schemaTemplate, _) = await SeedTestServer.RealTemplate.EnsureAsync(_cancellationToken);
     var tool = await FixtureSeeds.Tool.WaitAsync(_cancellationToken);
-    var layerTemplate = (await tool.BakeAsync(owner, _cancellationToken))
+    var layerTemplate = (await tool.BakeAsync(_cancellationToken))
       .Single(baked => baked.Layer is FixtureSeeds.Root)
       .Name;
 
     var unrecorded = await Assert.ThrowsAsync<SeedFormatException>(
-      () => SeedStateReader.ReadTemplateAsync(databases, owner, schemaTemplate, purpose, schema, _cancellationToken));
+      () => SeedStateReader.ReadTemplateAsync(databases, schemaTemplate, purpose, schema, _cancellationToken));
     var bare = await SeedStateReader.ReadTemplateAsync(
       databases,
-      owner,
       schemaTemplate,
       purpose,
       schema,
@@ -69,7 +67,6 @@ public sealed class SeedStateReaderTests {
       anchor);
     var root = await SeedStateReader.ReadTemplateAsync(
       databases,
-      owner,
       layerTemplate,
       purpose,
       schema,
@@ -82,7 +79,7 @@ public sealed class SeedStateReaderTests {
     Assert.NotEqual(anchor, root.Hydration.Anchor);
     Assert.Equal(FixtureSeeds.Root, root.Hydration.Layer);
     Assert.Equal(FixtureSeeds.RootRows, root.Rows.Tables["tag.tag"].Count);
-    Assert.Empty(await databases.ListAsync(owner, $"{SeedDatabaseNames.Prefix}{purpose}_", _cancellationToken));
+    Assert.Empty(await databases.ListAsync($"{SeedDatabaseNames.Prefix}{purpose}_", _cancellationToken));
   }
 
   // One clone, before and after its one `INSERT`: a database the seed tool did not build is refused, and one with the

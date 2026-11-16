@@ -3,7 +3,6 @@ using System.Text;
 using System.Text.Json;
 using JoshOlson.Database.Locks;
 using JoshOlson.Shared.Extensions;
-using Npgsql;
 
 namespace JoshOlson.Database.Baking;
 
@@ -65,17 +64,16 @@ public sealed class SchemaTemplate {
 
   // Makes sure the template for the newest migration exists and returns its name. `Built` says whether this call did the
   // work.
-  public async Task<BuiltTemplate> EnsureAsync(NpgsqlConnection owner, CancellationToken cancellationToken)
-    => await EnsureAsync(owner, await NewestVersionAsync(cancellationToken), cancellationToken);
+  public async Task<BuiltTemplate> EnsureAsync(CancellationToken cancellationToken)
+    => await EnsureAsync(await NewestVersionAsync(cancellationToken), cancellationToken);
 
-  public async Task<BuiltTemplate> EnsureAsync(NpgsqlConnection owner, int version, CancellationToken cancellationToken) {
+  public async Task<BuiltTemplate> EnsureAsync(int version, CancellationToken cancellationToken) {
     var name = await NameAsync(version, cancellationToken);
     var newest = version == await NewestVersionAsync(cancellationToken);
     var built = await _databases.EnsureTemplateAsync(
-      owner,
       name,
       async building => {
-        await _databases.CreateAsync(owner, building, cancellationToken);
+        await _databases.CreateAsync(building, cancellationToken);
         await ApplyVersionedAsync(building, version, cancellationToken);
         var skipped = await ApplyRepeatablesAsync(building, version, newest, cancellationToken);
         // One psql session, so one round trip: the provisioning first, so the API role is granted nothing in the `seed` schema.
@@ -84,7 +82,7 @@ public sealed class SchemaTemplate {
           [_options.ProvisioningScript, _options.SeedSchemaScript],
           ApiPasswordVariable(),
           cancellationToken);
-        await _databases.CommentAsync(owner, building, JsonSerializer.Serialize(skipped), cancellationToken);
+        await _databases.CommentAsync(building, JsonSerializer.Serialize(skipped), cancellationToken);
       },
       cancellationToken);
     return new(name, built);
@@ -93,8 +91,8 @@ public sealed class SchemaTemplate {
   // The repeatable migrations the template for a version could not apply and went without, each with the error. Empty
   // when every one applied, which is always the case for the newest version. The template refuses connections, so the
   // note is kept in the database's comment, which can be read without one.
-  public async Task<List<SkippedRepeatable>> SkippedAsync(NpgsqlConnection owner, string template, CancellationToken cancellationToken) {
-    var comment = await _databases.ReadCommentAsync(owner, template, cancellationToken);
+  public async Task<List<SkippedRepeatable>> SkippedAsync(string template, CancellationToken cancellationToken) {
+    var comment = await _databases.ReadCommentAsync(template, cancellationToken);
     return string.IsNullOrEmpty(comment) ? [] : JsonSerializer.Deserialize<List<SkippedRepeatable>>(comment) ?? [];
   }
 

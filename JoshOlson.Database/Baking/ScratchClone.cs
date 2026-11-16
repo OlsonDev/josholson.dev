@@ -7,11 +7,9 @@ namespace JoshOlson.Database.Baking;
 // even when the work was canceled. The name says what the clone is for (`SeedDatabaseNames.Scratch`).
 public sealed class ScratchClone : IAsyncDisposable {
   private readonly ServerDatabases _databases;
-  private readonly NpgsqlConnection _owner;
 
-  internal ScratchClone(ServerDatabases databases, NpgsqlConnection owner, string name) {
+  internal ScratchClone(ServerDatabases databases, string name) {
     _databases = databases;
-    _owner = owner;
     Name = name;
   }
 
@@ -22,5 +20,5 @@ public sealed class ScratchClone : IAsyncDisposable {
     => await DatabaseEnvironment.OpenOwnerAsync(Name, cancellationToken);
 
   public async ValueTask DisposeAsync()
-    => await _databases.DropAsync(_owner, Name, CancellationToken.None);
+    => await _databases.DropAsync(Name, CancellationToken.None);
 }

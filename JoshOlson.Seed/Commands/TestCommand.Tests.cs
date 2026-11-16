@@ -25,8 +25,7 @@ public sealed class TestCommandTests {
       Assert.Equal(1, againCode);
       Assert.Contains("already exists", again, StringComparison.Ordinal);
     } finally {
-      await using var owner = await SeedTestServer.OpenMaintenanceAsync(CancellationToken.None);
-      await SeedTestServer.Databases.DropAsync(owner, database, CancellationToken.None);
+      await SeedTestServer.Databases.DropAsync(database, CancellationToken.None);
     }
   }
 

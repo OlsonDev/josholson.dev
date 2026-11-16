@@ -3,7 +3,6 @@ using System.Text;
 using JoshOlson.Database.Layers;
 using JoshOlson.Shared.Results;
 using NodaTime;
-using Npgsql;
 
 namespace JoshOlson.Database.Baking;
 
@@ -43,21 +42,19 @@ public sealed class LayerTemplate {
   // Makes sure the template for the layer exists and returns its name. `Built` says whether this call did the work.
   // A layer whose chain does not go into a database comes back as its problems, and nothing is left behind.
   public async Task<Result<BuiltTemplate, SeedProblems>> EnsureAsync(
-    NpgsqlConnection owner,
     string layer,
     CancellationToken cancellationToken
   ) {
-    var (schemaName, _) = await _schemaTemplate.EnsureAsync(owner, cancellationToken);
+    var (schemaName, _) = await _schemaTemplate.EnsureAsync(cancellationToken);
     var name = await NameAsync(schemaName, layer, cancellationToken);
     // The build is a callback, and the only way out of it that drops the half-built database is to throw. The problems
     // are kept as they are and handed back once it has.
     SeedProblems? refused = null;
     try {
       var built = await _databases.EnsureTemplateAsync(
-        owner,
         name,
         async building => {
-          await _databases.CloneAsync(owner, schemaName, building, cancellationToken);
+          await _databases.CloneAsync(schemaName, building, cancellationToken);
           var hydrated = await SeedHydrator.HydrateAsync(building, _tree, layer, editing: false, SeedHydrator.Anchor(_clock), cancellationToken);
           refused = hydrated.Value as SeedProblems;
           _ = hydrated.OrThrow();

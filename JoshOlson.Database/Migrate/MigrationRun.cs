@@ -2,7 +2,6 @@ using JoshOlson.Database.Layers;
 using JoshOlson.Database.Locks;
 using JoshOlson.Shared.Extensions;
 using JoshOlson.Shared.Results;
-using Npgsql;
 
 namespace JoshOlson.Database.Migrate;
 
@@ -19,14 +18,12 @@ namespace JoshOlson.Database.Migrate;
 //   one the branch deleted stays deleted.
 // - a migration the base has locked has changed or is missing: that is refused, because the base has it as it is.
 internal sealed class MigrationRun {
-  private readonly NpgsqlConnection _owner;
   private readonly MigrateOptions _options;
   private readonly CancellationToken _cancellationToken;
   private readonly List<string> _warnings = [];
   private Task<SeedSnapshot?>? _snapshot;
 
-  public MigrationRun(NpgsqlConnection owner, MigrateOptions options, CancellationToken cancellationToken) {
-    _owner = owner;
+  public MigrationRun(MigrateOptions options, CancellationToken cancellationToken) {
     _options = options;
     _cancellationToken = cancellationToken;
   }
@@ -45,7 +42,7 @@ internal sealed class MigrationRun {
       problems.AddRange(check.Problems.Select(problem => problem.Message));
       Refuse(problems);
     }
-    var (catalog, applied) = await SeedMigrator.InspectAsync(_owner, _options, _cancellationToken);
+    var (catalog, applied) = await SeedMigrator.InspectAsync(_options, _cancellationToken);
     problems.AddRange(MigrationHistory.Check(onDisk, applied));
     Refuse(problems);
 
@@ -154,7 +151,7 @@ internal sealed class MigrationRun {
   }
 
   private async Task<Result<LayerOutcome, SeedProblems>> MoveAsync(LayerMove move, HashSet<string> recorded, List<string> kept)
-    => await new LayerMover(_owner, _options, move, _cancellationToken).MoveAsync() switch {
+    => await new LayerMover(_options, move, _cancellationToken).MoveAsync() switch {
       List<MovedLayer> moved => new LayerOutcome(moved, recorded, kept),
       SeedProblems unmoved => SeedProblems.Of(unmoved.ToString()),
     };

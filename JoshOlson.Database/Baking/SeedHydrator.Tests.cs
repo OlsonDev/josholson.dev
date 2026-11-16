@@ -82,12 +82,10 @@ public sealed class SeedHydratorTests {
       LayerParser.Parse("foo", refused, schema).OrThrow(),
     ]);
     var purpose = $"buildtest{Guid.NewGuid():N}"[..17];
-    await using var owner = await SeedTestServer.OpenMaintenanceAsync(_cancellationToken);
-    var (template, _) = await SeedTestServer.RealTemplate.EnsureAsync(owner, _cancellationToken);
+    var (template, _) = await SeedTestServer.RealTemplate.EnsureAsync(_cancellationToken);
 
     var problems = await SeedHydrator.BuildProblemsAsync(
       databases,
-      owner,
       template,
       purpose,
       tree,
@@ -98,7 +96,7 @@ public sealed class SeedHydratorTests {
 
     var problem = Assert.Single(problems);
     Assert.StartsWith("foo is refused: Inserting into tag.tag failed", problem, StringComparison.Ordinal);
-    Assert.Empty(await databases.ListAsync(owner, $"{SeedDatabaseNames.Prefix}{purpose}_", _cancellationToken));
+    Assert.Empty(await databases.ListAsync($"{SeedDatabaseNames.Prefix}{purpose}_", _cancellationToken));
   }
 
   private sealed class FixedClock : IClock {

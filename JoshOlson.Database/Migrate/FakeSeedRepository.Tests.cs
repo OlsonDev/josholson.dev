@@ -73,10 +73,8 @@ internal sealed class FakeSeedRepository : IDisposable {
     => await MigrateAsync(Options);
 
   // A run with options of the test's own, made from `Options` with `with`.
-  public async Task<MigrateResult> MigrateAsync(MigrateOptions options) {
-    await using var owner = await SeedTestServer.OpenMaintenanceAsync(_cancellationToken);
-    return await SeedMigrator.MigrateAsync(owner, options, _cancellationToken);
-  }
+  public async Task<MigrateResult> MigrateAsync(MigrateOptions options)
+    => await SeedMigrator.MigrateAsync(options, _cancellationToken);
 
   public async Task WriteBarMigrationAsync()
     => await WriteMigrationAsync(FooSchema.BarFile, FooSchema.Bar);

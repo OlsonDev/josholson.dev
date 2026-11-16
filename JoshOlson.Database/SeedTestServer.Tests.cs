@@ -46,8 +46,9 @@ public static class SeedTestServer {
   public static Task<SeedTool> RealTool
     => _RealTool.Value;
 
-  // An owner connection to the maintenance database `postgres`, where a test that drops or clones databases connects.
-  // The caller disposes it. For the dev database or one a test made, call `DatabaseEnvironment.OpenOwnerAsync`.
+  // An owner connection of the test's own to the maintenance database `postgres`, for the few that need to be a second
+  // session there; `Databases` opens its own. The caller disposes it. For the dev database or one a test made, call
+  // `DatabaseEnvironment.OpenOwnerAsync`.
   public static async Task<NpgsqlConnection> OpenMaintenanceAsync(CancellationToken cancellationToken)
     => await DatabaseEnvironment.OpenOwnerAsync("postgres", cancellationToken);
 }
