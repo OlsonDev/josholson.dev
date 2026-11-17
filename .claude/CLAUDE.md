@@ -18,7 +18,7 @@ Personal website for Josh Olson: www.josholson.dev (SvelteKit SSR) and api.josho
 - `JoshOlson.slnx` (root): the .NET solution. `JoshOlson.Shared/` holds utilities (the base class library plus Dapper, Npgsql, and NodaTime, and nothing from ASP.NET) shared by projects and scripts, including the database access helpers in `Data/` ([ADR 0036, the shared library](../docs/adr/0036-shared-library.md)) and, in `Results/`, `Result<T, TErrors>`, `IErrors<TSelf>`, and `Problems` for failures a caller handles ([ADR 0041, records and union results](../docs/adr/0041-parameter-records-result-records-and-union-results.md)). `JoshOlson.Api/` is the API, in feature folders (one per feature, plus `Common/` for cross-cutting code). Tests sit beside the code as `*.Tests.cs` ([ADR 0023](../docs/adr/0023-api-feature-folders-and-colocated-tests.md))
 - `JoshOlson.Seed/`: the seed tool's command line, on `Spectre.Console.Cli` and the DI container (`Commands/` one class per command, `Composition/` the container glue, `SeedApp` the wiring), which every `seed` and `seeds` mise task runs
 - `web/`: the SvelteKit app (Kit 3, `adapter-node`, TypeScript strict, runes, plain CSS, `bun fmt` (Prettier-compatible, configured by `web/.prettierrc`) at 2 spaces and 120 columns, Playwright in `tests/`). Kit 3 dropped `$lib`: import with `#lib/...` and a `.ts` extension. Environment variables are declared in `src/env.ts` and imported from `$app/env/private` (`API_URL`, the API as the server reaches it, default `http://localhost:5000`). Server-side calls to the API live in `src/lib/server/api.ts`
-- `mise.toml`: pinned tools (bun, dotnet, gh) and tasks. `tools/`: image for the dev `tools` container, which runs Waypoint (no Windows build)
+- `mise.toml`: pinned tools (dotnet, gh, and Bun's rolling `canary` build, which is not pinned: `mise upgrade github:oven-sh/bun` moves it) and tasks. The Bun build has no `bunx`: write `bun x`. `tools/`: image for the dev `tools` container, which runs Waypoint (no Windows build)
 - `docs/schema/`: generated from the dev database (a page per table, domains, Mermaid ER diagrams). Never edit by hand; run `mise schema:doc`. `scripts/`: repo tooling as .NET file-based apps (`schema-docs.cs` builds those docs)
 - `Directory.Build.props`, `Directory.Packages.props`, `global.json`, `.editorconfig`, and `BannedSymbols.txt` (root): build settings, central package versions, and analyzers for every project and for the loose scripts in `scripts/` and `.githooks/`. A script's `#:package` line omits the version, which comes from `Directory.Packages.props`
 - `.githooks/`: `commit-msg` (gitmoji format check) and `pre-commit` (branch name check, the analyzer rule check when packages or `.editorconfig` are staged, and the script check when scripts, hooks, `.editorconfig`, `Directory.Build.props`, or `Directory.Packages.props` are staged) hooks, .NET file-based apps
@@ -157,7 +157,7 @@ Run the API for development on `http://localhost:5000`, where `web/` expects it.
 mise api:run
 ```
 
-Work on `web/` (install once, then dev server, type check (once or on every change), format check, format (both `bun fmt`), and Playwright tests against a production build; the first test run needs `bunx playwright install chromium` in `web/`):
+Work on `web/` (install once, then dev server, type check (once or on every change), format check, format (both `bun fmt`), and Playwright tests against a production build; the first test run needs `bun x playwright install chromium` in `web/`):
 
 ```
 mise web:install

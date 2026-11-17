@@ -1,5 +1,7 @@
 [tools]
-bun = "1.4.4"
+# Bun's rolling canary build, for `bun lint` (not in a release yet) and `bun fmt`. The tag moves with every build, so a
+# machine keeps what it installed until `mise upgrade github:oven-sh/bun`. The release has no `bunx`, so tasks use `bun x`.
+"github:oven-sh/bun" = "canary"
 dotnet = "11.0.100"
 gh = "2.102.0"
 
@@ -193,22 +195,22 @@ run = "bun install --frozen-lockfile"
 [tasks."web:dev"]
 description = "Run the SvelteKit dev server"
 dir = "web"
-run = "bunx vite dev"
+run = "bun x vite dev"
 
 [tasks."web:build"]
 description = "Build web/ for production (adapter-node, into web/build)"
 dir = "web"
-run = "bunx vite build"
+run = "bun x vite build"
 
 [tasks."web:check"]
 description = "Type-check web/ with svelte-check"
 dir = "web"
-run = "bunx svelte-kit sync && bunx svelte-check --tsconfig ./tsconfig.json --tsgo"
+run = "bun x svelte-kit sync && bun x svelte-check --tsconfig ./tsconfig.json --tsgo"
 
 [tasks."web:check:watch"]
 description = "Type-check web/ again on every change"
 dir = "web"
-run = "bunx svelte-kit sync && bunx svelte-check --tsconfig ./tsconfig.json --tsgo --watch"
+run = "bun x svelte-kit sync && bun x svelte-check --tsconfig ./tsconfig.json --tsgo --watch"
 
 [tasks."web:lint"]
 description = "Fail if web/ is not formatted"
@@ -221,6 +223,6 @@ dir = "web"
 run = "bun fmt --no-script"
 
 [tasks."web:test"]
-description = "Run web/'s Playwright tests against a production build (first run: bunx playwright install chromium)"
+description = "Run web/'s Playwright tests against a production build (first run: bun x playwright install chromium)"
 dir = "web"
-run = "bunx playwright test"
+run = "bun x playwright test"
