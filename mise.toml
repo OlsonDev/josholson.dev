@@ -235,9 +235,12 @@ dir = "web"
 run = "bun x svelte-kit sync && bun x svelte-check --tsconfig ./tsconfig.json --tsgo --watch"
 
 [tasks."web:lint"]
-description = "Fail if web/ is not formatted"
+description = "Fail if web/ is not formatted or has lint errors (bun lint: web/bunfig.toml)"
 dir = "web"
-run = "bun fmt --no-script --check"
+run = [
+  "bun fmt --no-script --check",
+  "bun lint --no-script",
+]
 
 [tasks."web:format"]
 description = "Format web/ with bun fmt"

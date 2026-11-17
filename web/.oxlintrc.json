@@ -1,0 +1,4 @@
+{
+  // Empty on purpose. `bun lint` only lints the <script> of .svelte files when an oxlint config exists, and the rules
+  // live in bunfig.toml. Delete this file when `bun lint` lints Svelte without it (oven-sh/bun#45163).
+}

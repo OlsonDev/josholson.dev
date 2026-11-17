@@ -164,7 +164,7 @@ Regenerate the TypeScript types of what the web sends and receives after changin
 mise api:openapi
 ```
 
-Work on `web/` (install once, then dev server, type check (once or on every change), format check, format (both `bun fmt`), and Playwright tests against a production build; the first test run needs `bun x playwright install chromium` in `web/`):
+Work on `web/` (install once, then dev server, type check (once or on every change), lint (the format check, then `bun lint` with the rules in `web/bunfig.toml`), format (`bun fmt`), and Playwright tests against a production build; the first test run needs `bun x playwright install chromium` in `web/`):
 
 ```
 mise web:install
