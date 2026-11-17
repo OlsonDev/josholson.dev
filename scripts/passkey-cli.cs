@@ -1,6 +1,7 @@
 #!/usr/bin/env dotnet
 #:package Fido2
 #:package Flurl.Http
+#:package System.Formats.Cbor
 #:property PublishAot=false
 // Plays the browser against a running API with a real security key (Red or Purple), through libfido2's fido2-cred and
 // fido2-assert, so the passkey endpoints can be tried without a front end (ADR 0027, passkey auth, and ADR 0031,
