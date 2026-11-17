@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text.Json.Nodes;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.OpenApi;
 using Microsoft.OpenApi;
 using NodaTime;
@@ -33,10 +34,21 @@ public sealed class ContractSchemaTransformer : IOpenApiSchemaTransformer {
       schema.Format = "date-time";
     } else if (type.IsEnum && type.Assembly == typeof(ContractSchemaTransformer).Assembly) {
       DescribeEnum(schema, type);
+    } else if (typeof(ProblemDetails).IsAssignableFrom(type)) {
+      DescribeTraceId(schema);
     } else if (IsLibraryType(type)) {
       MakeOpaque(schema);
     }
     return Task.CompletedTask;
+  }
+
+  // Every problem response carries the request's trace ID as an extension member, which the generator cannot see.
+  private static void DescribeTraceId(OpenApiSchema schema) {
+    schema.Properties ??= new Dictionary<string, IOpenApiSchema>(StringComparer.Ordinal);
+    schema.Properties["traceId"] = new OpenApiSchema {
+      Type = JsonSchemaType.String,
+      Description = "The ID of the request, for finding it in the logs.",
+    };
   }
 
   private static bool IsLibraryType(Type type) {

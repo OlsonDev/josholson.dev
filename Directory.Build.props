@@ -7,9 +7,9 @@
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <!-- Run the IDE style rules in the build, not only under `dotnet format` (ADR 0028) -->
     <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
-    <!-- IDE0005 (unused usings) only runs in a build when XML docs are generated; CS1591 would flag every public member -->
+    <!-- IDE0005 (unused usings) only runs in a build when XML docs are generated, which also makes CS1591 flag every
+         public member; .editorconfig turns it off except for the controllers and payloads that feed the OpenAPI document -->
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
-    <NoWarn>$(NoWarn);CS1591</NoWarn>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Meziantou.Analyzer" PrivateAssets="all" />

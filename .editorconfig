@@ -582,7 +582,7 @@ dotnet_diagnostic.RCS1136.severity = warning
 dotnet_diagnostic.RCS1138.severity = warning
 dotnet_diagnostic.RCS1139.severity = warning
 dotnet_diagnostic.RCS1140.severity = warning
-dotnet_diagnostic.RCS1141.severity = warning
+dotnet_diagnostic.RCS1141.severity = none
 dotnet_diagnostic.RCS1142.severity = warning
 dotnet_diagnostic.RCS1143.severity = warning
 dotnet_diagnostic.RCS1145.severity = warning
@@ -784,6 +784,17 @@ dotnet_naming_rule.public_async_methods.severity = none
 # A file with several types is {Name}.{Plural}.cs (Tag.Payloads.cs, Domain.Attributes.cs), and tests are Foo.Tests.cs
 [*.*s.cs]
 dotnet_diagnostic.MA0048.severity = none
+
+# XML docs are required where they become the OpenAPI document and, through it, the hover docs in the generated client:
+# every public member of a controller and of a payload file (`*Controller.cs`, `*.Payloads.cs`). Nowhere else (CS1591).
+# A summary on some parameters and not others is fine (CS1573 and RCS1141), such as a path parameter and not the
+# CancellationToken.
+[*.cs]
+dotnet_diagnostic.CS1591.severity = none
+dotnet_diagnostic.CS1573.severity = none
+
+[*{Controller,.Payloads}.cs]
+dotnet_diagnostic.CS1591.severity = error
 
 # Scripts are file-based apps, so these rules do not fit them:
 # - top-level code is a class named Program and hook helpers are kebab-case files (MA0048)

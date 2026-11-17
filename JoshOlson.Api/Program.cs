@@ -37,7 +37,9 @@ builder.Services.AddControllers(options => {
 builder.Services.ConfigureHttpJsonOptions(options => ApiJson.Configure(options.SerializerOptions));
 builder.Services.AddOpenApi(
   OpenApiCommand.DocumentName,
-  options => options.AddSchemaTransformer<ContractSchemaTransformer>()
+  options => options
+    .AddSchemaTransformer<ContractSchemaTransformer>()
+    .AddOperationTransformer<ContractOperationTransformer>()
 );
 builder.Services.AddPayloadValidation();
 builder.Services.AddProblemDetails();
