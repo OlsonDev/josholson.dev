@@ -21,4 +21,5 @@ Store them as `SMALLINT` with a range check, `BETWEEN 1 AND n`, named `ck_{table
 
 - Values are numbers in `psql`, DBeaver, and seed YAML. Keep the mapping table up to date.
 - Adding a value needs a migration that widens the range. Never reuse a retired number.
+- The numbers are the wire format too, and the generated TypeScript names them ([ADR 0042 (the OpenAPI document and enum numbers)](0042-openapi-contract-and-enum-numbers.md)). A test per enum catches drift from the range check.
 - A `TEXT` column whose set of values becomes fixed is a candidate to convert.

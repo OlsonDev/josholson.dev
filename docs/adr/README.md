@@ -61,3 +61,4 @@ Template:
 - [0039](0039-derive-the-lock-and-seeds-from-the-base.md): Derive the lock and the seeds from the base branch (`origin/main`), so a branch can iterate on an unmerged migration and a merge needs no manual resolution
 - [0040](0040-seed-tool-tests-share-scenarios-and-databases.md): The seed tool's tests share scenarios and databases: several behaviors per test, starting points built once per run, templates for fixed test text kept on the server, and fixture layers in place of the real ones
 - [0041](0041-parameter-records-result-records-and-union-results.md): Records for parameter groups and returned tuples, and `Result<T, TErrors>` unions for failures a caller handles
+- [0042](0042-openapi-contract-and-enum-numbers.md): The OpenAPI document and the TypeScript types generated from it, with enums as numbers on the wire and names in the types

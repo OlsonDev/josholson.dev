@@ -2,13 +2,13 @@ using System.Net;
 using System.Security.Cryptography;
 using System.Text.Json;
 using Fido2NetLib;
+using JoshOlson.Api.Common.Contract;
 using JoshOlson.Api.Common.Testing;
 using JoshOlson.Shared.Data;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.Options;
 using Microsoft.Net.Http.Headers;
 using NodaTime;
-using NodaTime.Serialization.SystemTextJson;
 using Npgsql;
 using Xunit;
 
@@ -19,7 +19,7 @@ namespace JoshOlson.Api.Auth;
 public sealed class AuthTestData {
   // The API writes NodaTime types as ISO strings; a test client reading a response needs the same settings.
   private static readonly JsonSerializerOptions _JsonOptions
-    = new JsonSerializerOptions(JsonSerializerDefaults.Web).ConfigureForNodaTime(DateTimeZoneProviders.Tzdb);
+    = ApiJson.Configure(new JsonSerializerOptions(JsonSerializerDefaults.Web));
 
   private readonly NpgsqlConnection _connection;
   private readonly FakeClock _clock;

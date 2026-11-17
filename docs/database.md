@@ -31,6 +31,8 @@ Tables, columns, constraints, indexes, and relation diagrams are generated from 
   | `resume.language.proficiency` | 1 A1, 2 A2, 3 B1, 4 B2, 5 C1, 6 C2, 7 Native |
   | `resume.project.status` | 1 Active, 2 Paused, 3 Archived |
   | `auth.passkey.transports` (array) | 1 Usb, 2 Nfc, 3 Ble, 4 Hybrid, 5 Internal, 6 SmartCard |
+
+  The API sends and reads these numbers, and the generated TypeScript names them (`PasskeyTransport.Usb`) ([ADR 0042 (the OpenAPI document and enum numbers)](adr/0042-openapi-contract-and-enum-numbers.md)). A test per enum, like `PasskeyTransportTests`, fails when the enum and its range check disagree; this table is not checked.
 - **Reference data** is in a repeatable migration, not in seeds ([ADR 0009](adr/0009-reference-data-in-repeatable-migrations.md)). Upserts never delete, and they burn identity values on rerun.
 
 ## Not decided yet

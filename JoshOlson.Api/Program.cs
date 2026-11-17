@@ -1,12 +1,12 @@
 using JoshOlson.Api.Auth;
 using JoshOlson.Api.Common.Binding;
+using JoshOlson.Api.Common.Contract;
 using JoshOlson.Api.Common.Db;
 using JoshOlson.Api.Common.DependencyInjection;
 using JoshOlson.Api.Common.Errors;
 using JoshOlson.Api.Common.Time;
 using JoshOlson.Api.Common.Validation;
-using NodaTime;
-using NodaTime.Serialization.SystemTextJson;
+using Microsoft.AspNetCore.Mvc;
 #if INCLUDE_TESTS
 using JoshOlson.Api;
 using Xunit.MicrosoftTestingPlatform;
@@ -28,9 +28,17 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllers(options => {
   options.ModelValidatorProviders.Clear();
   options.Filters.Add<SessionFilter>();
+  // The API speaks JSON only, so the contract lists one media type, not text/plain and text/json as well.
+  options.Filters.Add(new ProducesAttribute("application/json"));
 })
-  .AddJsonOptions(options => options.JsonSerializerOptions.ConfigureForNodaTime(DateTimeZoneProviders.Tzdb))
+  .AddJsonOptions(options => ApiJson.Configure(options.JsonSerializerOptions))
   .AddInputTrimming();
+// The OpenAPI generator reads these options, not MVC's, so the contract's settings go to both.
+builder.Services.ConfigureHttpJsonOptions(options => ApiJson.Configure(options.SerializerOptions));
+builder.Services.AddOpenApi(
+  OpenApiCommand.DocumentName,
+  options => options.AddSchemaTransformer<ContractSchemaTransformer>()
+);
 builder.Services.AddPayloadValidation();
 builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<PostgresExceptionHandler>();
@@ -45,6 +53,13 @@ if (args is [EnrollCommand.Name, ..]) {
   // The token is a secret meant for the operator's terminal, not for a log sink.
 #pragma warning disable RS0030
   return await EnrollCommand.RunAsync(app.Services, args[1..], Console.Out, CancellationToken.None);
+#pragma warning restore RS0030
+}
+
+if (args is [OpenApiCommand.Name, ..]) {
+  // The document is the command's output, for a pipe or a file, not a log message.
+#pragma warning disable RS0030
+  return await OpenApiCommand.RunAsync(app.Services, args[1..], Console.Out, CancellationToken.None);
 #pragma warning restore RS0030
 }
 

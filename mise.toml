@@ -185,6 +185,28 @@ run = "dotnet run --project JoshOlson.Api"
 [tasks."api:run".env]
 ASPNETCORE_URLS = "http://localhost:5000"
 
+# The API's contract (ADR 0026, REST and JSON with controllers): the API writes its OpenAPI document without starting, and
+# web/scripts/generate-api-types.ts turns that into web/src/lib/api/schema.ts, the types of what the web sends and
+# receives, formatted like the rest of web/ (the generator prints 4 spaces and no trailing commas). Only schema.ts is
+# committed, so web/ builds without .NET and a PR shows the API's surface in a few lines; the document is an
+# intermediate and is thrown away. Nothing checks that schema.ts is current: run this after changing a
+# controller or a payload. The document needs no database, so the connection string is a placeholder.
+[tasks."api:openapi"]
+description = "Regenerate web/src/lib/api/schema.ts, the types of what the web sends and receives, from the API"
+run = """
+set -e
+mkdir -p .tmp
+dir=$(mktemp -d "{{config_root}}/.tmp/openapi.XXXXXX")
+trap 'rm -rf "$dir"' EXIT
+dotnet run --project JoshOlson.Api -- openapi "$dir/openapi.json"
+cd web
+bun scripts/generate-api-types.ts "$dir/openapi.json" src/lib/api/schema.ts
+bun fmt --no-script src/lib/api/schema.ts
+"""
+
+[tasks."api:openapi".env]
+ConnectionStrings__Default = "Host=unused"
+
 # web/ is one SvelteKit app on Bun. The tasks run from the repo root and call the tools directly; web/package.json keeps only `prepare`, which SvelteKit syncs on install.
 # The dev server reads the API from API_URL (default http://localhost:5000).
 [tasks."web:install"]
