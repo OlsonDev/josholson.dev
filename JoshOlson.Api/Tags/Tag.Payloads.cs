@@ -26,5 +26,3 @@ public sealed record TagResponse : TagBase {
   public required int TagId { get; init; }
 }
 
-// Which of a tag's unique fields another tag already has. A field that was not checked is not taken.
-public sealed record TakenTagFields(bool IsSlugTaken, bool IsNameTaken);
