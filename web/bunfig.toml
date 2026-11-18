@@ -27,3 +27,7 @@ suspicious = "error"
 # Like the C# rule "foreach, not ForEach".
 "unicorn/no-array-for-each" = "error"
 "eqeqeq" = ["error", "always"]
+
+# `bun test` runs the unit tests beside the code in src/ (*.test.ts). Playwright's are in tests/, and are its own.
+[test]
+root = "src"

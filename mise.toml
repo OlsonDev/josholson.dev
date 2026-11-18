@@ -247,6 +247,11 @@ description = "Format web/ with bun fmt"
 dir = "web"
 run = "bun fmt --no-script"
 
+[tasks."web:test:unit"]
+description = "Run web/'s unit tests (bun test, the *.test.ts files beside the code in src/)"
+dir = "web"
+run = "bun test"
+
 [tasks."web:test"]
 description = "Run web/'s Playwright tests against a production build (first run: bun x playwright install chromium)"
 dir = "web"
