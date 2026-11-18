@@ -185,14 +185,14 @@ run = "dotnet run --project JoshOlson.Api"
 [tasks."api:run".env]
 ASPNETCORE_URLS = "http://localhost:5000"
 
-# The API's contract (ADR 0026, REST and JSON with controllers): the API writes its OpenAPI document without starting, and
-# web/scripts/generate-api-types.ts turns that into web/src/lib/api/schema.ts, the types of what the web sends and
-# receives, formatted like the rest of web/ (the generator prints 4 spaces and no trailing commas). Only schema.ts is
-# committed, so web/ builds without .NET and a PR shows the API's surface in a few lines; the document is an
-# intermediate and is thrown away. Nothing checks that schema.ts is current: run this after changing a
+# The API's contract (ADR 0026, REST and JSON with controllers): the API writes its OpenAPI document without starting,
+# and web/scripts turn that into web/src/lib/api: schema.ts (generate-api-types.ts, the types of what the web sends and
+# receives) and one module per controller (generate-api-client.ts, the functions that call it). Both are formatted like
+# the rest of web/. They are committed, so web/ builds without .NET and a PR shows the API's surface in a few lines; the
+# document is an intermediate and is thrown away. Nothing checks that they are current: run this after changing a
 # controller or a payload. The document needs no database, so the connection string is a placeholder.
 [tasks."api:openapi"]
-description = "Regenerate web/src/lib/api/schema.ts, the types of what the web sends and receives, from the API"
+description = "Regenerate the API client in web/src/lib/api (types and one module per controller) from the API"
 run = """
 set -e
 mkdir -p .tmp
@@ -201,7 +201,8 @@ trap 'rm -rf "$dir"' EXIT
 dotnet run --project JoshOlson.Api -- openapi "$dir/openapi.json"
 cd web
 bun scripts/generate-api-types.ts "$dir/openapi.json" src/lib/api/schema.ts
-bun fmt --no-script src/lib/api/schema.ts
+bun scripts/generate-api-client.ts "$dir/openapi.json" src/lib/api
+bun fmt --no-script src/lib/api
 """
 
 [tasks."api:openapi".env]

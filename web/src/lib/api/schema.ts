@@ -68,7 +68,7 @@ export interface components {
       response: components['schemas']['AuthenticatorAttestationRawResponse'];
     };
     /** Format: date-time */
-    Instant: string;
+    Instant: Temporal.Instant;
     /** @description A registered passkey as the passkey page lists it. */
     PasskeyResponse: {
       /**
