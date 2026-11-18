@@ -2,8 +2,13 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace JoshOlson.Api.Common.Validation;
 
-// Every validation error for one request, keyed by the JSON name of the field (`slug`, `children[0].label`).
+// Every validation error for one request, keyed by the JSON name of the field (`slug`, `children[0].label`). An error
+// about the request as a whole, such as a rule across fields (the end must be after the start), is added under
+// `WholeRequest`, so a client can tell it from every field's.
 public sealed class ValidationErrors {
+  // ASP.NET's own key for an error that belongs to no property.
+  public const string WholeRequest = "";
+
   private readonly Dictionary<string, List<string>> _errors = [];
 
   public bool Any

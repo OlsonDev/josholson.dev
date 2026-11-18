@@ -21,6 +21,20 @@ public class ValidationErrorsTests {
   }
 
   [Fact]
+  public void ToProblemDetails_AnErrorAboutTheWholeRequest_IsUnderTheEmptyKey() {
+    var errors = new ValidationErrors();
+    errors.Add(ValidationErrors.WholeRequest, "The end must be after the start.");
+    errors.Add("foo", "one");
+
+    var details = errors.ToProblemDetails();
+
+    Assert.Equal("", ValidationErrors.WholeRequest);
+    Assert.True(errors.Has(ValidationErrors.WholeRequest));
+    Assert.Equal(["The end must be after the start."], details.Errors[""]);
+    Assert.Equal(["one"], details.Errors["foo"]);
+  }
+
+  [Fact]
   public void New_HasNoErrors()
     => Assert.False(new ValidationErrors().Any);
 }
