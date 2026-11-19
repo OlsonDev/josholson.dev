@@ -7,6 +7,12 @@ test('a closed passkey dialog is "Canceled." and not an error', () => {
   expect(describeFailure(new DOMException('', 'AbortError')).message).toBe('Canceled.');
 });
 
+test('an authenticator that already has a passkey for the site is "already registered"', () => {
+  expect(describeFailure(new DOMException('A long browser message.', 'InvalidStateError')).message).toBe(
+    'That authenticator is already registered.',
+  );
+});
+
 test('a status the page has words for uses them', () => {
   const failure = describeFailure(new ApiError('foo.bar', 404, undefined), { 404: 'Gone.' });
 
