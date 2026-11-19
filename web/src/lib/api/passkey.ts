@@ -42,7 +42,7 @@ export function registrationOptions<TOptions extends CallOptions>(
 
 /**
  * Checks the new credential and holds it as a pending change. Nothing is stored until a registered passkey
-confirms it.
+ * confirms it.
  *
  * @param body What the browser's WebAuthn API produced, with the nickname for the new passkey.
  * @returns The pending change to confirm.

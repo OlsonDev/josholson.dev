@@ -267,7 +267,7 @@ function access(from: string, name: string): string {
 function docs(found: Found, parameters: Parameter[], returns: string, success: Response): string {
   const { op, method, path } = found;
   const lines: string[] = [];
-  if (op.summary !== undefined) lines.push(op.summary);
+  if (op.summary !== undefined) lines.push(...op.summary.split('\n'));
   if (op.description !== undefined) lines.push('', ...op.description.split('\n'));
 
   const tags: string[] = [];
