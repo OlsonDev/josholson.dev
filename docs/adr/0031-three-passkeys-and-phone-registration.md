@@ -53,10 +53,9 @@ Registration endpoints:
 
 An AAGUID names the authenticator model (for example "Token2 PIN Plus Security Key Series"), not the individual device. With attestation `none`, browsers replace it with all zeros, so `auth.passkey` has no `aaguid` column.
 
-- On registration the API checks the AAGUID in the attested credential data. If it is not all zeros, it throws instead of ignoring it. The point is to learn that an authenticator reports one, and so decide whether to add the column.
-- The exception message names the AAGUID and, when it can, the model. It looks the AAGUID up in the community `passkey-authenticator-aaguids` list (with Flurl) and says what it found. The [FIDO Metadata Service](https://fidoalliance.org/metadata/) (MDS3, a signed list of certified authenticators) is not consulted: its blob is a signed JWT that needs verifying, and the community list names the same models. The lookup is best effort and never decides anything: a lookup failure or an unknown AAGUID still throws.
-- Seeing the exception means attestation or a browser changed. Decide then whether to add the column, and for what (labels, or restricting which models may register).
-- Checked on 2026-10-30: Red and Purple are the same model and report AAGUID `eabb46cc-e241-80bf-ae9e-96fa6d2975cf`, which MDS3 lists as "TOKEN2 PIN Plus Security Key Series" (FIDO certified). With `none` the site still sees zeros.
+- On registration the API looked at the AAGUID in the attested credential data, and threw if it was not all zeros. The point was to learn whether an authenticator reports one, and so decide whether to add the column.
+- Checked on 2026-10-30: Red and Purple are the same model and report AAGUID `eabb46cc-e241-80bf-ae9e-96fa6d2975cf`, which MDS3 lists as "TOKEN2 PIN Plus Security Key Series" (FIDO certified). With `none` the site still saw zeros.
+- **Result, 2026-11-18:** Firefox, registering Red from the admin page, sent that AAGUID although attestation was `none`, and the check made the API answer 500. **Decided: no column.** A model is not a device (Red and Purple share one), the nickname already tells passkeys apart, an AAGUID with attestation `none` is only what the browser chose to report and so cannot restrict anything, and the passkey page never labels a passkey from it. The API now accepts it and logs it once at Information level (`An authenticator reported AAGUID ... although attestation is 'none'`), so which authenticators report one is still visible. The lookup against the community list and `UnexpectedAaguidException` are gone. A column can be added later if a model label on the passkey page is ever wanted, since nothing depends on it now.
 
 ### Bootstrap
 

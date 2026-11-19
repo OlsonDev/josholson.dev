@@ -1,5 +1,4 @@
 using Fido2NetLib.Objects;
-using Flurl.Http.Testing;
 using Microsoft.Extensions.Options;
 using Xunit;
 
@@ -12,6 +11,8 @@ public class WebAuthnServiceTests {
     UserHandle = AuthTestData.NewHandle(),
     IsActive = true,
   };
+
+  private static readonly Guid _ReportedAaguid = Guid.Parse("11111111-2222-3333-4444-555555555555");
 
   private readonly CancellationToken _cancellationToken = TestContext.Current.CancellationToken;
   private readonly AuthOptions _options;
@@ -39,33 +40,15 @@ public class WebAuthnServiceTests {
   }
 
   [Fact]
-  public async Task VerifyRegistration_ReportedAaguid_ThrowsNamingTheModel() {
-    using var httpTest = new HttpTest();
-    var models = new Dictionary<string, object> { [AaguidLookupTests.Aaguid.ToString()] = new { name = "Foo Key" } };
-    httpTest.RespondWithJson(models);
+  public async Task VerifyRegistration_ReportedAaguid_ReturnsTheCredential() {
     using var authenticator = NewAuthenticator();
     var options = _webAuthnService.CreateRegistrationOptions(_User, []);
 
-    var attestation = authenticator.Create(options, AaguidLookupTests.Aaguid);
-    var exception = await Assert.ThrowsAsync<UnexpectedAaguidException>(
-      () => _webAuthnService.VerifyRegistrationAsync(attestation, options, _cancellationToken));
+    // Firefox reports the model's AAGUID with a security key even though attestation is 'none'.
+    var attestation = authenticator.Create(options, _ReportedAaguid);
+    var registration = await _webAuthnService.VerifyRegistrationAsync(attestation, options, _cancellationToken);
 
-    Assert.Contains(AaguidLookupTests.Aaguid.ToString(), exception.Message, StringComparison.Ordinal);
-    Assert.Contains("Foo Key", exception.Message, StringComparison.Ordinal);
-  }
-
-  [Fact]
-  public async Task VerifyRegistration_ReportedAaguidWithFailedLookup_StillThrows() {
-    using var httpTest = new HttpTest();
-    httpTest.RespondWith("oops", 500);
-    using var authenticator = NewAuthenticator();
-    var options = _webAuthnService.CreateRegistrationOptions(_User, []);
-
-    var attestation = authenticator.Create(options, AaguidLookupTests.Aaguid);
-    var exception = await Assert.ThrowsAsync<UnexpectedAaguidException>(
-      () => _webAuthnService.VerifyRegistrationAsync(attestation, options, _cancellationToken));
-
-    Assert.Contains("model unknown", exception.Message, StringComparison.Ordinal);
+    Assert.Equal(authenticator.CredentialId, registration?.CredentialId);
   }
 
   [Fact]

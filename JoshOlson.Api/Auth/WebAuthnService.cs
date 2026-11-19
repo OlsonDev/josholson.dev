@@ -4,15 +4,15 @@ using Fido2NetLib.Objects;
 namespace JoshOlson.Api.Auth;
 
 // The only code that talks to Fido2. It builds options and verifies responses; the callers own the state around them.
-public sealed class WebAuthnService {
+public sealed partial class WebAuthnService {
   private readonly IFido2 _fido2;
   private readonly PasskeyRepository _passkeyRepository;
-  private readonly AaguidLookup _aaguidLookup;
+  private readonly ILogger<WebAuthnService> _logger;
 
-  public WebAuthnService(IFido2 fido2, PasskeyRepository passkeyRepository, AaguidLookup aaguidLookup) {
+  public WebAuthnService(IFido2 fido2, PasskeyRepository passkeyRepository, ILogger<WebAuthnService> logger) {
     _fido2 = fido2;
     _passkeyRepository = passkeyRepository;
-    _aaguidLookup = aaguidLookup;
+    _logger = logger;
   }
 
   // Discoverable credentials and user verification are required (ADR 0031, Red, Purple, or a phone). `existing` is
@@ -39,7 +39,7 @@ public sealed class WebAuthnService {
       UserVerification = UserVerificationRequirement.Required,
     });
 
-  // Null when the response does not verify. Throws UnexpectedAaguidException if the authenticator reports an AAGUID.
+  // Null when the response does not verify.
   public async Task<VerifiedRegistration?> VerifyRegistrationAsync(
     AuthenticatorAttestationRawResponse response,
     CredentialCreateOptions options,
@@ -59,10 +59,9 @@ public sealed class WebAuthnService {
       return null;
     }
 
-    if (credential.AaGuid != Guid.Empty) {
-      var modelName = await _aaguidLookup.FindNameAsync(credential.AaGuid, cancellationToken);
-      throw new UnexpectedAaguidException(credential.AaGuid, modelName);
-    }
+    // Attestation is `none`, which should make a browser send zeros, and Firefox sends the model's own AAGUID. It names a
+    // model and not a device, and nothing here needs it (ADR 0031, no AAGUID column), so it is only noted.
+    if (credential.AaGuid != Guid.Empty) LogReportedAaguid(credential.AaGuid);
     var reported = credential.Transports ?? [];
     var transports = new List<PasskeyTransport>(reported.Length);
     foreach (var transport in reported) {
@@ -102,6 +101,11 @@ public sealed class WebAuthnService {
       return null;
     }
   }
+
+  [LoggerMessage(
+    Level = LogLevel.Information,
+    Message = "An authenticator reported AAGUID {Aaguid} although attestation is 'none'")]
+  private partial void LogReportedAaguid(Guid aaguid);
 
   // A discoverable credential reports the handle of its owner; it has to be the user the passkey belongs to.
   private static bool OwnsHandle(byte[]? userHandle, AuthUser user)

@@ -21,7 +21,6 @@ public static class AuthRegistration {
         });
       });
       services.AddSingleton(typeof(SingleUseStore<>));
-      services.AddSingleton<AaguidLookup>();
 
       // Only the `www` origin, an exact match and never `*`, with credentials (ADR 0027, direct browser-to-API calls).
       // CORS adds `Vary: Origin`.
