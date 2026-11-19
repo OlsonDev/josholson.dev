@@ -127,6 +127,14 @@ ORDER BY b.sort_order, b.bar_id;
   - A condition goes in the first `ON` it can, beside the source it filters. Without the throwaway `FROM`, the first source has no `ON`, so its filters would go in a `WHERE`, far from the source in a long query. Reordering the sources would then mean moving filters between the `WHERE` and an `ON`.
   - Commenting out a `JOIN` is one operation.
   - A source with no condition of its own takes `ON TRUE`.
+  - The one exception is an existence check with no condition at all. It does not use `FROM (SELECT) AS _`: `SELECT EXISTS (SELECT * FROM foo.bar AS b) AS any_bar`, on three lines, with the `)` at the `SELECT`'s indent and the `AS` two spaces after it. There is nothing to join or to align, and `JOIN foo.bar AS b ON TRUE` would be a join that joins nothing. As soon as the check needs a condition, it is the usual form, with that condition in the `ON`.
+
+    ```sql
+    SELECT EXISTS (
+      SELECT *
+      FROM foo.bar  AS b
+    )  AS any_bar
+    ```
 - `WHERE` only where a condition cannot live in an `ON`, such as checking that a `LEFT JOIN` found nothing (`WHERE g.grault_id IS NULL`). Any other `WHERE` on a left-joined table silently makes it an inner join.
 - Write `JOIN` and `LEFT JOIN`, never `INNER JOIN` or `LEFT OUTER JOIN`.
 - Banned:
