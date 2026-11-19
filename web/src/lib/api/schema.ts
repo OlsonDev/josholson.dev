@@ -3,205 +3,171 @@
  * Do not make direct changes to the file.
  */
 
-export type paths = Record<string, never>;
-export type webhooks = Record<string, never>;
-export interface components {
-  schemas: {
-    /** @description A library type the web relays and never reads, so its members are not part of the contract. */
-    AssertionOptions: unknown;
-    /** @description A library type the web relays and never reads, so its members are not part of the contract. */
-    AuthenticatorAssertionRawResponse: unknown;
-    /** @description A library type the web relays and never reads, so its members are not part of the contract. */
-    AuthenticatorAttestationRawResponse: unknown;
-    /** @description The browser's options for a ceremony, with the token of the challenge the API kept for them. */
-    CeremonyResponseOfAssertionOptions: {
-      /** @description Sent back with the browser's response, so the API can find the challenge it kept. */
-      attemptToken: string;
-      options: null | components['schemas']['AssertionOptions'];
-    };
-    /** @description The browser's options for a ceremony, with the token of the challenge the API kept for them. */
-    CeremonyResponseOfCredentialCreateOptions: {
-      /** @description Sent back with the browser's response, so the API can find the challenge it kept. */
-      attemptToken: string;
-      options: null | components['schemas']['CredentialCreateOptions'];
-    };
-    /** @description What a client sends to ask for the options that confirm a pending change. */
-    ConfirmationOptionsRequest: {
-      /** @description The pending change to confirm, from the response that started it. */
-      changeToken: string;
-    };
-    /** @description What the browser's WebAuthn API produced for the confirmation options, sent to apply the change. */
-    ConfirmationRequest: {
-      /** @description The pending change to confirm. */
-      changeToken: string;
-      /** @description The attempt token from the confirmation options this request answers. */
-      attemptToken: string;
-      /** @description The signed assertion the browser returned. The web relays it and never reads it. */
-      response: components['schemas']['AuthenticatorAssertionRawResponse'];
-    };
-    /** @description A library type the web relays and never reads, so its members are not part of the contract. */
-    CredentialCreateOptions: unknown;
-    /** @description The user a session signs in as. */
-    CurrentUserResponse: {
-      /**
-       * Format: int32
-       * @description The user's ID.
-       */
-      userId: number;
-      /** @description The name shown for the user. */
-      displayName: string;
-    };
-    /** @description What a client sends to start enrolling a passkey: the first, or a replacement when all are lost. */
-    EnrollmentOptionsRequest: {
-      /** @description The one-time enrollment token minted by the enroll command. It expires after 15 minutes. */
-      token: string;
-    };
-    /** @description What the browser's WebAuthn API produced for the registration options, sent to finish enrolling. */
-    EnrollmentRequest: {
-      /** @description The enrollment token the options were started with. */
-      token: string;
-      /** @description The attempt token from the registration options this request answers. */
-      attemptToken: string;
-      /** @description What to call the new passkey. Up to 64 characters, with no leading or trailing whitespace. */
-      nickname: string;
-      /** @description The attestation the browser returned. The web relays it and never reads it. */
-      response: components['schemas']['AuthenticatorAttestationRawResponse'];
-    };
-    /** Format: date-time */
-    Instant: Temporal.Instant;
-    /** @description A registered passkey as the passkey page lists it. */
-    PasskeyResponse: {
-      /**
-       * Format: int32
-       * @description The passkey's ID, which its URL names.
-       */
-      passkeyId: number;
-      /** @description What its owner called it, such as the key's color. */
-      nickname: string;
-      /** @description When the passkey was registered. */
-      createdUtc: components['schemas']['Instant'];
-      lastUsedUtc: null | components['schemas']['Instant'];
-      /** @description Whether the credential can be backed up or synced (WebAuthn's backup eligibility flag). */
-      isBackupEligible: boolean;
-      /** @description Whether the credential currently is backed up (WebAuthn's backup state flag). */
-      isBackedUp: boolean;
-      /** @description How the authenticator can be reached, as it reported at registration. */
-      transports: components['schemas']['PasskeyTransport'][];
-    };
-    /** @enum {integer} */
-    PasskeyTransport: PasskeyTransport;
-    /** @description A change to the passkey set that waits for a registered passkey to confirm it. */
-    PendingChangeResponse: {
-      /** @description Names the pending change in the confirmation that follows. */
-      changeToken: string;
-    };
-    ProblemDetails: {
-      type?: null | string;
-      title?: null | string;
-      /** Format: int32 */
-      status?: null | number;
-      detail?: null | string;
-      instance?: null | string;
-      /** @description The ID of the request, for finding it in the logs. */
-      traceId?: string;
-    };
-    /** @description What the browser's WebAuthn API produced for the registration options, sent to add a passkey. */
-    RegistrationRequest: {
-      /** @description The attempt token from the registration options this request answers. */
-      attemptToken: string;
-      /** @description What to call the new passkey. Up to 64 characters, with no leading or trailing whitespace. */
-      nickname: string;
-      /** @description The attestation the browser returned. The web relays it and never reads it. */
-      response: components['schemas']['AuthenticatorAttestationRawResponse'];
-    };
-    /** @description What a client sends to rename a passkey. */
-    RenameRequest: {
-      /** @description The new name. Up to 64 characters, with no leading or trailing whitespace. */
-      nickname: string;
-    };
-    /** @description What the browser's WebAuthn API produced for the sign-in options, sent to sign in. */
-    SignInRequest: {
-      /** @description The attempt token from the sign-in options this request answers. */
-      attemptToken: string;
-      /** @description The signed assertion the browser returned. The web relays it and never reads it. */
-      response: components['schemas']['AuthenticatorAssertionRawResponse'];
-    };
-    /** @description What a client sends to create a tag or to replace one. */
-    TagRequest: {
-      /** @description What the tag is called. Not empty, and no other tag has the same name, ignoring case. */
-      name: string;
-      /**
-       * @description The tag as it appears in a URL: lowercase words joined by single hyphens, such as foo-bar-42. No other tag has the
-       *     same slug.
-       */
-      slug: string;
-      /** @description A sentence or two about the tag, or null for none. */
-      description: null | string;
-      /** @description The tag's color as a lowercase hex code such as #a1b2c3, or null for none. */
-      color: null | string;
-    };
-    /** @description A tag as the API returns it. */
-    TagResponse: {
-      /**
-       * Format: int32
-       * @description The tag's ID, which its URL names.
-       */
-      tagId: number;
-      /** @description What the tag is called. Not empty, and no other tag has the same name, ignoring case. */
-      name: string;
-      /**
-       * @description The tag as it appears in a URL: lowercase words joined by single hyphens, such as foo-bar-42. No other tag has the
-       *     same slug.
-       */
-      slug: string;
-      /** @description A sentence or two about the tag, or null for none. */
-      description: null | string;
-      /** @description The tag's color as a lowercase hex code such as #a1b2c3, or null for none. */
-      color: null | string;
-    };
-    ValidationProblemDetails: {
-      type?: null | string;
-      title?: null | string;
-      /** Format: int32 */
-      status?: null | number;
-      detail?: null | string;
-      instance?: null | string;
-      errors?: {
-        [key: string]: string[];
-      };
-      /** @description The ID of the request, for finding it in the logs. */
-      traceId?: string;
-    };
+import { arrayOf, instant, objectOf, type Shape } from './runtime/revive.ts';
+
+/** @description A library type the web relays and never reads, so its members are not part of the contract. */
+export type AssertionOptions = unknown;
+/** @description A library type the web relays and never reads, so its members are not part of the contract. */
+export type AuthenticatorAssertionRawResponse = unknown;
+/** @description A library type the web relays and never reads, so its members are not part of the contract. */
+export type AuthenticatorAttestationRawResponse = unknown;
+/** @description The browser's options for a ceremony, with the token of the challenge the API kept for them. */
+export type CeremonyResponseOfAssertionOptions = {
+  /** @description Sent back with the browser's response, so the API can find the challenge it kept. */
+  attemptToken: string;
+  options: null | AssertionOptions;
+};
+/** @description The browser's options for a ceremony, with the token of the challenge the API kept for them. */
+export type CeremonyResponseOfCredentialCreateOptions = {
+  /** @description Sent back with the browser's response, so the API can find the challenge it kept. */
+  attemptToken: string;
+  options: null | CredentialCreateOptions;
+};
+/** @description What a client sends to ask for the options that confirm a pending change. */
+export type ConfirmationOptionsRequest = {
+  /** @description The pending change to confirm, from the response that started it. */
+  changeToken: string;
+};
+/** @description What the browser's WebAuthn API produced for the confirmation options, sent to apply the change. */
+export type ConfirmationRequest = {
+  /** @description The pending change to confirm. */
+  changeToken: string;
+  /** @description The attempt token from the confirmation options this request answers. */
+  attemptToken: string;
+  /** @description The signed assertion the browser returned. The web relays it and never reads it. */
+  response: AuthenticatorAssertionRawResponse;
+};
+/** @description A library type the web relays and never reads, so its members are not part of the contract. */
+export type CredentialCreateOptions = unknown;
+/** @description The user a session signs in as. */
+export type CurrentUserResponse = {
+  /**
+   * Format: int32
+   * @description The user's ID.
+   */
+  userId: number;
+  /** @description The name shown for the user. */
+  displayName: string;
+};
+/** @description What a client sends to start enrolling a passkey: the first, or a replacement when all are lost. */
+export type EnrollmentOptionsRequest = {
+  /** @description The one-time enrollment token minted by the enroll command. It expires after 15 minutes. */
+  token: string;
+};
+/** @description What the browser's WebAuthn API produced for the registration options, sent to finish enrolling. */
+export type EnrollmentRequest = {
+  /** @description The enrollment token the options were started with. */
+  token: string;
+  /** @description The attempt token from the registration options this request answers. */
+  attemptToken: string;
+  /** @description What to call the new passkey. Up to 64 characters, with no leading or trailing whitespace. */
+  nickname: string;
+  /** @description The attestation the browser returned. The web relays it and never reads it. */
+  response: AuthenticatorAttestationRawResponse;
+};
+/** Format: date-time */
+export type Instant = Temporal.Instant;
+/** @description A registered passkey as the passkey page lists it. */
+export type PasskeyResponse = {
+  /**
+   * Format: int32
+   * @description The passkey's ID, which its URL names.
+   */
+  passkeyId: number;
+  /** @description What its owner called it, such as the key's color. */
+  nickname: string;
+  /** @description When the passkey was registered. */
+  createdUtc: Instant;
+  lastUsedUtc: null | Instant;
+  /** @description Whether the credential can be backed up or synced (WebAuthn's backup eligibility flag). */
+  isBackupEligible: boolean;
+  /** @description Whether the credential currently is backed up (WebAuthn's backup state flag). */
+  isBackedUp: boolean;
+  /** @description How the authenticator can be reached, as it reported at registration. */
+  transports: PasskeyTransport[];
+};
+/** @description A change to the passkey set that waits for a registered passkey to confirm it. */
+export type PendingChangeResponse = {
+  /** @description Names the pending change in the confirmation that follows. */
+  changeToken: string;
+};
+export type ProblemDetails = {
+  type?: null | string;
+  title?: null | string;
+  /** Format: int32 */
+  status?: null | number;
+  detail?: null | string;
+  instance?: null | string;
+  /** @description The ID of the request, for finding it in the logs. */
+  traceId?: string;
+};
+/** @description What the browser's WebAuthn API produced for the registration options, sent to add a passkey. */
+export type RegistrationRequest = {
+  /** @description The attempt token from the registration options this request answers. */
+  attemptToken: string;
+  /** @description What to call the new passkey. Up to 64 characters, with no leading or trailing whitespace. */
+  nickname: string;
+  /** @description The attestation the browser returned. The web relays it and never reads it. */
+  response: AuthenticatorAttestationRawResponse;
+};
+/** @description What a client sends to rename a passkey. */
+export type RenameRequest = {
+  /** @description The new name. Up to 64 characters, with no leading or trailing whitespace. */
+  nickname: string;
+};
+/** @description What the browser's WebAuthn API produced for the sign-in options, sent to sign in. */
+export type SignInRequest = {
+  /** @description The attempt token from the sign-in options this request answers. */
+  attemptToken: string;
+  /** @description The signed assertion the browser returned. The web relays it and never reads it. */
+  response: AuthenticatorAssertionRawResponse;
+};
+/** @description What a client sends to create a tag or to replace one. */
+export type TagRequest = {
+  /** @description What the tag is called. Not empty, and no other tag has the same name, ignoring case. */
+  name: string;
+  /**
+   * @description The tag as it appears in a URL: lowercase words joined by single hyphens, such as foo-bar-42. No other tag has the
+   *     same slug.
+   */
+  slug: string;
+  /** @description A sentence or two about the tag, or null for none. */
+  description: null | string;
+  /** @description The tag's color as a lowercase hex code such as #a1b2c3, or null for none. */
+  color: null | string;
+};
+/** @description A tag as the API returns it. */
+export type TagResponse = {
+  /**
+   * Format: int32
+   * @description The tag's ID, which its URL names.
+   */
+  tagId: number;
+  /** @description What the tag is called. Not empty, and no other tag has the same name, ignoring case. */
+  name: string;
+  /**
+   * @description The tag as it appears in a URL: lowercase words joined by single hyphens, such as foo-bar-42. No other tag has the
+   *     same slug.
+   */
+  slug: string;
+  /** @description A sentence or two about the tag, or null for none. */
+  description: null | string;
+  /** @description The tag's color as a lowercase hex code such as #a1b2c3, or null for none. */
+  color: null | string;
+};
+export type ValidationProblemDetails = {
+  type?: null | string;
+  title?: null | string;
+  /** Format: int32 */
+  status?: null | number;
+  detail?: null | string;
+  instance?: null | string;
+  errors?: {
+    [key: string]: string[];
   };
-  responses: never;
-  parameters: never;
-  requestBodies: never;
-  headers: never;
-  pathItems: never;
-}
-export type AssertionOptions = components['schemas']['AssertionOptions'];
-export type AuthenticatorAssertionRawResponse = components['schemas']['AuthenticatorAssertionRawResponse'];
-export type AuthenticatorAttestationRawResponse = components['schemas']['AuthenticatorAttestationRawResponse'];
-export type CeremonyResponseOfAssertionOptions = components['schemas']['CeremonyResponseOfAssertionOptions'];
-export type CeremonyResponseOfCredentialCreateOptions =
-  components['schemas']['CeremonyResponseOfCredentialCreateOptions'];
-export type ConfirmationOptionsRequest = components['schemas']['ConfirmationOptionsRequest'];
-export type ConfirmationRequest = components['schemas']['ConfirmationRequest'];
-export type CredentialCreateOptions = components['schemas']['CredentialCreateOptions'];
-export type CurrentUserResponse = components['schemas']['CurrentUserResponse'];
-export type EnrollmentOptionsRequest = components['schemas']['EnrollmentOptionsRequest'];
-export type EnrollmentRequest = components['schemas']['EnrollmentRequest'];
-export type Instant = components['schemas']['Instant'];
-export type PasskeyResponse = components['schemas']['PasskeyResponse'];
-export type PendingChangeResponse = components['schemas']['PendingChangeResponse'];
-export type ProblemDetails = components['schemas']['ProblemDetails'];
-export type RegistrationRequest = components['schemas']['RegistrationRequest'];
-export type RenameRequest = components['schemas']['RenameRequest'];
-export type SignInRequest = components['schemas']['SignInRequest'];
-export type TagRequest = components['schemas']['TagRequest'];
-export type TagResponse = components['schemas']['TagResponse'];
-export type ValidationProblemDetails = components['schemas']['ValidationProblemDetails'];
-export type $defs = Record<string, never>;
+  /** @description The ID of the request, for finding it in the logs. */
+  traceId?: string;
+};
 export enum PasskeyTransport {
   Usb = 1,
   Nfc = 2,
@@ -210,4 +176,12 @@ export enum PasskeyTransport {
   Internal = 5,
   SmartCard = 6,
 }
-export type operations = Record<string, never>;
+
+export const Instant: Shape<Instant> = instant;
+
+export const PasskeyResponse: Shape<PasskeyResponse> = /*#__PURE__*/ objectOf<PasskeyResponse>({
+  createdUtc: Instant,
+  lastUsedUtc: Instant,
+});
+
+export const PasskeyResponseList: Shape<PasskeyResponse[]> = /*#__PURE__*/ arrayOf(PasskeyResponse);

@@ -4,4 +4,4 @@ export * as passkey from './passkey.ts';
 export * as signIn from './sign-in.ts';
 export * as tag from './tag.ts';
 
-export { ApiError, type CallOptions, type Created, type Problem } from './runtime/index.ts';
+export { ApiError, nullOnApiError, type CallOptions, type Created, type Problem } from './runtime/index.ts';

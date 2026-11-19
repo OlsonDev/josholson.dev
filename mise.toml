@@ -249,7 +249,7 @@ dir = "web"
 run = "bun fmt --no-script"
 
 [tasks."web:test:unit"]
-description = "Run web/'s unit tests (bun test, the *.test.ts files beside the code in src/)"
+description = "Run web/'s unit tests (bun test, the *.test.ts files beside the code in src/ and scripts/)"
 dir = "web"
 run = "bun test"
 

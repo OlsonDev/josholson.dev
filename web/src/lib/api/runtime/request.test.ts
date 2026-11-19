@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, test } from 'bun:test';
 import { ApiError } from './api-error.ts';
-import { call, configureApi, resetApi, type OperationSpec } from './request.ts';
+import * as http from './http.ts';
+import { configureApi, nullOnApiError, resetApi, type CallOptions } from './request.ts';
 import { arrayOf, instant, objectOf } from './revive.ts';
 
 type Sent = { url: string; init: RequestInit };
@@ -67,8 +68,19 @@ function abortOf(error: unknown): DOMException {
   return error;
 }
 
-const get = (path: string): OperationSpec => ({ name: 'foo.get', method: 'GET', path, reply: 'json' });
-const post: OperationSpec = { name: 'foo.search', method: 'POST', path: '/foos/search', reply: 'json' };
+// A `GET` of `/foos` (or of `uri`), and a `POST` of a body to `/foos/search`, both answered with JSON.
+function get<TResult = unknown>(
+  options?: CallOptions,
+  query?: Record<string, unknown>,
+  uri = '/foos',
+  name = 'foo.get',
+): Promise<TResult> {
+  return http.get<TResult>(options, name, uri, undefined, query);
+}
+
+function search(body: unknown, options?: CallOptions): Promise<unknown> {
+  return http.post(options, 'foo.search', '/foos/search', body);
+}
 
 function use(fake: Fake, extra: Parameters<typeof configureApi>[0] = {}): void {
   configureApi({ baseUrl: 'https://api.test', fetch: () => fake.fetch, ...extra });
@@ -79,40 +91,20 @@ afterEach(() => {
 });
 
 describe('building the request', () => {
-  test('fills path parameters, puts the rest in the query string, and encodes both', async () => {
+  test('puts the query after the route, and sends to the base URL', async () => {
     const fake = fakeFetch(() => json({}));
     use(fake);
 
-    await call(get('/foos/{fooId}/bars/{name}'), { fooId: 7, name: 'a b/c', page: 2, q: 'x&y' }, undefined, undefined);
+    await get(undefined, { page: 2, q: 'x&y' }, '/foos/7/bars');
 
-    expect(firstSent(fake).url).toBe('https://api.test/foos/7/bars/a%20b%2Fc?page=2&q=x%26y');
-  });
-
-  test('repeats a key for an array and leaves out undefined and null', async () => {
-    const fake = fakeFetch(() => json({}));
-    use(fake);
-
-    await call(get('/foos'), { tag: ['a', 'b'], skip: undefined, none: null, on: true }, undefined, undefined);
-
-    expect(firstSent(fake).url).toBe('https://api.test/foos?tag=a&tag=b&on=true');
-  });
-
-  test('sends an instant in the query string as ISO text', async () => {
-    const fake = fakeFetch(() => json({}));
-    use(fake);
-
-    await call(get('/foos'), { since: Temporal.Instant.from('2026-01-02T03:04:05Z') }, undefined, undefined);
-
-    expect(firstSent(fake).url).toBe('https://api.test/foos?since=2026-01-02T03%3A04%3A05Z');
+    expect(firstSent(fake).url).toBe('https://api.test/foos/7/bars?page=2&q=x%26y');
   });
 
   test('rejects, and sends nothing, when the client was never given a base URL', async () => {
     const fake = fakeFetch(() => json({}));
     configureApi({ fetch: () => fake.fetch });
 
-    await expect(call(get('/foos'), undefined, undefined, undefined)).rejects.toThrow(
-      'before the API client was configured',
-    );
+    await expect(get()).rejects.toThrow('before the API client was configured');
     expect(fake.sent).toHaveLength(0);
   });
 
@@ -120,24 +112,16 @@ describe('building the request', () => {
     const fake = fakeFetch(() => json({}));
     configureApi({ baseUrl: '', fetch: () => fake.fetch });
 
-    await call(get('/foos'), undefined, undefined, undefined);
+    await get();
 
     expect(firstSent(fake).url).toBe('/foos');
-  });
-
-  test('rejects when a path parameter has no value', async () => {
-    const fake = fakeFetch(() => json({}));
-    use(fake);
-
-    await expect(call(get('/foos/{fooId}'), {}, undefined, undefined)).rejects.toThrow('needs a value for fooId');
-    expect(fake.sent).toHaveLength(0);
   });
 
   test('sends the method, JSON, and credentials, and an instant in the body as ISO text', async () => {
     const fake = fakeFetch(() => json({}));
     use(fake);
 
-    await call(post, undefined, { when: Temporal.Instant.from('2026-01-02T03:04:05Z'), n: 1 }, undefined);
+    await search({ when: Temporal.Instant.from('2026-01-02T03:04:05Z'), n: 1 });
 
     const { init } = firstSent(fake);
     const headers = new Headers(init.headers);
@@ -148,11 +132,27 @@ describe('building the request', () => {
     expect(headers.get('content-type')).toBe('application/json');
   });
 
+  test('each method sends its own, and a body goes before the shape and the query', async () => {
+    const fake = fakeFetch(() => json({}));
+    use(fake);
+
+    await http.get(undefined, 'foo.get', '/foos');
+    await http.delete(undefined, 'foo.delete', '/foos/1');
+    await http.put(undefined, 'foo.put', '/foos/1', { a: 1 }, undefined, { page: 2 });
+    await http.patch(undefined, 'foo.patch', '/foos/1', { a: 1 });
+    await http.post(undefined, 'foo.post', '/foos');
+
+    expect(fake.sent.map((sent) => sent.init.method)).toEqual(['GET', 'DELETE', 'PUT', 'PATCH', 'POST']);
+    expect(fake.sent[2]?.url).toBe('https://api.test/foos/1?page=2');
+    expect(fake.sent[2]?.init.body).toBe('{"a":1}');
+    expect(fake.sent[4]?.init.body).toBeUndefined();
+  });
+
   test('sends no Content-Type without a body, and lets a call add headers', async () => {
     const fake = fakeFetch(() => json({}));
     use(fake);
 
-    await call(get('/foos'), undefined, undefined, { headers: { 'X-Foo': 'bar' } });
+    await get({ headers: { 'X-Foo': 'bar' } });
 
     const headers = new Headers(firstSent(fake).init.headers);
     expect(headers.get('x-foo')).toBe('bar');
@@ -165,41 +165,31 @@ describe('the reply', () => {
     const fake = fakeFetch(() => json([{ id: 1, createdUtc: '2026-01-02T03:04:05Z' }]));
     use(fake);
 
-    const result = await call<{ id: number; createdUtc: Temporal.Instant }[]>(
-      { ...get('/foos'), revive: arrayOf(objectOf({ createdUtc: instant })) },
+    const result = await http.get(
       undefined,
-      undefined,
-      undefined,
+      'foo.get',
+      '/foos',
+      arrayOf(objectOf<{ id: number; createdUtc: Temporal.Instant }>({ createdUtc: instant })),
     );
 
     expect(result[0]?.id).toBe(1);
     expect(result[0]?.createdUtc.toString()).toBe('2026-01-02T03:04:05Z');
   });
 
-  test('created returns the Location', async () => {
+  test('a 201 is the Location, whatever else it says', async () => {
     const fake = fakeFetch(() => new Response(null, { status: 201, headers: { location: 'https://api.test/foos/9' } }));
     use(fake);
 
-    const result = await call(
-      { name: 'foo.create', method: 'POST', path: '/foos', reply: 'created' },
-      undefined,
-      {},
-      undefined,
-    );
+    const result = await http.post(undefined, 'foo.create', '/foos', {});
 
     expect(result).toEqual({ location: 'https://api.test/foos/9' });
   });
 
-  test('a reply with nothing to return is undefined', async () => {
+  test('a success with nothing in it is undefined, whatever its status', async () => {
     const fake = fakeFetch(() => new Response(null, { status: 204 }));
     use(fake);
 
-    const result = await call(
-      { name: 'foo.delete', method: 'DELETE', path: '/foos/1' },
-      undefined,
-      undefined,
-      undefined,
-    );
+    const result = await http.delete(undefined, 'foo.delete', '/foos/1');
 
     expect(result).toBeUndefined();
   });
@@ -215,7 +205,7 @@ describe('errors', () => {
     };
     use(fakeFetch(() => json(problem, 422, 'application/problem+json')));
 
-    const error = apiErrorOf(await call(post, undefined, {}, undefined).catch((caught: unknown) => caught));
+    const error = apiErrorOf(await search({}).catch((caught: unknown) => caught));
 
     expect(error.status).toBe(422);
     expect(error.is(422)).toBe(true);
@@ -233,9 +223,7 @@ describe('errors', () => {
       ),
     );
 
-    const error = apiErrorOf(
-      await call(get('/foos'), undefined, undefined, undefined).catch((caught: unknown) => caught),
-    );
+    const error = apiErrorOf(await get().catch((caught: unknown) => caught));
 
     expect(error.status).toBe(502);
     expect(error.problem).toBeUndefined();
@@ -246,9 +234,7 @@ describe('errors', () => {
     const cause = new TypeError('fetch failed');
     use(fakeFetch(() => Promise.reject(cause)));
 
-    const error = apiErrorOf(
-      await call(get('/foos'), undefined, undefined, undefined).catch((caught: unknown) => caught),
-    );
+    const error = apiErrorOf(await get().catch((caught: unknown) => caught));
 
     expect(error.status).toBe(0);
     expect(error.cause).toBe(cause);
@@ -266,11 +252,80 @@ describe('errors', () => {
       },
     );
 
-    await expect(call(get('/foos/1'), undefined, undefined, undefined)).rejects.toBeInstanceOf(ApiError);
-    await expect(call(get('/foos/1'), undefined, undefined, { onError: false })).rejects.toBeInstanceOf(ApiError);
+    await expect(get()).rejects.toBeInstanceOf(ApiError);
+    await expect(get({ onError: false })).rejects.toBeInstanceOf(ApiError);
 
     expect(seen).toHaveLength(1);
     expect(seen[0]?.status).toBe(404);
+  });
+
+  test('a handler in the options takes the error: its result is the call result, and the global hook does not see it', async () => {
+    const seen: ApiError[] = [];
+    const handled: ApiError[] = [];
+    use(
+      fakeFetch(() => json({ title: 'Not Found' }, 404, 'application/problem+json')),
+      {
+        onError: (error) => {
+          seen.push(error);
+        },
+      },
+    );
+
+    const result = await get({
+      onError: (error) => {
+        handled.push(error);
+        return 'fallback';
+      },
+    });
+
+    expect(result).toBe('fallback');
+    expect(handled).toHaveLength(1);
+    expect(handled[0]?.status).toBe(404);
+    expect(seen).toHaveLength(0);
+  });
+
+  test('a handler can throw to let the error go', async () => {
+    use(fakeFetch(() => json({ title: 'Boom' }, 500, 'application/problem+json')));
+
+    const error = apiErrorOf(
+      await get({
+        onError: (caught) => {
+          if (caught.status === 404) return null;
+          throw caught;
+        },
+      }).catch((caught: unknown) => caught),
+    );
+
+    expect(error.status).toBe(500);
+  });
+
+  test('nullOnApiError is null for an error status and for a network failure, and a result otherwise', async () => {
+    use(fakeFetch(() => json({ title: 'Boom' }, 500, 'application/problem+json')));
+    expect(await get(nullOnApiError)).toBeNull();
+
+    use(fakeFetch(() => Promise.reject(new TypeError('fetch failed'))));
+    expect(await get(nullOnApiError)).toBeNull();
+
+    use(fakeFetch(() => json({ ok: true })));
+    expect(await get(nullOnApiError)).toEqual({ ok: true });
+  });
+
+  test('nullOnApiError is frozen, and spreads with other options', async () => {
+    use(fakeFetch(() => json({ title: 'Boom' }, 500, 'application/problem+json')));
+
+    expect(Object.isFrozen(nullOnApiError)).toBe(true);
+    expect(await get({ ...nullOnApiError, dedupe: false })).toBeNull();
+  });
+
+  test('a handler does not see an abort', async () => {
+    const held = gate();
+    use(fakeFetch(() => held.wait()));
+    const controller = new AbortController();
+
+    const pending = get({ ...nullOnApiError, signal: controller.signal });
+    controller.abort();
+
+    expect(abortOf(await pending.catch((caught: unknown) => caught)).name).toBe('AbortError');
   });
 
   test('an aborted call rejects with the signal reason, and is not an ApiError or an onError', async () => {
@@ -286,7 +341,7 @@ describe('errors', () => {
     );
     const controller = new AbortController();
 
-    const pending = call(get('/foos'), undefined, undefined, { signal: controller.signal });
+    const pending = get({ signal: controller.signal });
     controller.abort();
 
     expect(abortOf(await pending.catch((caught: unknown) => caught)).name).toBe('AbortError');
@@ -300,8 +355,8 @@ describe('sharing a request that is in flight', () => {
     const fake = fakeFetch(() => held.wait());
     use(fake);
 
-    const first = call<{ items: number[] }>(get('/foos'), undefined, undefined, undefined);
-    const second = call<{ items: number[] }>(get('/foos'), undefined, undefined, undefined);
+    const first = get<{ items: number[] }>();
+    const second = get<{ items: number[] }>();
     held.open(json({ items: [1, 2] }));
     const [a, b] = await Promise.all([first, second]);
 
@@ -316,8 +371,8 @@ describe('sharing a request that is in flight', () => {
     const fake = fakeFetch(() => held.wait());
     use(fake);
 
-    const first = call(post, undefined, { filter: { a: 1, b: 2 }, page: 1 }, undefined);
-    const second = call(post, undefined, { filter: { a: 1, b: 2 }, page: 1 }, undefined);
+    const first = search({ filter: { a: 1, b: 2 }, page: 1 });
+    const second = search({ filter: { a: 1, b: 2 }, page: 1 });
     held.open(json([]));
     await Promise.all([first, second]);
 
@@ -330,9 +385,9 @@ describe('sharing a request that is in flight', () => {
     use(fake);
 
     const body = { page: 1 };
-    const first = call(post, undefined, body, undefined);
+    const first = search(body);
     body.page = 2;
-    const second = call(post, undefined, { page: 2 }, undefined);
+    const second = search({ page: 2 });
     held.open(json([]));
     await Promise.all([first, second]);
 
@@ -344,10 +399,7 @@ describe('sharing a request that is in flight', () => {
     const fake = fakeFetch(() => held.wait());
     use(fake);
 
-    const calls = [
-      call(post, undefined, { page: 1, size: 5 }, undefined),
-      call(post, undefined, { size: 5, page: 1 }, undefined),
-    ];
+    const calls = [search({ page: 1, size: 5 }), search({ size: 5, page: 1 })];
     held.open(json([]));
     await Promise.all(calls);
 
@@ -359,10 +411,7 @@ describe('sharing a request that is in flight', () => {
     const fake = fakeFetch(() => held.wait());
     use(fake);
 
-    const calls = [
-      call({ ...get('/foos'), name: 'foo.one' }, undefined, undefined, undefined),
-      call({ ...get('/foos'), name: 'foo.two' }, undefined, undefined, undefined),
-    ];
+    const calls = [get(undefined, undefined, '/foos', 'foo.one'), get(undefined, undefined, '/foos', 'foo.two')];
     held.open(json({}));
     await Promise.all(calls);
 
@@ -375,11 +424,11 @@ describe('sharing a request that is in flight', () => {
     use(fake);
 
     const calls = [
-      call(post, undefined, { page: 1 }, undefined),
-      call(post, undefined, { page: 2 }, undefined),
-      call(get('/foos'), { page: 1 }, undefined, undefined),
-      call(get('/foos'), { page: 2 }, undefined, undefined),
-      call(get('/foos'), { page: 2 }, undefined, { headers: { 'X-Foo': 'bar' } }),
+      search({ page: 1 }),
+      search({ page: 2 }),
+      get(undefined, { page: 1 }),
+      get(undefined, { page: 2 }),
+      get({ headers: { 'X-Foo': 'bar' } }, { page: 2 }),
     ];
     held.open(json({}));
     await Promise.all(calls);
@@ -392,11 +441,7 @@ describe('sharing a request that is in flight', () => {
     const fake = fakeFetch(() => held.wait());
     use(fake);
 
-    const calls = [
-      call(get('/foos'), undefined, undefined, undefined),
-      call(get('/foos'), undefined, undefined, { dedupe: false }),
-      call(get('/foos'), undefined, undefined, undefined),
-    ];
+    const calls = [get(), get({ dedupe: false }), get()];
     held.open(json({}));
     await Promise.all(calls);
 
@@ -407,8 +452,8 @@ describe('sharing a request that is in flight', () => {
     const fake = fakeFetch(() => json({}));
     use(fake);
 
-    await call(get('/foos'), undefined, undefined, undefined);
-    await call(get('/foos'), undefined, undefined, undefined);
+    await get();
+    await get();
 
     expect(fake.sent).toHaveLength(2);
   });
@@ -419,9 +464,9 @@ describe('sharing a request that is in flight', () => {
     const other = fakeFetch(() => held.wait());
 
     use(one);
-    const first = call(get('/foos'), undefined, undefined, undefined);
+    const first = get();
     use(other);
-    const second = call(get('/foos'), undefined, undefined, undefined);
+    const second = get();
     held.open(json({}));
     await Promise.all([first, second]);
 
@@ -441,8 +486,8 @@ describe('sharing a request that is in flight', () => {
       },
     );
 
-    const first = call(get('/foos'), undefined, undefined, undefined).catch((caught: unknown) => caught);
-    const second = call(get('/foos'), undefined, undefined, undefined).catch((caught: unknown) => caught);
+    const first = get().catch((caught: unknown) => caught);
+    const second = get().catch((caught: unknown) => caught);
     held.open(json({ title: 'Boom' }, 500, 'application/problem+json'));
     const [a, b] = await Promise.all([first, second]);
 
@@ -457,10 +502,8 @@ describe('sharing a request that is in flight', () => {
     use(fake);
     const controller = new AbortController();
 
-    const aborts = call(get('/foos'), undefined, undefined, { signal: controller.signal }).catch(
-      (caught: unknown) => caught,
-    );
-    const stays = call<{ ok: boolean }>(get('/foos'), undefined, undefined, undefined);
+    const aborts = get({ signal: controller.signal }).catch((caught: unknown) => caught);
+    const stays = get<{ ok: boolean }>();
     controller.abort();
     held.open(json({ ok: true }));
 
@@ -477,8 +520,8 @@ describe('sharing a request that is in flight', () => {
     const one = new AbortController();
     const two = new AbortController();
 
-    const first = call(get('/foos'), undefined, undefined, { signal: one.signal }).catch((caught: unknown) => caught);
-    const second = call(get('/foos'), undefined, undefined, { signal: two.signal }).catch((caught: unknown) => caught);
+    const first = get({ signal: one.signal }).catch((caught: unknown) => caught);
+    const second = get({ signal: two.signal }).catch((caught: unknown) => caught);
     one.abort();
     expect(signalOf(firstSent(fake)).aborted).toBe(false);
     two.abort();
@@ -501,8 +544,8 @@ describe('sharing a request that is in flight', () => {
       },
     );
 
-    const first = call(get('/foos'), undefined, undefined, undefined);
-    const second = call(get('/foos'), undefined, undefined, undefined);
+    const first = get();
+    const second = get();
     held.open(json({}));
     await Promise.all([first, second]);
 
@@ -520,10 +563,10 @@ test('the fetch is asked for when the call starts, so a request-scoped one is th
   let current = early;
   configureApi({ baseUrl: 'https://api.test', fetch: () => current.fetch });
 
-  const first = call(get('/foos'), undefined, undefined, undefined);
+  const first = get();
   current = late;
   await first;
-  await call(get('/foos'), undefined, undefined, undefined);
+  await get();
 
   expect(early.sent).toHaveLength(1);
   expect(late.sent).toHaveLength(1);

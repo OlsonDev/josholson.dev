@@ -28,6 +28,7 @@ suspicious = "error"
 "unicorn/no-array-for-each" = "error"
 "eqeqeq" = ["error", "always"]
 
-# `bun test` runs the unit tests beside the code in src/ (*.test.ts). Playwright's are in tests/, and are its own.
+# `bun test` runs the unit tests beside the code in src/ and scripts/ (*.test.ts). Playwright's are in tests/, and are its own.
 [test]
-root = "src"
+root = "."
+pathIgnorePatterns = ["tests/**"]

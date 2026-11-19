@@ -1,4 +1,5 @@
 import { ApiError, type Problem } from './api-error.ts';
+import { withQuery, type Query } from './route.ts';
 import { revive, type Shape } from './revive.ts';
 
 /** Options every generated function takes last. */
@@ -9,9 +10,27 @@ export type CallOptions = {
   headers?: Readonly<Record<string, string>>;
   /** Shares a request identical to one already in flight, and lets later ones share this one. Default `true`. */
   dedupe?: boolean;
-  /** `false` keeps the global `onError` hook from seeing this call's error, for a caller that handles it itself. */
-  onError?: false;
+  /**
+   * What to do about an `ApiError` this call fails with, instead of the global `onError` hook (which then does not see it).
+   * `false` does nothing, so the error is thrown. A function handles it: what it returns is the call's result (see
+   * `nullOnApiError`), and it throws to let the error go.
+   */
+  onError?: false | ((error: ApiError) => unknown);
 };
+
+/** What a call can result in besides its own type: what the `onError` handler in its options returns, else nothing. */
+export type Recovered<TOptions> = TOptions extends { readonly onError: (error: never) => infer TResult }
+  ? TResult
+  : never;
+
+/** The promise a generated function returns: its own type `TResult`, or what the `onError` handler in `TOptions` returns. */
+export type ApiPromise<TResult, TOptions> = Promise<TResult | Recovered<TOptions>>;
+
+/**
+ * For a call whose failure the page can do without: `tag.getAll(nullOnApiError)` is the tags, or `null` when the API
+ * answered with an error or could not be reached. Spread it to add to it (`{ ...nullOnApiError, signal }`).
+ */
+export const nullOnApiError = Object.freeze({ onError: (): null => null });
 
 /** What a create (`201`) returns: where the new thing is. */
 export type Created = { location: string };
@@ -47,20 +66,9 @@ export type ApiConfig = {
 
 export type Method = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 
-/** What a generated function says about its operation. */
-export type OperationSpec = {
-  /** `controller.action`, as in the OpenAPI document. */
-  name: string;
-  method: Method;
-  /** The route, with `{name}` where a path parameter goes. */
-  path: string;
-  /** What the response holds: JSON, or (for a `201`) only the `Location`. Left out when there is nothing to return. */
-  reply?: 'json' | 'created';
-  /** Where the JSON has instants. */
-  revive?: Shape;
-};
-
-type Params = Readonly<Record<string, unknown>>;
+// What a call is, for the code below: the operation (`controller.action`, as in the OpenAPI document), how, and where the
+// response has instants, if anywhere.
+type OperationSpec = { name: string; method: Method; shape: Shape | undefined };
 
 type RawResponse = {
   ok: boolean;
@@ -106,25 +114,27 @@ export function resetApi(): void {
   config = defaults();
 }
 
-/** What every generated function calls. Not for app code. */
-export function call<TResult>(
-  spec: OperationSpec,
-  params: Params | undefined,
-  body: unknown,
+// What `http`'s functions call (./http.ts), once the method is known. Not for app code.
+export function dispatch<TResult>(
   options: CallOptions | undefined,
+  spec: OperationSpec,
+  uri: string,
+  query: Query | undefined,
+  body: unknown,
 ): Promise<TResult> {
   const settings = config;
   // Now, before anything is awaited: SvelteKit's `getRequestEvent()` is only valid synchronously on some runtimes.
   const send = settings.fetch();
   // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- the generated function declares the type
-  return perform(spec, settings, send, params, body, options ?? {}) as Promise<TResult>;
+  return perform(spec, settings, send, uri, query, body, options ?? {}) as Promise<TResult>;
 }
 
 async function perform(
   spec: OperationSpec,
   settings: ApiConfig,
   send: typeof globalThis.fetch,
-  params: Params | undefined,
+  uri: string,
+  query: Query | undefined,
   body: unknown,
   options: CallOptions,
 ): Promise<unknown> {
@@ -133,7 +143,7 @@ async function perform(
       `${spec.name} was called before the API client was configured: call configureApi first (the init hook).`,
     );
   }
-  const url = settings.baseUrl + buildPath(spec, params);
+  const url = settings.baseUrl + withQuery(uri, query);
   const bodyText = body === undefined ? undefined : JSON.stringify(body);
   const headers: Record<string, string> = {
     Accept: 'application/json',
@@ -151,7 +161,11 @@ async function perform(
         : await shared(spec, settings, send, url, bodyText, headers, exchange, options.signal);
     if (!raw.ok) throw failure(spec, raw);
   } catch (error) {
-    if (error instanceof ApiError && options.onError !== false) settings.onError?.(error);
+    if (error instanceof ApiError) {
+      // A handler of the call's own takes the error, so the global one does not see it.
+      if (typeof options.onError === 'function') return options.onError(error);
+      if (options.onError !== false) settings.onError?.(error);
+    }
     throw error;
   }
   return result(spec, raw);
@@ -196,10 +210,11 @@ function failure(spec: OperationSpec, raw: RawResponse): ApiError {
 
 // Each caller parses the shared text itself, so each owns its result and may change it.
 function result(spec: OperationSpec, raw: RawResponse): unknown {
-  if (spec.reply === 'created') return { location: raw.location ?? '' } satisfies Created;
-  if (spec.reply !== 'json') return undefined;
+  // A `201` is a create, whose point is where the new thing is, and a success with nothing in it has nothing to return.
+  if (raw.status === 201) return { location: raw.location ?? '' } satisfies Created;
+  if (raw.text === '') return undefined;
   const value: unknown = JSON.parse(raw.text);
-  return spec.revive === undefined ? value : revive(value, spec.revive);
+  return spec.shape === undefined ? value : revive(value, spec.shape);
 }
 
 // The same request, in flight at once, is sent once. Only while it is in flight: a later call asks again. Most calls
@@ -300,31 +315,4 @@ async function waitFor(entry: InFlight, signal: AbortSignal | undefined, leave: 
       signal.removeEventListener('abort', onAbort);
     });
   });
-}
-
-// The route with its path parameters filled in, and every other parameter as the query string.
-function buildPath(spec: OperationSpec, params: Params | undefined): string {
-  const used = new Set<string>();
-  const path = spec.path.replace(/\{([^}]+)\}/g, (_match, name: string) => {
-    const value = params?.[name];
-    if (value === undefined || value === null) throw new Error(`${spec.name} needs a value for ${name}`);
-    used.add(name);
-    return encodeURIComponent(queryText(value));
-  });
-  const query = new URLSearchParams();
-  for (const [name, value] of Object.entries(params ?? {})) {
-    if (used.has(name) || value === undefined || value === null) continue;
-    for (const item of Array.isArray(value) ? value : [value]) query.append(name, queryText(item));
-  }
-  const text = query.toString();
-  return text === '' ? path : `${path}?${text}`;
-}
-
-function queryText(value: unknown): string {
-  if (typeof value === 'string') return value;
-  if (typeof value === 'number' || typeof value === 'boolean') return String(value);
-  // The type tag, not `instanceof Temporal.Instant`: that needs the global, which is not there until `ensureTemporal`
-  // has run, and a polyfill's class is not a native one. Both set the tag, as the specification says.
-  if (Object.prototype.toString.call(value) === '[object Temporal.Instant]') return String(value);
-  throw new Error('A path or query parameter is a string, a number, a boolean, or an instant.');
 }
