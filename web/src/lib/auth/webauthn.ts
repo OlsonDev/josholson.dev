@@ -33,3 +33,21 @@ export async function signWithPasskey(options: unknown): Promise<unknown> {
   if (!(credential instanceof PublicKeyCredential)) throw new Error('The browser signed with no passkey.');
   return credential.toJSON();
 }
+
+/**
+ * Whether this browser can make a passkey on a phone (WebAuthn's `hybrid` transport, which is the phone's QR code and
+ * Bluetooth). False only when the browser says it cannot, as Firefox on Linux does, so that a browser that cannot say
+ * (older ones lack `getClientCapabilities`) still gets the button.
+ */
+export async function canUsePhone(): Promise<boolean> {
+  if (typeof PublicKeyCredential === 'undefined' || !('getClientCapabilities' in PublicKeyCredential)) return true;
+  try {
+    const capabilities = await PublicKeyCredential.getClientCapabilities();
+    // Read as unknown: a browser that does not report the capability has no such member, whatever the types say.
+    const reported: unknown = Reflect.get(capabilities, 'hybridTransport');
+    return reported !== false;
+  } catch {
+    // The browser could not say, which is not the same as saying no.
+    return true;
+  }
+}

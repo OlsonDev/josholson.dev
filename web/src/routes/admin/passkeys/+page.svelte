@@ -2,8 +2,9 @@
   import { passkey } from '#lib/api/index.ts';
   import { attempt } from '#lib/auth/failure.ts';
   import { describePasskey, describeWhen, nicknameProblem } from '#lib/auth/passkeys.ts';
-  import { createPasskey, signWithPasskey, supportsPasskeys, type CreateHint } from '#lib/auth/webauthn.ts';
+  import { canUsePhone, createPasskey, signWithPasskey, supportsPasskeys, type CreateHint } from '#lib/auth/webauthn.ts';
   import { refreshAll } from '$app/navigation';
+  import { onMount } from 'svelte';
   import type { PageProps } from './$types';
 
   let { data }: PageProps = $props();
@@ -16,6 +17,12 @@
   let renaming = $state<{ passkeyId: number; nickname: string } | null>(null);
   let renameErrors = $state<string[]>([]);
   let removing = $state<number | null>(null);
+
+  // Whether the browser can make a passkey on a phone. It is asked once, and the button is there until it says no.
+  let phoneSupported = $state(true);
+  onMount(async () => {
+    phoneSupported = await canUsePhone();
+  });
 
   const onlyOne = $derived(data.passkeys.length < 2);
   const namesExcept = (passkeyId: number | null): string[] =>
@@ -190,7 +197,10 @@
       <p class="error">{error}</p>
     {/each}
     <button type="button" disabled={busy} onclick={() => add('security-key')}>Add a security key</button>
-    <button type="button" disabled={busy} onclick={() => add('hybrid')}>Add a phone</button>
+    <button type="button" disabled={busy || !phoneSupported} onclick={() => add('hybrid')}>Add a phone</button>
+    {#if !phoneSupported}
+      <p>This browser cannot add a phone. Use Chrome or Edge, or a security key.</p>
+    {/if}
   </section>
 {/if}
 
