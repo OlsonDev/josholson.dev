@@ -1,6 +1,7 @@
 <script lang="ts">
-  import { ApiError, enrollment, signIn } from '#lib/api/index.ts';
-  import { createPasskey, signWithPasskey, supportsPasskeys, wasCanceled } from '#lib/auth/webauthn.ts';
+  import { enrollment, signIn } from '#lib/api/index.ts';
+  import { attempt } from '#lib/auth/failure.ts';
+  import { createPasskey, signWithPasskey, supportsPasskeys } from '#lib/auth/webauthn.ts';
   import { refreshAll } from '$app/navigation';
   import { onMount } from 'svelte';
   import type { PageProps } from './$types';
@@ -25,26 +26,21 @@
   const view = $derived(data.user !== null ? 'signed-in' : enrollmentToken !== null ? 'enroll' : 'sign-in');
 
   // Runs one thing the visitor asked for, shows what went wrong in words, and reloads what the page knows when it worked.
-  async function attempt(action: () => Promise<void>, messages: Partial<Record<number, string>> = {}): Promise<void> {
+  async function run(action: () => Promise<void>, messages: Partial<Record<number, string>> = {}): Promise<void> {
     busy = true;
     message = null;
     nicknameErrors = [];
-    try {
-      await action();
-      await refreshAll();
-    } catch (error) {
-      if (wasCanceled(error)) message = 'Canceled.';
-      else if (error instanceof ApiError) {
-        nicknameErrors = [...(error.fieldErrors['nickname'] ?? [])];
-        message = messages[error.status] ?? (error.status === 0 ? 'The API did not answer.' : 'That did not work.');
-      } else message = error instanceof Error ? error.message : 'That did not work.';
-    } finally {
-      busy = false;
+    const failure = await attempt(action, messages);
+    if (failure === null) await refreshAll();
+    else {
+      message = failure.message;
+      nicknameErrors = [...(failure.fields['nickname'] ?? [])];
     }
+    busy = false;
   }
 
   const signInWithPasskey = (): Promise<void> =>
-    attempt(
+    run(
       async () => {
         const { attemptToken, options } = await signIn.options();
         const response = await signWithPasskey(options);
@@ -54,7 +50,7 @@
     );
 
   const enroll = (token: string): Promise<void> =>
-    attempt(
+    run(
       async () => {
         const { attemptToken, options } = await enrollment.options({ token });
         const response = await createPasskey(options);
@@ -69,7 +65,7 @@
       },
     );
 
-  const signOut = (): Promise<void> => attempt(() => signIn.signOut());
+  const signOut = (): Promise<void> => run(() => signIn.signOut());
 </script>
 
 <svelte:head>
@@ -85,6 +81,9 @@
   <p role="alert">This browser cannot use passkeys. Use a current Chrome, Firefox, or Safari.</p>
 {:else if view === 'signed-in' && data.user !== null}
   <p>Signed in as {data.user.displayName}.</p>
+  <nav aria-label="Admin">
+    <a href="/admin/passkeys">Passkeys</a>
+  </nav>
   <button type="button" disabled={busy} onclick={signOut}>Sign out</button>
 {:else if view === 'enroll' && enrollmentToken !== null}
   <section aria-labelledby="enroll-heading">

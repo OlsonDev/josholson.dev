@@ -10,16 +10,22 @@ export const supportsPasskeys = (): boolean =>
 export const wasCanceled = (error: unknown): boolean =>
   error instanceof DOMException && (error.name === 'NotAllowedError' || error.name === 'AbortError');
 
-/** Makes a passkey from the options `POST /auth/enrollment/options` (or the registration options) returned. */
-export async function createPasskey(options: unknown): Promise<unknown> {
+/** Where the browser should offer to make a passkey: on a phone (it shows a QR code), or on a security key. */
+export type CreateHint = 'hybrid' | 'security-key';
+
+/** Makes a passkey from the options the API returned, with a hint about which kind (ADR 0031: Red, Purple, or a phone). */
+export async function createPasskey(options: unknown, hint?: CreateHint): Promise<unknown> {
   // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- the API sends WebAuthn's own JSON, and the browser checks it
   const publicKey = PublicKeyCredential.parseCreationOptionsFromJSON(options as PublicKeyCredentialCreationOptionsJSON);
-  const credential = await navigator.credentials.create({ publicKey });
+  // `hints` is in the specification and the JSON types, and not yet in the DOM types of the options.
+  const hinted: PublicKeyCredentialCreationOptions & { hints?: string[] } =
+    hint === undefined ? publicKey : { ...publicKey, hints: [hint] };
+  const credential = await navigator.credentials.create({ publicKey: hinted });
   if (!(credential instanceof PublicKeyCredential)) throw new Error('The browser made no passkey.');
   return credential.toJSON();
 }
 
-/** Signs with a passkey, for the options `POST /auth/sign-in/options` returned. */
+/** Signs with a passkey, for the options the API returned. */
 export async function signWithPasskey(options: unknown): Promise<unknown> {
   // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- the API sends WebAuthn's own JSON, and the browser checks it
   const publicKey = PublicKeyCredential.parseRequestOptionsFromJSON(options as PublicKeyCredentialRequestOptionsJSON);
