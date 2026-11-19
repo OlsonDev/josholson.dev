@@ -31,6 +31,8 @@ SvelteKit serves pages and may call the API server to server to render a page. O
 
 ### Bootstrap and recovery
 
+> Replaced by [ADR 0044 (the first passkey is registered from the browser with a setup secret)](0044-first-passkey-from-the-browser-with-a-setup-secret.md): the CLI token and recovery by minting one are gone. What follows is what was first decided.
+
 There is one account and the server owner has shell access, so both are operational rather than self-service:
 
 - **First credential.** `JoshOlson.Api enroll [display name]` on the server mints a one-time enrollment token and prints it. The token is stored as a SHA-256 hash in `auth.enrollment_token` and expires after 15 minutes. The display name creates the account on first use and is ignored afterwards. Presenting the token to `POST /auth/enrollment/options` starts passkey registration; `POST /auth/enrollment` verifies it, uses the token up in the same transaction that stores the passkey, and signs the owner in.

@@ -63,3 +63,4 @@ Template:
 - [0041](0041-parameter-records-result-records-and-union-results.md): Records for parameter groups and returned tuples, and `Result<T, TErrors>` unions for failures a caller handles
 - [0042](0042-openapi-contract-and-enum-numbers.md): The OpenAPI document and the TypeScript types generated from it, with enums as numbers on the wire and names in the types
 - [0043](0043-generated-api-client.md): A generated API client of standalone functions (tree-shakeable), with a configured `fetch`, in-flight requests shared for every method, `ApiError`, and instants as `Temporal.Instant`
+- [0044](0044-first-passkey-from-the-browser-with-a-setup-secret.md): The first passkey is registered from the browser with a setup secret that works only while no passkey exists, replacing the CLI token, and a passkey's nickname goes onto the key

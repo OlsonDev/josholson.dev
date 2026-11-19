@@ -61,6 +61,15 @@ public sealed class AuthTestData {
     return client;
   }
 
+  // Another browser against an API that was started with this setup secret.
+  public HttpClient NewBrowserWithSetupSecret(string setupSecret) {
+    var client = _factory
+      .WithWebHostBuilder(builder => builder.UseSetting($"{AuthOptions.SectionName}:{nameof(AuthOptions.SetupSecret)}", setupSecret))
+      .CreateClient();
+    client.DefaultRequestHeaders.Add(HeaderNames.Origin, _options.AllowedOrigin);
+    return client;
+  }
+
   public async Task<int> CreateUserAsync(CancellationToken cancellationToken)
     => await _authUserRepository.CreateAsync($"test-{Guid.NewGuid():N}", NewHandle(), cancellationToken);
 
@@ -81,7 +90,7 @@ public sealed class AuthTestData {
     return userId;
   }
 
-  // A new user with one passkey, registered through the enrollment endpoints the way the CLI does, which also signs
+  // A new user with one passkey, registered through the enrollment endpoints with a token minted for it, which also signs
   // `client` in. Returns the user's ID, for `DeleteUserAsync`.
   public async Task<int> EnrollUserAsync(
     HttpClient client,
@@ -101,7 +110,7 @@ public sealed class AuthTestData {
     }
   }
 
-  // Mints an enrollment token for the user, the way the CLI does, and returns it.
+  // Mints an enrollment token for the user, the way setup does, and returns it.
   public async Task<string> CreateEnrollmentTokenAsync(int userId, CancellationToken cancellationToken) {
     var token = OpaqueToken.Create();
     var expiresUtc = _clock.GetCurrentInstant() + Duration.FromMinutes(5);
@@ -117,14 +126,16 @@ public sealed class AuthTestData {
     string nickname,
     CancellationToken cancellationToken
   ) {
-    var optionsResponse = await client.PostAsJsonAsync("/auth/enrollment/options", new { token }, cancellationToken);
+    var optionsResponse = await client.PostAsJsonAsync(
+      "/auth/enrollment/options",
+      new { token, nickname },
+      cancellationToken);
     Assert.Equal(HttpStatusCode.OK, optionsResponse.StatusCode);
     var started = await optionsResponse.Content
       .ReadFromJsonAsync<CeremonyResponse<CredentialCreateOptions>>(cancellationToken);
     var request = new EnrollmentRequest {
       Token = token,
       AttemptToken = started!.AttemptToken,
-      Nickname = nickname,
       Response = authenticator.Create(started.Options),
     };
     return await client.PostAsJsonAsync("/auth/enrollment", request, cancellationToken);

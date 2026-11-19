@@ -40,15 +40,21 @@ public sealed record PasskeyResponse {
   public required List<PasskeyTransport> Transports { get; init; }
 }
 
-/// <summary>What the browser's WebAuthn API produced for the registration options, sent to add a passkey.</summary>
+/// <summary>What a client sends to start adding a passkey.</summary>
 [ValidatableType]
+public sealed record RegistrationOptionsRequest {
+  /// <summary>
+  /// What to call the new passkey. The key stores it with the passkey, so a chooser can say which. Up to 64 characters,
+  /// with no leading or trailing whitespace.
+  /// </summary>
+  [Required, Trimmed, MaxLength(64)]
+  public required string Nickname { get; init; }
+}
+
+/// <summary>What the browser's WebAuthn API produced for the registration options, sent to add a passkey.</summary>
 public sealed record RegistrationRequest {
   /// <summary>The attempt token from the registration options this request answers.</summary>
   public required string AttemptToken { get; init; }
-
-  /// <summary>What to call the new passkey. Up to 64 characters, with no leading or trailing whitespace.</summary>
-  [Required, Trimmed, MaxLength(64)]
-  public required string Nickname { get; init; }
 
   /// <summary>The attestation the browser returned. The web relays it and never reads it.</summary>
   public required AuthenticatorAttestationRawResponse Response { get; init; }

@@ -51,13 +51,6 @@ builder.Services.AddAuth(builder.Configuration);
 
 var app = builder.Build();
 
-if (args is [EnrollCommand.Name, ..]) {
-  // The token is a secret meant for the operator's terminal, not for a log sink.
-#pragma warning disable RS0030
-  return await EnrollCommand.RunAsync(app.Services, args[1..], Console.Out, CancellationToken.None);
-#pragma warning restore RS0030
-}
-
 if (args is [OpenApiCommand.Name, ..]) {
   // The document is the command's output, for a pipe or a file, not a log message.
 #pragma warning disable RS0030

@@ -28,9 +28,18 @@ public class WebAuthnServiceTests {
     => new(origin ?? _options.AllowedOrigin, _options.RelyingPartyId);
 
   [Fact]
+  public void CreateRegistrationOptions_NamesTheUserWithTheNickname() {
+    var options = _webAuthnService.CreateRegistrationOptions(_User, [], "bar");
+
+    Assert.Equal("foo (bar)", options.User.Name);
+    Assert.Equal("foo (bar)", options.User.DisplayName);
+    Assert.Equal(_User.UserHandle, options.User.Id);
+  }
+
+  [Fact]
   public async Task VerifyRegistration_AllZeroAaguid_ReturnsTheCredential() {
     using var authenticator = NewAuthenticator();
-    var options = _webAuthnService.CreateRegistrationOptions(_User, []);
+    var options = _webAuthnService.CreateRegistrationOptions(_User, [], "foo");
 
     var attestation = authenticator.Create(options);
     var registration = await _webAuthnService.VerifyRegistrationAsync(attestation, options, _cancellationToken);
@@ -42,7 +51,7 @@ public class WebAuthnServiceTests {
   [Fact]
   public async Task VerifyRegistration_ReportedAaguid_ReturnsTheCredential() {
     using var authenticator = NewAuthenticator();
-    var options = _webAuthnService.CreateRegistrationOptions(_User, []);
+    var options = _webAuthnService.CreateRegistrationOptions(_User, [], "foo");
 
     // Firefox reports the model's AAGUID with a security key even though attestation is 'none'.
     var attestation = authenticator.Create(options, _ReportedAaguid);
@@ -54,7 +63,7 @@ public class WebAuthnServiceTests {
   [Fact]
   public async Task VerifyRegistration_AnotherOrigin_ReturnsNull() {
     using var authenticator = NewAuthenticator("https://evil.example");
-    var options = _webAuthnService.CreateRegistrationOptions(_User, []);
+    var options = _webAuthnService.CreateRegistrationOptions(_User, [], "foo");
 
     var attestation = authenticator.Create(options);
     Assert.Null(await _webAuthnService.VerifyRegistrationAsync(attestation, options, _cancellationToken));
@@ -62,7 +71,7 @@ public class WebAuthnServiceTests {
 
   [Fact]
   public void CreateOptions_RequireDiscoverableCredentialsAndUserVerification() {
-    var registration = _webAuthnService.CreateRegistrationOptions(_User, []);
+    var registration = _webAuthnService.CreateRegistrationOptions(_User, [], "foo");
     var assertion = _webAuthnService.CreateAssertionOptions([]);
 
     Assert.Equal(ResidentKeyRequirement.Required, registration.AuthenticatorSelection?.ResidentKey);

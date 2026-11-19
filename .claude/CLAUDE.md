@@ -23,7 +23,7 @@ Personal website for Josh Olson: www.josholson.dev (SvelteKit SSR) and api.josho
 - `docs/schema/`: generated from the dev database (a page per table, domains, Mermaid ER diagrams). Never edit by hand; run `mise schema:doc`. `scripts/`: repo tooling as .NET file-based apps (`schema-docs.cs` builds those docs)
 - `Directory.Build.props`, `Directory.Packages.props`, `global.json`, `.editorconfig`, and `BannedSymbols.txt` (root): build settings, central package versions, and analyzers for every project and for the loose scripts in `scripts/` and `.githooks/`. A script's `#:package` line omits the version, which comes from `Directory.Packages.props`
 - `.githooks/`: `commit-msg` (gitmoji format check) and `pre-commit` (branch name check, the analyzer rule check when packages or `.editorconfig` are staged, and the script check when scripts, hooks, `.editorconfig`, `Directory.Build.props`, or `Directory.Packages.props` are staged) hooks, .NET file-based apps
-- `.tmp/` (gitignored): working directories for tests and scripts, made by `TempDirectory` in `JoshOlson.Shared/IO` instead of the OS temp directory; each run sweeps the ones untouched for six hours, so a leftover from a killed run is easy to spot and goes away by itself. Two files are the exception: `tools-image-built`, the marker `mise tools:up` uses to skip rebuilding the `tools` image when nothing in `tools/` changed, and `e2e.json`, which `web/tests/support/api.ts` writes for the Playwright tests (the name of the scoped database their API runs on, which a test needs to mint an enrollment token)
+- `.tmp/` (gitignored): working directories for tests and scripts, made by `TempDirectory` in `JoshOlson.Shared/IO` instead of the OS temp directory; each run sweeps the ones untouched for six hours, so a leftover from a killed run is easy to spot and goes away by itself. Two files are the exception: `tools-image-built`, the marker `mise tools:up` uses to skip rebuilding the `tools` image when nothing in `tools/` changed, and `e2e.json`, which `web/tests/support/api.ts` writes for the Playwright tests (the name of the scoped database their API runs on, and the setup secret it was started with)
 - `docs/`: architecture, database, seeding, product, and `adr/` decision records
 - `.claude/rules/`: conventions, loaded when matching files are touched
 - `.claude/settings.json` and `.claude/hooks/`: hooks that keep Claude from committing (see Commits)
@@ -54,16 +54,16 @@ Create or update the DML-only API role in the dev database (needs `POSTGRES_API_
 mise db:provision
 ```
 
-Mint a one-time enrollment token for the first passkey, or for recovery when every passkey is lost (creates the account on first use; the display name is ignored afterwards). The token is printed once and expires in 15 minutes. Auth settings are the `Auth` section (`Auth__RelyingPartyId`, `Auth__AllowedOrigin`, `Auth__CookieDomain`, and so on; the defaults are for `localhost`):
+Register the first passkey from the browser: put a setup secret of at least 32 characters in the API's environment (`Auth__SetupSecret`, in `.env` for development; `openssl rand -base64 32` makes one), open `/admin`, and it asks for the secret, a name for the account, and a nickname for the passkey. It works only while no passkey exists, so it does nothing after the first ([ADR 0044, the first passkey from the browser](../docs/adr/0044-first-passkey-from-the-browser-with-a-setup-secret.md)). When every key is lost, delete the passkey rows as the owner and it opens again with the same secret. Auth settings are the `Auth` section (`Auth__RelyingPartyId`, `Auth__AllowedOrigin`, `Auth__CookieDomain`, and so on; the defaults are for `localhost`):
 
 ```
-dotnet run --project JoshOlson.Api -- enroll "Display Name"
+podman exec josholson-dev_postgres_1 psql -U josholson -d josholson -c 'DELETE FROM auth.passkey'
 ```
 
-Try the passkey endpoints with a real security key and no front end. The API must be running (`ASPNETCORE_URLS=http://localhost:5000`, with `ConnectionStrings__Default`); the script plays the browser through libfido2's `fido2-cred` and `fido2-assert`, so it asks for the key's PIN and a touch at each step. `enroll` registers the key with a token from the command above, then signs in with it and prints the IDs that `sign-in` needs. Pass `--device /dev/hidrawN` when two keys are plugged in. The credential is bound to `--rp-id` (`localhost` by default), so it is a development credential:
+Try the passkey endpoints with a real security key and no front end. The API must be running (`ASPNETCORE_URLS=http://localhost:5000`, with `ConnectionStrings__Default`); the script plays the browser through libfido2's `fido2-cred` and `fido2-assert`, so it asks for the key's PIN and a touch at each step. `enroll` sets up with the secret (`Auth__SetupSecret`), registers the key, then signs in with it and prints the IDs that `sign-in` needs. Pass `--device /dev/hidrawN` when two keys are plugged in. The credential is bound to `--rp-id` (`localhost` by default), so it is a development credential:
 
 ```
-mise passkey enroll <token>
+mise passkey enroll <setup secret>
 mise passkey sign-in --credential-id <id> --user-handle <id>
 ```
 

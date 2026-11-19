@@ -35,12 +35,15 @@ public class PasskeyControllerTests : IAsyncLifetime {
 
   // The two ceremonies of an addition: register the authenticator (held, not stored), then confirm with another.
   private async Task<string> HoldAdditionAsync(SoftwareAuthenticator added, string nickname) {
-    var optionsResponse = await _client.PostAsync("/auth/passkeys/registration/options", content: null, _cancellationToken);
+    var optionsResponse = await _client.PostAsJsonAsync(
+      "/auth/passkeys/registration/options",
+      new { nickname },
+      _cancellationToken);
+    Assert.Equal(HttpStatusCode.OK, optionsResponse.StatusCode);
     var started = await optionsResponse.Content
       .ReadFromJsonAsync<CeremonyResponse<CredentialCreateOptions>>(_cancellationToken);
     var request = new RegistrationRequest {
       AttemptToken = started!.AttemptToken,
-      Nickname = nickname,
       Response = added.Create(started.Options),
     };
     var response = await _client.PostAsJsonAsync("/auth/passkeys/registration", request, _cancellationToken);
@@ -91,11 +94,38 @@ public class PasskeyControllerTests : IAsyncLifetime {
 
   [Fact]
   public async Task Add_SameAuthenticatorTwice_IsRefused() {
-    var optionsResponse = await _client.PostAsync("/auth/passkeys/registration/options", content: null, _cancellationToken);
+    var optionsResponse = await _client.PostAsJsonAsync(
+      "/auth/passkeys/registration/options",
+      new { nickname = "second" },
+      _cancellationToken);
     var started = await optionsResponse.Content
       .ReadFromJsonAsync<CeremonyResponse<CredentialCreateOptions>>(_cancellationToken);
 
     Assert.Equal(_authenticator.CredentialId, started!.Options.ExcludeCredentials.Single().Id);
+  }
+
+  [Fact]
+  public async Task AddOptions_NameTheUserWithTheNickname() {
+    var optionsResponse = await _client.PostAsJsonAsync(
+      "/auth/passkeys/registration/options",
+      new { nickname = "second" },
+      _cancellationToken);
+    var started = await optionsResponse.Content
+      .ReadFromJsonAsync<CeremonyResponse<CredentialCreateOptions>>(_cancellationToken);
+
+    Assert.EndsWith(" (second)", started!.Options.User.Name, StringComparison.Ordinal);
+  }
+
+  [Theory]
+  [InlineData("first")]
+  [InlineData("")]
+  public async Task AddOptions_ANicknameThatIsTakenOrEmpty_IsRefusedBeforeTheKeyMakesAnything(string nickname) {
+    var response = await _client.PostAsJsonAsync(
+      "/auth/passkeys/registration/options",
+      new { nickname },
+      _cancellationToken);
+
+    Assert.Equal(HttpStatusCode.UnprocessableEntity, response.StatusCode);
   }
 
   [Fact]

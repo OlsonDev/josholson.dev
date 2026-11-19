@@ -43,7 +43,7 @@ depends = ["tools:up"]
 run = "podman compose -f compose.yaml -f compose.dev.yaml exec tools waypoint"
 
 [tasks.passkey]
-description = "Enroll or sign in with a real security key against a running API, e.g. mise passkey enroll <token>"
+description = "Enroll or sign in with a real security key against a running API, e.g. mise passkey enroll <setup secret>"
 run = "dotnet run scripts/passkey-cli.cs --"
 
 # scripts/schema-docs.cs reads the dev database through the POSTGRES_* settings in .env.

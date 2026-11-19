@@ -14,7 +14,7 @@ public sealed class PasskeyService {
   private readonly PasskeyRepository _passkeyRepository;
   private readonly WebAuthnService _webAuthnService;
   private readonly PayloadValidator _validator;
-  private readonly SingleUseStore<CredentialCreateOptions> _registrationChallenges;
+  private readonly SingleUseStore<PendingRegistration> _registrationChallenges;
   private readonly SingleUseStore<PendingPasskeyChange> _changes;
   private readonly SingleUseStore<ConfirmChallenge> _confirmChallenges;
   private readonly IClock _clock;
@@ -24,7 +24,7 @@ public sealed class PasskeyService {
     PasskeyRepository passkeyRepository,
     WebAuthnService webAuthnService,
     PayloadValidator validator,
-    SingleUseStore<CredentialCreateOptions> registrationChallenges,
+    SingleUseStore<PendingRegistration> registrationChallenges,
     SingleUseStore<PendingPasskeyChange> changes,
     SingleUseStore<ConfirmChallenge> confirmChallenges,
     IClock clock
@@ -56,18 +56,9 @@ public sealed class PasskeyService {
     return responses;
   }
 
-  public async Task<CeremonyResponse<CredentialCreateOptions>> StartRegistrationAsync(
+  public async Task<ValidationErrors> ValidateStartRegistrationAsync(
     SessionPrincipal principal,
-    CancellationToken cancellationToken
-  ) {
-    var existing = await _passkeyRepository.GetAllAsync(principal.User.UserId, cancellationToken);
-    var options = _webAuthnService.CreateRegistrationOptions(principal.User, existing);
-    return new(_registrationChallenges.Add(options, BindingKey(principal)), options);
-  }
-
-  public async Task<ValidationErrors> ValidateRegistrationAsync(
-    SessionPrincipal principal,
-    RegistrationRequest request,
+    RegistrationOptionsRequest request,
     CancellationToken cancellationToken
   ) {
     var errors = await _validator.ValidateAsync(request, cancellationToken);
@@ -77,17 +68,29 @@ public sealed class PasskeyService {
     return errors;
   }
 
+  // The nickname is known before the key makes anything, so it is checked now and goes into the options, which the key
+  // keeps with the passkey.
+  public async Task<CeremonyResponse<CredentialCreateOptions>> StartRegistrationAsync(
+    SessionPrincipal principal,
+    RegistrationOptionsRequest request,
+    CancellationToken cancellationToken
+  ) {
+    var existing = await _passkeyRepository.GetAllAsync(principal.User.UserId, cancellationToken);
+    var options = _webAuthnService.CreateRegistrationOptions(principal.User, existing, request.Nickname);
+    return new(_registrationChallenges.Add(new(options, request.Nickname), BindingKey(principal)), options);
+  }
+
   // Checks the new credential but stores nothing: it becomes a pending change. Null when it does not verify.
   public async Task<PendingChangeResponse?> FinishRegistrationAsync(
     SessionPrincipal principal,
     RegistrationRequest request,
     CancellationToken cancellationToken
   ) {
-    var options = _registrationChallenges.Take(request.AttemptToken, BindingKey(principal));
-    if (options is null) return null;
-    var registration = await _webAuthnService.VerifyRegistrationAsync(request.Response, options, cancellationToken);
+    var pending = _registrationChallenges.Take(request.AttemptToken, BindingKey(principal));
+    if (pending is null) return null;
+    var registration = await _webAuthnService.VerifyRegistrationAsync(request.Response, pending.Options, cancellationToken);
     if (registration is null) return null;
-    return new(_changes.Add(new PendingAddition(registration, request.Nickname), BindingKey(principal)));
+    return new(_changes.Add(new PendingAddition(registration, pending.Nickname), BindingKey(principal)));
   }
 
   public async Task<RemovalResult> StartRemovalAsync(

@@ -13,6 +13,17 @@ public sealed class PasskeyRepository {
   public async Task<List<Passkey>> GetAllAsync(int userId, CancellationToken cancellationToken)
     => await GetAllByConditionAsync("p.user_id = @userId", new { userId }, cancellationToken);
 
+  // Whether any user has a passkey. Setup (`AuthOptions.SetupSecret`) is open only while none does.
+  public async Task<bool> AnyAsync(CancellationToken cancellationToken) {
+    var sql = """
+      SELECT EXISTS (
+        SELECT *
+        FROM auth.passkey  AS p
+      )  AS any_passkey;
+      """;
+    return await _connection.QuerySingleAsync<bool>(sql, cancellationToken);
+  }
+
   public async Task<Passkey?> GetByCredentialIdAsync(byte[] credentialId, CancellationToken cancellationToken)
     => (await GetAllByConditionAsync("p.credential_id = @credentialId", new { credentialId }, cancellationToken))
       .SingleOrDefault();

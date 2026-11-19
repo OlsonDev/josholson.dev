@@ -23,29 +23,37 @@ public sealed class PasskeyController : ControllerBase {
     => await _passkeyService.GetAllAsync(HttpContext.GetSession().User.UserId, cancellationToken);
 
   /// <summary>Starts adding a passkey: returns the options for the browser's WebAuthn API to create one.</summary>
+  /// <param name="request">What to call the new passkey.</param>
+  /// <response code="200">The options for the browser's WebAuthn API, and the attempt token for them.</response>
+  /// <response code="422">The nickname is not valid, or another passkey has it.</response>
   [HttpPost("registration/options")]
-  public async Task<CeremonyResponse<CredentialCreateOptions>> RegistrationOptions(CancellationToken cancellationToken)
-    => await _passkeyService.StartRegistrationAsync(HttpContext.GetSession(), cancellationToken);
+  [ProducesResponseType<CeremonyResponse<CredentialCreateOptions>>(StatusCodes.Status200OK)]
+  [ValidationProblemResponse]
+  public async Task<ActionResult<CeremonyResponse<CredentialCreateOptions>>> RegistrationOptions(
+    RegistrationOptionsRequest request,
+    CancellationToken cancellationToken
+  ) {
+    var principal = HttpContext.GetSession();
+    var errors = await _passkeyService.ValidateStartRegistrationAsync(principal, request, cancellationToken);
+    if (errors.Any) return UnprocessableEntity(errors.ToProblemDetails());
+
+    return await _passkeyService.StartRegistrationAsync(principal, request, cancellationToken);
+  }
 
   /// <summary>
   /// Checks the new credential and holds it as a pending change. Nothing is stored until a registered passkey
   /// confirms it.
   /// </summary>
-  /// <param name="request">What the browser's WebAuthn API produced, with the nickname for the new passkey.</param>
+  /// <param name="request">What the browser's WebAuthn API produced for the registration options.</param>
   /// <response code="200">The pending change to confirm.</response>
   /// <response code="400">The credential did not verify.</response>
-  /// <response code="422">The nickname is not valid.</response>
   [HttpPost("registration")]
   [ProducesResponseType<PendingChangeResponse>(StatusCodes.Status200OK)]
   [ProblemResponse(StatusCodes.Status400BadRequest)]
-  [ValidationProblemResponse]
   public async Task<ActionResult<PendingChangeResponse>> Register(
     RegistrationRequest request,
     CancellationToken cancellationToken
   ) {
-    var errors = await _passkeyService.ValidateRegistrationAsync(HttpContext.GetSession(), request, cancellationToken);
-    if (errors.Any) return UnprocessableEntity(errors.ToProblemDetails());
-
     var change = await _passkeyService.FinishRegistrationAsync(HttpContext.GetSession(), request, cancellationToken);
     return change is null ? BadRequest() : change;
   }

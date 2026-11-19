@@ -53,7 +53,15 @@ public sealed record VerifiedRegistration {
 }
 
 // State kept in memory between the steps of a ceremony (see SingleUseStore).
-public sealed record EnrollmentChallenge(CredentialCreateOptions Options, byte[] TokenHash, int UserId);
+public sealed record EnrollmentChallenge(
+  CredentialCreateOptions Options,
+  byte[] TokenHash,
+  int UserId,
+  string Nickname
+);
+
+// The registration options of a passkey being added, with the nickname they were made for (the key stores it too).
+public sealed record PendingRegistration(CredentialCreateOptions Options, string Nickname);
 
 public sealed record ConfirmChallenge(string ChangeToken, AssertionOptions Options);
 

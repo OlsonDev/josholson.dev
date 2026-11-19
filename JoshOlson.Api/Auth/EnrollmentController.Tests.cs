@@ -4,6 +4,10 @@ using Xunit;
 namespace JoshOlson.Api.Auth;
 
 public class EnrollmentControllerTests : IAsyncLifetime {
+  // Setup opens only while no passkey exists, which the database these tests share cannot promise, so what is tested here
+  // is every way it stays shut. The way it opens is the browser test's (web/tests/journey.test.ts), on a database of its own.
+  private const string _Secret = "0123456789abcdef0123456789abcdef";
+
   private readonly CancellationToken _cancellationToken = TestContext.Current.CancellationToken;
   private readonly HttpClient _client;
   private readonly AuthTestData _authTestData;
@@ -43,7 +47,10 @@ public class EnrollmentControllerTests : IAsyncLifetime {
     var first = await AuthTestData.EnrollAsync(anonymous, token, second, "second", _cancellationToken);
     Assert.Equal(HttpStatusCode.NoContent, first.StatusCode);
 
-    var replay = await anonymous.PostAsJsonAsync("/auth/enrollment/options", new { token }, _cancellationToken);
+    var replay = await anonymous.PostAsJsonAsync(
+      "/auth/enrollment/options",
+      new { token, nickname = "second" },
+      _cancellationToken);
     Assert.Equal(HttpStatusCode.NotFound, replay.StatusCode);
   }
 
@@ -52,18 +59,72 @@ public class EnrollmentControllerTests : IAsyncLifetime {
     using var anonymous = _authTestData.NewBrowser();
 
     var token = OpaqueToken.Create();
-    var response = await anonymous.PostAsJsonAsync("/auth/enrollment/options", new { token }, _cancellationToken);
+    var response = await anonymous.PostAsJsonAsync(
+      "/auth/enrollment/options",
+      new { token, nickname = "foo" },
+      _cancellationToken);
 
     Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
   }
 
   [Fact]
-  public async Task Enroll_DuplicateNickname_ReturnsUnprocessable() {
-    var token = await _authTestData.CreateEnrollmentTokenAsync(_userId, _cancellationToken);
-    using var second = _authTestData.NewAuthenticator();
+  public async Task Status_WithNoSetupSecretConfigured_IsNotAvailable() {
     using var anonymous = _authTestData.NewBrowser();
 
-    var response = await AuthTestData.EnrollAsync(anonymous, token, second, "first", _cancellationToken);
+    var status = await anonymous.GetFromJsonAsync<EnrollmentStatusResponse>("/auth/enrollment", _cancellationToken);
+
+    Assert.False(status!.Available);
+    Assert.False(status.NeedsDisplayName);
+  }
+
+  [Fact]
+  public async Task Status_WithASecretButAPasskeyRegistered_IsNotAvailable() {
+    using var anonymous = _authTestData.NewBrowserWithSetupSecret(_Secret);
+
+    var status = await anonymous.GetFromJsonAsync<EnrollmentStatusResponse>("/auth/enrollment", _cancellationToken);
+
+    // This test enrolled a passkey, so setup is closed whatever else is in the database.
+    Assert.False(status!.Available);
+  }
+
+  [Theory]
+  [InlineData("")]
+  [InlineData("not the secret")]
+  [InlineData(_Secret)]
+  public async Task Setup_WithNoSecretConfigured_IsRefusedWhateverIsSent(string setupSecret) {
+    using var anonymous = _authTestData.NewBrowser();
+
+    var response = await anonymous.PostAsJsonAsync(
+      "/auth/enrollment/setup",
+      new { setupSecret, displayName = "foo" },
+      _cancellationToken);
+
+    Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+  }
+
+  [Theory]
+  [InlineData("not the secret")]
+  [InlineData(_Secret)]
+  public async Task Setup_WhileAPasskeyExists_IsRefusedEvenWithTheRightSecret(string setupSecret) {
+    using var anonymous = _authTestData.NewBrowserWithSetupSecret(_Secret);
+
+    var response = await anonymous.PostAsJsonAsync(
+      "/auth/enrollment/setup",
+      new { setupSecret, displayName = "foo" },
+      _cancellationToken);
+
+    Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+  }
+
+  [Fact]
+  public async Task Options_ANicknameAnotherPasskeyHas_IsRefusedBeforeTheKeyMakesAnything() {
+    var token = await _authTestData.CreateEnrollmentTokenAsync(_userId, _cancellationToken);
+    using var anonymous = _authTestData.NewBrowser();
+
+    var response = await anonymous.PostAsJsonAsync(
+      "/auth/enrollment/options",
+      new { token, nickname = "first" },
+      _cancellationToken);
 
     Assert.Equal(HttpStatusCode.UnprocessableEntity, response.StatusCode);
   }

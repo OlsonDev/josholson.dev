@@ -28,6 +28,19 @@ public class PasskeyRepositoryTests {
     };
 
   [Fact]
+  public async Task Any_WithAPasskeyRegistered_IsTrue() {
+    // Whether there is none cannot be tested here: the database is shared with tests that register passkeys.
+    var userId = await _authTestData.CreateUserAsync(_cancellationToken);
+    try {
+      await _passkeyRepository.CreateAsync(NewPasskey(userId), _cancellationToken);
+
+      Assert.True(await _passkeyRepository.AnyAsync(_cancellationToken));
+    } finally {
+      await _authTestData.DeleteUserAsync(userId);
+    }
+  }
+
+  [Fact]
   public async Task Lifecycle_CreatesReadsRecordsUseRenamesAndDeletes() {
     var userId = await _authTestData.CreateUserAsync(_cancellationToken);
     try {

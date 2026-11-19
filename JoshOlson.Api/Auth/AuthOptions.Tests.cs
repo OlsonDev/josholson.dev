@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 using Xunit;
 
 namespace JoshOlson.Api.Auth;
@@ -13,6 +14,19 @@ public class AuthOptionsTests {
     Assert.StartsWith("__Secure-", options.CookieName, StringComparison.Ordinal);
     Assert.True(options.CookieSecure);
   }
+
+  [Fact]
+  public void SetupSecret_IsOffByDefault_AndRefusesAShortOne() {
+    Assert.Empty(new AuthOptions().SetupSecret);
+    Assert.Empty(Validate(new AuthOptions()));
+    Assert.Empty(Validate(new AuthOptions { SetupSecret = new('x', AuthOptions.MinimumSetupSecretLength) }));
+
+    var tooShort = Assert.Single(Validate(new AuthOptions { SetupSecret = "short" }));
+    Assert.Equal([nameof(AuthOptions.SetupSecret)], tooShort.MemberNames);
+  }
+
+  private static List<ValidationResult> Validate(AuthOptions options)
+    => [.. options.Validate(new ValidationContext(options))];
 
   [Fact]
   public void Lifetimes_KeepTheIdleLifetimeWithinTheAbsoluteOne() {

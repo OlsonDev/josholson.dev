@@ -13,6 +13,8 @@ public class SessionFilterTests {
   private static readonly string[] _PublicActions = [
     "EnrollmentController.Enroll",
     "EnrollmentController.Options",
+    "EnrollmentController.Setup",
+    "EnrollmentController.Status",
     "SignInController.Options",
     "SignInController.SignIn",
     "SignInController.SignOut",

@@ -59,6 +59,8 @@ An AAGUID names the authenticator model (for example "Token2 PIN Plus Security K
 
 ### Bootstrap
 
+> The first passkey now comes from a setup secret in the browser, not the CLI ([ADR 0044 (the first passkey is registered from the browser with a setup secret)](0044-first-passkey-from-the-browser-with-a-setup-secret.md)), and the nickname goes onto the key there and on the passkey page. What follows is what was first decided.
+
 The first passkey comes from the server-side enrollment token in ADR 0027 (decided), and the owner uses Red for it. Purple and the phone are then added from the page above. Recovery is unchanged: any one of the three signs in, and if all are lost, the CLI mints a new enrollment token.
 
 ## Alternatives considered

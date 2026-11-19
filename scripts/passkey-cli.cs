@@ -7,15 +7,17 @@
 // fido2-assert, so the passkey endpoints can be tried without a front end (ADR 0027, passkey auth, and ADR 0031,
 // Red, Purple, or a phone). It asks for the key's PIN and a touch for each step.
 //
-//   dotnet run scripts/passkey-cli.cs -- enroll <token>
-//       Registers the key with an enrollment token (`dotnet run --project JoshOlson.Api -- enroll "Name"`), then
-//       signs in with it and prints the session's user and passkeys. Prints the IDs that `sign-in` needs.
+//   dotnet run scripts/passkey-cli.cs -- enroll <setup secret>
+//       Sets up with the API's setup secret (`Auth__SetupSecret`, accepted while no passkey exists), registers the key
+//       with the token that gives, then signs in with it and prints the session's user and passkeys. Prints the IDs
+//       that `sign-in` needs.
 //   dotnet run scripts/passkey-cli.cs -- sign-in --credential-id <base64url> --user-handle <base64url>
 //       Signs in with an already registered key.
 //
 // Options: --api (default http://localhost:5000), --origin (default http://localhost:5173, the API's AllowedOrigin),
 // --rp-id (default localhost, the API's RelyingPartyId), --device (a /dev/hidraw path; needed when two keys are
-// plugged in), --nickname (default "key", for enroll).
+// plugged in), --nickname (default "key", for enroll), --name (the account's name, default "Owner", used only when the
+// account does not exist yet).
 //
 // What the script does that a browser also does: it sends the allowed `Origin`, builds the client data, and zeroes the
 // AAGUID in the authenticator data, because attestation is `none` (ADR 0031, no AAGUID column). The credential is bound
@@ -35,7 +37,7 @@ using Flurl.Http;
 var settings = Settings.Parse(args);
 if (settings is null) {
   Console.Error.WriteLine("Usage: dotnet run scripts/passkey-cli.cs -- <command> [options]");
-  Console.Error.WriteLine("  enroll <token>");
+  Console.Error.WriteLine("  enroll <setup secret>");
   Console.Error.WriteLine("  sign-in --credential-id <id> --user-handle <id>");
   Console.Error.WriteLine("Options: --api, --origin, --rp-id, --device, --nickname (see the top of the script).");
   return 2;
@@ -55,12 +57,13 @@ try {
 
 internal sealed record Settings(
   string Command,
-  string? Token,
+  string? SetupSecret,
   string Api,
   string Origin,
   string RpId,
   string? Device,
   string Nickname,
+  string DisplayName,
   string? CredentialId,
   string? UserHandle
 ) {
@@ -80,18 +83,19 @@ internal sealed record Settings(
       }
     }
 
-    var token = positional.FirstOrDefault();
-    if (command is "enroll" && token is null) return null;
+    var setupSecret = positional.FirstOrDefault();
+    if (command is "enroll" && setupSecret is null) return null;
     var hasIds = options.ContainsKey("--credential-id") && options.ContainsKey("--user-handle");
     if (command is not "enroll" && !hasIds) return null;
     return new(
       command,
-      token,
+      setupSecret,
       options.GetValueOrDefault("--api", "http://localhost:5000"),
       options.GetValueOrDefault("--origin", "http://localhost:5173"),
       options.GetValueOrDefault("--rp-id", "localhost"),
       options.GetValueOrDefault("--device"),
       options.GetValueOrDefault("--nickname", "key"),
+      options.GetValueOrDefault("--name", "Owner"),
       options.GetValueOrDefault("--credential-id"),
       options.GetValueOrDefault("--user-handle"));
   }
@@ -99,16 +103,25 @@ internal sealed record Settings(
 
 internal static class Flows {
   public static async Task<int> EnrollAsync(Settings settings, SecurityKey key, ApiClient api) {
-    var started = await api.PostAsync("/auth/enrollment/options", new { token = settings.Token }, cookie: null);
+    var setup = await api.PostAsync(
+      "/auth/enrollment/setup",
+      new { setupSecret = settings.SetupSecret, displayName = settings.DisplayName },
+      cookie: null);
+    setup.EnsureSuccess("Setting up (is the secret right, and is no passkey registered yet?)");
+    var token = setup.Read<TokenResponse>().Token;
+
+    var started = await api.PostAsync(
+      "/auth/enrollment/options",
+      new { token, nickname = settings.Nickname },
+      cookie: null);
     started.EnsureSuccess("Starting the enrollment");
     var ceremony = started.Read<Ceremony<CredentialCreateOptions>>();
 
     Console.WriteLine("Registering the key: enter its PIN, then touch it.");
     var attestation = await key.MakeCredentialAsync(ceremony.Options);
     var enrollment = new {
-      token = settings.Token,
+      token,
       attemptToken = ceremony.AttemptToken,
-      nickname = settings.Nickname,
       response = attestation,
     };
     var enrolled = await api.PostAsync("/auth/enrollment", enrollment, cookie: null);
@@ -168,6 +181,8 @@ internal static class Flows {
 }
 
 internal sealed record Ceremony<TOptions>(string AttemptToken, TOptions Options);
+
+internal sealed record TokenResponse(string Token);
 
 internal sealed record ApiResponse(int Status, string Body, string? Cookie) {
   private static readonly JsonSerializerOptions _Json = new(JsonSerializerDefaults.Web);

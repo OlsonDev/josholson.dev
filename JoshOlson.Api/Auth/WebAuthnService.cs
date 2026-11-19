@@ -16,13 +16,14 @@ public sealed partial class WebAuthnService {
   }
 
   // Discoverable credentials and user verification are required (ADR 0031, Red, Purple, or a phone). `existing` is
-  // excluded, so one authenticator cannot be registered twice.
-  public CredentialCreateOptions CreateRegistrationOptions(AuthUser user, List<Passkey> existing)
+  // excluded, so one authenticator cannot be registered twice. The key stores the user's name with the passkey and a
+  // browser's chooser shows it, so it carries the nickname: "Foo (Red)" says which passkey, where "Foo" twice does not.
+  public CredentialCreateOptions CreateRegistrationOptions(AuthUser user, List<Passkey> existing, string nickname)
     => _fido2.RequestNewCredential(new RequestNewCredentialParams {
       User = new() {
         Id = user.UserHandle,
-        Name = user.DisplayName,
-        DisplayName = user.DisplayName,
+        Name = $"{user.DisplayName} ({nickname})",
+        DisplayName = $"{user.DisplayName} ({nickname})",
       },
       ExcludeCredentials = ToDescriptors(existing),
       AuthenticatorSelection = new() {

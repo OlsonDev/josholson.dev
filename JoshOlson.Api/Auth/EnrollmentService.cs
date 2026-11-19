@@ -8,8 +8,9 @@ using Npgsql;
 
 namespace JoshOlson.Api.Auth;
 
-// The first passkey, and recovery when every passkey is lost (ADR 0027, bootstrap and recovery): a token minted on the
-// server by the CLI starts a registration that needs no session.
+// The first passkey, from the browser: the setup secret, while no passkey exists, mints a one-time token, and the token
+// starts a registration that needs no session. Every later passkey is added from the passkey page, signed in, and
+// confirmed by one that exists.
 public sealed class EnrollmentService {
   private readonly NpgsqlConnection _connection;
   private readonly EnrollmentTokenRepository _enrollmentTokenRepository;
@@ -46,8 +47,43 @@ public sealed class EnrollmentService {
     _options = options.Value;
   }
 
-  // The CLI's work: mint a token for the account's owner, creating the account on first use. `displayName` is only
-  // used when there is no account yet. Returns the token, which is never stored.
+  // Setup is open when a setup secret is configured and no passkey is registered yet. It closes by itself with the first
+  // passkey, so the secret does nothing afterwards. Losing every passkey does not reopen it: that is a person with
+  // access to the database deleting the rows (`DELETE FROM auth.passkey`).
+  private async Task<bool> IsSetupOpenAsync(CancellationToken cancellationToken)
+    => _options.SetupSecret.Length > 0 && !await _passkeyRepository.AnyAsync(cancellationToken);
+
+  public async Task<EnrollmentStatusResponse> GetStatusAsync(CancellationToken cancellationToken) {
+    if (!await IsSetupOpenAsync(cancellationToken)) {
+      return new() {
+        Available = false,
+        NeedsDisplayName = false,
+      };
+    }
+    var owner = await _authUserRepository.GetFirstAsync(cancellationToken);
+    return new() {
+      Available = true,
+      NeedsDisplayName = owner is null,
+    };
+  }
+
+  // True when setup is open and the secret is the configured one.
+  public async Task<bool> AllowsSetupAsync(string setupSecret, CancellationToken cancellationToken)
+    => SetupSecret.Matches(_options.SetupSecret, setupSecret) && await IsSetupOpenAsync(cancellationToken);
+
+  public async Task<ValidationErrors> ValidateSetupAsync(
+    EnrollmentSetupRequest request,
+    CancellationToken cancellationToken
+  ) {
+    var errors = await _validator.ValidateAsync(request, cancellationToken);
+    var needsName = string.IsNullOrWhiteSpace(request.DisplayName)
+      && await _authUserRepository.GetFirstAsync(cancellationToken) is null;
+    if (!errors.Has("displayName") && needsName) errors.Add("displayName", "Name is required.");
+    return errors;
+  }
+
+  // Mints a token for the account's owner, creating the account on first use. `displayName` is only used when there is
+  // no account yet. Returns the token, which is never stored.
   public async Task<string> CreateTokenAsync(string? displayName, CancellationToken cancellationToken) {
     var owner = await _authUserRepository.GetFirstAsync(cancellationToken);
     int userId;
@@ -66,25 +102,10 @@ public sealed class EnrollmentService {
     return token;
   }
 
-  // Null when the token is unknown, used, or expired.
-  public async Task<CeremonyResponse<CredentialCreateOptions>?> StartAsync(
-    string token,
-    CancellationToken cancellationToken
-  ) {
-    var tokenHash = OpaqueToken.Hash(token);
-    var nowUtc = _clock.GetCurrentInstant();
-    var userId = await _enrollmentTokenRepository.FindUserIdAsync(tokenHash, nowUtc, cancellationToken);
-    if (userId is null) return null;
-    var user = await _authUserRepository.GetAsync(userId.Value, cancellationToken);
-    if (user is not { IsActive: true }) return null;
-
-    var existing = await _passkeyRepository.GetAllAsync(user.UserId, cancellationToken);
-    var options = _webAuthnService.CreateRegistrationOptions(user, existing);
-    return new(_challenges.Add(new(options, tokenHash, user.UserId), ""), options);
-  }
-
-  public async Task<ValidationErrors> ValidateFinishAsync(
-    EnrollmentRequest request,
+  // The nickname is known before the key makes anything, so it is checked now and goes into the options, which the key
+  // keeps with the passkey. A token that is unknown is not reported here: starting answers that.
+  public async Task<ValidationErrors> ValidateStartAsync(
+    EnrollmentOptionsRequest request,
     CancellationToken cancellationToken
   ) {
     var errors = await _validator.ValidateAsync(request, cancellationToken);
@@ -98,6 +119,23 @@ public sealed class EnrollmentService {
     if (existing.Any(passkey => string.Equals(passkey.Nickname, request.Nickname, StringComparison.Ordinal)))
       errors.Add("nickname", "Nickname is already in use.");
     return errors;
+  }
+
+  // Null when the token is unknown, used, or expired.
+  public async Task<CeremonyResponse<CredentialCreateOptions>?> StartAsync(
+    EnrollmentOptionsRequest request,
+    CancellationToken cancellationToken
+  ) {
+    var tokenHash = OpaqueToken.Hash(request.Token);
+    var nowUtc = _clock.GetCurrentInstant();
+    var userId = await _enrollmentTokenRepository.FindUserIdAsync(tokenHash, nowUtc, cancellationToken);
+    if (userId is null) return null;
+    var user = await _authUserRepository.GetAsync(userId.Value, cancellationToken);
+    if (user is not { IsActive: true }) return null;
+
+    var existing = await _passkeyRepository.GetAllAsync(user.UserId, cancellationToken);
+    var options = _webAuthnService.CreateRegistrationOptions(user, existing, request.Nickname);
+    return new(_challenges.Add(new(options, tokenHash, user.UserId, request.Nickname), ""), options);
   }
 
   // The new session's token, or null when the token, the challenge, or the registration is wrong. The token is used
@@ -121,7 +159,7 @@ public sealed class EnrollmentService {
     await using var transaction = await _connection.BeginTransactionAsync(cancellationToken);
     var claimed = await _enrollmentTokenRepository.UseAsync(tokenHash, _clock.GetCurrentInstant(), cancellationToken);
     if (!claimed) return null;
-    var passkey = registration.ToNewPasskey(challenge.UserId, request.Nickname);
+    var passkey = registration.ToNewPasskey(challenge.UserId, challenge.Nickname);
     await _passkeyRepository.CreateAsync(passkey, cancellationToken);
     await transaction.CommitAsync(cancellationToken);
     return await _sessionService.StartAsync(challenge.UserId, ip, userAgent, cancellationToken);
