@@ -257,3 +257,14 @@ run = "bun test"
 description = "Run web/'s Playwright tests against a production build (first run: bun x playwright install chromium)"
 dir = "web"
 run = "bun x playwright test"
+
+# The Playwright tests start their own API on a scoped database (web/tests/support/api.ts), so they need the dev containers up and the API role provisioned (mise db:provision), and `.env`, which mise loads. Other flags: mise web:test -- --grep <title>
+[tasks."web:test:headed"]
+description = "Run web/'s Playwright tests in a visible browser; PW_SLOW_MO=500 slows each step (milliseconds)"
+dir = "web"
+run = "bun x playwright test --headed"
+
+[tasks."web:test:ui"]
+description = "Run web/'s Playwright tests in Playwright's UI: a timeline and a snapshot of every step"
+dir = "web"
+run = "bun x playwright test --ui"

@@ -23,6 +23,10 @@ paths:
 - Helper types go inside the test class. The convention scan skips nested types, so a fake named `FooService` there is not registered by `ConventionRegistration`.
 - A test that needs the database fails with a message if `POSTGRES_API_PASSWORD` is not in the environment or `.env`. Start and provision the dev database first (see CLAUDE.md).
 
-## 🚧 TypeScript and Playwright
+## TypeScript and Playwright
 
-Not written yet.
+- Unit tests are `*.test.ts` beside the code, run by `bun test` (`mise web:test:unit`), and a test builds what it needs in the test (a fake `fetch` for the API client). The generators in `web/scripts` are tested the same way.
+- Playwright tests are in `web/tests` and run against a production build with a real API: `web/tests/support/api.ts` makes a scoped database from the `minimal` layer, mints one enrollment token, and runs the API on it, and `mise seed:clean` drops the database afterward. Never point them at the dev database.
+- A passkey is a Chromium virtual authenticator over CDP (`useVirtualAuthenticator` in `admin.test.ts`), so no key is touched and no real credential is made. Chromium only. A real key is a manual check (`mise passkey`).
+- One worker, because the tests share a database, and a test may depend on the one before it in its file (a sign-in needs the enrollment); keep that to one test and not across files.
+- Watch with `mise web:test:headed` or `mise web:test:ui`.
