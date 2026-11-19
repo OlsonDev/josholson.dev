@@ -3,38 +3,30 @@
   import { attempt } from '#lib/auth/failure.ts';
   import { createPasskey, signWithPasskey, supportsPasskeys } from '#lib/auth/webauthn.ts';
   import { refreshAll } from '$app/navigation';
-  import { onMount } from 'svelte';
   import type { PageProps } from './$types';
 
   let { data }: PageProps = $props();
 
+  let setupSecret = $state('');
+  let displayName = $state('');
   let nickname = $state('');
   let busy = $state(false);
   let message = $state<string | null>(null);
-  let nicknameErrors = $state<string[]>([]);
+  let fields = $state<Readonly<Record<string, readonly string[]>>>({});
 
-  // The enrollment token that came with the link, `/admin#token=...`: a fragment, which the browser never sends to a
-  // server or a log. The page is only drawn in the browser, so it can be read when this runs. It is kept here, not in the
-  // address bar, so a reload or a later load of the page does not bring it back.
-  let enrollmentToken = $state(new URLSearchParams(location.hash.slice(1)).get('token'));
-
-  onMount(() => {
-    if (location.hash !== '') history.replaceState(history.state, '', location.pathname + location.search);
-  });
-
-  // Which of the three pages this is: signed in, enrolling (a token came with the link), or signing in.
-  const view = $derived(data.user !== null ? 'signed-in' : enrollmentToken !== null ? 'enroll' : 'sign-in');
+  // Which of the three pages this is: signed in, setting up (the API says no passkey exists yet), or signing in.
+  const view = $derived(data.user !== null ? 'signed-in' : data.setup?.available === true ? 'setup' : 'sign-in');
 
   // Runs one thing the visitor asked for, shows what went wrong in words, and reloads what the page knows when it worked.
   async function run(action: () => Promise<void>, messages: Partial<Record<number, string>> = {}): Promise<void> {
     busy = true;
     message = null;
-    nicknameErrors = [];
+    fields = {};
     const failure = await attempt(action, messages);
     if (failure === null) await refreshAll();
     else {
       message = failure.message;
-      nicknameErrors = [...(failure.fields['nickname'] ?? [])];
+      fields = failure.fields;
     }
     busy = false;
   }
@@ -49,19 +41,22 @@
       { 401: 'That passkey was not accepted.' },
     );
 
-  const enroll = (token: string): Promise<void> =>
+  // The secret buys a one-time token, and the token registers the passkey. The API accepts the secret only while no
+  // passkey exists, so this page stops being offered with the first one.
+  const setUp = (): Promise<void> =>
     run(
       async () => {
-        const { attemptToken, options } = await enrollment.options({ token });
+        const name = displayName.trim();
+        const { token } = await enrollment.setup({ setupSecret, displayName: name === '' ? undefined : name });
+        const { attemptToken, options } = await enrollment.options({ token, nickname });
         const response = await createPasskey(options);
-        await enrollment.enroll({ token, attemptToken, nickname, response });
-        // The token is used up, so signing out later is a sign-in and not another enrollment.
-        enrollmentToken = null;
+        await enrollment.enroll({ token, attemptToken, response });
+        setupSecret = '';
       },
       {
-        404: 'This enrollment link has expired or was already used. Make a new one.',
+        404: 'That is not the setup secret, or setup is already done.',
         400: 'The passkey did not verify.',
-        422: 'Check the name.',
+        422: 'Check the highlighted fields.',
       },
     );
 
@@ -85,21 +80,49 @@
     <a href="/admin/passkeys">Passkeys</a>
   </nav>
   <button type="button" disabled={busy} onclick={signOut}>Sign out</button>
-{:else if view === 'enroll' && enrollmentToken !== null}
-  <section aria-labelledby="enroll-heading">
-    <h2 id="enroll-heading">Register a passkey</h2>
-    <p>This link is for registering a passkey on this account. Insert a security key or use this device.</p>
+{:else if view === 'setup'}
+  <section aria-labelledby="setup-heading">
+    <h2 id="setup-heading">Set up</h2>
+    <p>
+      No passkey is registered yet. Enter the setup secret the API was started with, then register the first passkey with a
+      security key or this device.
+    </p>
     <form
       onsubmit={(event) => {
         event.preventDefault();
-        void enroll(enrollmentToken ?? '');
+        void setUp();
       }}
     >
       <label>
-        What to call it
-        <input bind:value={nickname} required maxlength="64" autocomplete="off" aria-invalid={nicknameErrors.length > 0} />
+        Setup secret
+        <input type="password" bind:value={setupSecret} required autocomplete="off" />
       </label>
-      {#each nicknameErrors as error (error)}
+      {#if data.setup?.needsDisplayName === true}
+        <label>
+          Your name
+          <input
+            bind:value={displayName}
+            required
+            maxlength="64"
+            autocomplete="name"
+            aria-invalid={(fields['displayName'] ?? []).length > 0}
+          />
+        </label>
+        {#each fields['displayName'] ?? [] as error (error)}
+          <p class="error">{error}</p>
+        {/each}
+      {/if}
+      <label>
+        What to call this passkey
+        <input
+          bind:value={nickname}
+          required
+          maxlength="64"
+          autocomplete="off"
+          aria-invalid={(fields['nickname'] ?? []).length > 0}
+        />
+      </label>
+      {#each fields['nickname'] ?? [] as error (error)}
         <p class="error">{error}</p>
       {/each}
       <button type="submit" disabled={busy}>Register passkey</button>

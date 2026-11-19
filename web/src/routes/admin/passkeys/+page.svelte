@@ -56,15 +56,15 @@
   }
 
   async function add(hint: CreateHint): Promise<void> {
-    // Checked first, because by the time the API could refuse the name the key would have made the passkey.
+    // Checked here for a quick answer. The API checks the name too, before the key makes anything.
     const problem = nicknameProblem(newNickname, namesExcept(null));
     newNicknameErrors = problem === null ? [] : [problem];
     if (problem !== null) return;
     const fields = await run(async () => {
       status = hint === 'hybrid' ? 'Scan the code with your phone.' : 'Use the security key.';
-      const { attemptToken, options } = await passkey.registrationOptions();
+      const { attemptToken, options } = await passkey.registrationOptions({ nickname: newNickname.trim() });
       const response = await createPasskey(options, hint);
-      const { changeToken } = await passkey.register({ attemptToken, nickname: newNickname.trim(), response });
+      const { changeToken } = await passkey.register({ attemptToken, response });
       await confirm(changeToken);
       newNickname = '';
     });

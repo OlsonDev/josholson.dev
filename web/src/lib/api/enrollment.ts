@@ -3,18 +3,69 @@ import {
   type CeremonyResponseOfCredentialCreateOptions,
   type EnrollmentOptionsRequest,
   type EnrollmentRequest,
+  type EnrollmentSetupRequest,
+  type EnrollmentStatusResponse,
+  type EnrollmentTokenResponse,
 } from './schema.ts';
 import { type ApiPromise, type CallOptions, http } from './runtime/index.ts';
+
+/**
+ * Whether setup is open, so the admin page knows whether to offer it or a sign-in.
+ *
+ * `GET /auth/enrollment`
+ */
+export function status<TOptions extends CallOptions>(
+  options?: TOptions,
+): ApiPromise<EnrollmentStatusResponse, TOptions> {
+  return http.get<EnrollmentStatusResponse>(options, 'enrollment.status', '/auth/enrollment');
+}
+
+/**
+ * Finishes enrolling: checks the credential, stores the passkey, and signs in with it.
+ *
+ * @param body The enrollment token, and what the browser's WebAuthn API produced.
+ * @throws {ApiError} 400: The credential did not verify.
+ *
+ * `POST /auth/enrollment`
+ */
+export function enroll<TOptions extends CallOptions>(
+  body: EnrollmentRequest,
+  options?: TOptions,
+): ApiPromise<void, TOptions> {
+  return http.post<void>(options, 'enrollment.enroll', '/auth/enrollment', body);
+}
+
+/**
+ * Starts setting up: trades the setup secret for a one-time token to enroll the first passkey with.
+ *
+ * A wrong secret, setup being off, and setup being closed (a passkey exists) all answer the same, so a caller learns
+ * nothing about which.
+ *
+ * @param body The setup secret, and a name for the account if it has none yet.
+ * @returns The token to enroll with. It expires after 15 minutes.
+ * @throws {ApiError} 400: The body is not valid JSON, or does not fit the type.
+ * @throws {ApiError} 404: The secret is wrong, or setup is off or closed.
+ * @throws {ApiError} 422: The account needs a name, or the name is not valid.
+ *
+ * `POST /auth/enrollment/setup`
+ */
+export function setup<TOptions extends CallOptions>(
+  body: EnrollmentSetupRequest,
+  options?: TOptions,
+): ApiPromise<EnrollmentTokenResponse, TOptions> {
+  return http.post<EnrollmentTokenResponse>(options, 'enrollment.setup', '/auth/enrollment/setup', body);
+}
 
 /**
  * Starts enrolling: returns the options for the browser's WebAuthn API to create a passkey.
  *
  * The answer for an unknown, used, or expired token is the same, so it says nothing about which.
  *
- * @param body The enrollment token.
+ * @param body The enrollment token, and what to call the new passkey.
  * @returns The options for the browser's WebAuthn API, and the attempt token for them.
  * @throws {ApiError} 400: The body is not valid JSON, or does not fit the type.
  * @throws {ApiError} 404: The token is unknown, used, or expired.
+ * @throws {ApiError} 422: The nickname is not valid, or another passkey has it.
  *
  * `POST /auth/enrollment/options`
  */
@@ -30,19 +81,3 @@ export function options$<TOptions extends CallOptions>(
   );
 }
 export { options$ as options };
-
-/**
- * Finishes enrolling: checks the credential, stores the passkey, and signs in with it.
- *
- * @param body The enrollment token, and what the browser's WebAuthn API produced.
- * @throws {ApiError} 400: The credential did not verify.
- * @throws {ApiError} 422: The nickname is not valid.
- *
- * `POST /auth/enrollment`
- */
-export function enroll<TOptions extends CallOptions>(
-  body: EnrollmentRequest,
-  options?: TOptions,
-): ApiPromise<void, TOptions> {
-  return http.post<void>(options, 'enrollment.enroll', '/auth/enrollment', body);
-}

@@ -49,10 +49,15 @@ export type CurrentUserResponse = {
   /** @description The name shown for the user. */
   displayName: string;
 };
-/** @description What a client sends to start enrolling a passkey: the first, or a replacement when all are lost. */
+/** @description What a client sends to start enrolling a passkey with an enrollment token. */
 export type EnrollmentOptionsRequest = {
-  /** @description The one-time enrollment token minted by the enroll command. It expires after 15 minutes. */
+  /** @description The one-time enrollment token from setup. */
   token: string;
+  /**
+   * @description What to call the new passkey. The key stores it with the passkey, so a chooser can say which. Up to 64 characters,
+   *     with no leading or trailing whitespace.
+   */
+  nickname: string;
 };
 /** @description What the browser's WebAuthn API produced for the registration options, sent to finish enrolling. */
 export type EnrollmentRequest = {
@@ -60,10 +65,33 @@ export type EnrollmentRequest = {
   token: string;
   /** @description The attempt token from the registration options this request answers. */
   attemptToken: string;
-  /** @description What to call the new passkey. Up to 64 characters, with no leading or trailing whitespace. */
-  nickname: string;
   /** @description The attestation the browser returned. The web relays it and never reads it. */
   response: AuthenticatorAttestationRawResponse;
+};
+/** @description What a client sends to start setting up: the secret, and a name for the account if it has none yet. */
+export type EnrollmentSetupRequest = {
+  /** @description The setup secret the API was started with. */
+  setupSecret: string;
+  /**
+   * @description The name shown for the account. Needed only when there is no account yet, and ignored otherwise. Up to 64
+   *     characters, with no leading or trailing whitespace.
+   */
+  displayName?: null | string;
+};
+/** @description Whether the page can register the first passkey from the browser, and what it has to ask for. */
+export type EnrollmentStatusResponse = {
+  /**
+   * @description Whether setup is open: a setup secret is configured and no passkey is registered yet. Otherwise there is nothing
+   *     to set up, and the page offers a sign-in.
+   */
+  available: boolean;
+  /** @description Whether setup also needs a name for the account, because there is none yet. Only meaningful when available. */
+  needsDisplayName: boolean;
+};
+/** @description A one-time enrollment token, to register the first passkey with. */
+export type EnrollmentTokenResponse = {
+  /** @description The token to start enrolling with. It expires after 15 minutes. */
+  token: string;
 };
 /** Format: date-time */
 export type Instant = Temporal.Instant;
@@ -101,12 +129,18 @@ export type ProblemDetails = {
   /** @description The ID of the request, for finding it in the logs. */
   traceId?: string;
 };
+/** @description What a client sends to start adding a passkey. */
+export type RegistrationOptionsRequest = {
+  /**
+   * @description What to call the new passkey. The key stores it with the passkey, so a chooser can say which. Up to 64 characters,
+   *     with no leading or trailing whitespace.
+   */
+  nickname: string;
+};
 /** @description What the browser's WebAuthn API produced for the registration options, sent to add a passkey. */
 export type RegistrationRequest = {
   /** @description The attempt token from the registration options this request answers. */
   attemptToken: string;
-  /** @description What to call the new passkey. Up to 64 characters, with no leading or trailing whitespace. */
-  nickname: string;
   /** @description The attestation the browser returned. The web relays it and never reads it. */
   response: AuthenticatorAttestationRawResponse;
 };

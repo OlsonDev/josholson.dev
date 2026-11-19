@@ -5,6 +5,8 @@ import type { CDPSession, Page } from '@playwright/test';
 export type VirtualAuthenticator = {
   /** How many passkeys it holds. */
   credentialCount: () => Promise<number>;
+  /** The names it stored with them (what a browser's chooser shows). */
+  userNames: () => Promise<(string | undefined)[]>;
   /** Whether it answers (the touch happens). While it does not, a request that needs it waits. */
   respond: (answering: boolean) => Promise<void>;
 };
@@ -24,6 +26,10 @@ export async function addVirtualAuthenticator(page: Page): Promise<VirtualAuthen
   });
   return {
     credentialCount: async () => (await cdp.send('WebAuthn.getCredentials', { authenticatorId })).credentials.length,
+    userNames: async () =>
+      (await cdp.send('WebAuthn.getCredentials', { authenticatorId })).credentials.map(
+        (credential) => credential.userName,
+      ),
     respond: async (answering) => {
       await cdp.send('WebAuthn.setAutomaticPresenceSimulation', { authenticatorId, enabled: answering });
     },

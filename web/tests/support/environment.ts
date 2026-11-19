@@ -1,4 +1,4 @@
-import { spawnSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 // What the Playwright tests and the process that runs their API both need to know (see api.ts).
@@ -16,28 +16,19 @@ function required(name: string): string {
   return value;
 }
 
-/** The API's settings for a run on its own database: that database, and the web preview as the one origin it allows. */
-export function apiEnvironment(database: string): NodeJS.ProcessEnv {
+/** The API's settings for a run on its own database: that database, the setup secret, and the web preview as the one origin it allows. */
+export function apiEnvironment(database: string, setupSecret: string): NodeJS.ProcessEnv {
   return {
     ...process.env,
     ConnectionStrings__Default: `Host=localhost;Port=${required('POSTGRES_PORT')};Database=${database};Username=josholson_api;Password=${required('POSTGRES_API_PASSWORD')}`,
     Auth__AllowedOrigin: webOrigin,
+    Auth__SetupSecret: setupSecret,
     ASPNETCORE_URLS: apiUrl,
     Logging__LogLevel__Default: 'Warning',
   };
 }
 
-/** Mints an enrollment token (one use, 15 minutes) for the account, the way `JoshOlson.Api enroll` does on a server. */
-export function mintEnrollmentToken(database: string): string {
-  const result = spawnSync('dotnet', ['run', '--no-build', '--project', 'JoshOlson.Api', '--', 'enroll', 'E2E Admin'], {
-    cwd: root,
-    env: apiEnvironment(database),
-    encoding: 'utf8',
-  });
-  if (result.status !== 0) throw new Error(`enroll failed (${result.status}):\n${result.stdout}${result.stderr}`);
-  const lines = result.stdout.split('\n');
-  const header = lines.findIndex((line) => line.startsWith('Enrollment token'));
-  const token = lines[header + 1]?.trim();
-  if (header < 0 || token === undefined || token === '') throw new Error(`no enrollment token in:\n${result.stdout}`);
-  return token;
+/** What `api.ts` made for this run, for a test: the setup secret its API was started with. */
+export function e2e(): { database: string; setupSecret: string } {
+  return JSON.parse(readFileSync(e2eFile, 'utf8'));
 }

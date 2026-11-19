@@ -1,6 +1,5 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
-import { readFileSync } from 'node:fs';
-import { e2eFile, mintEnrollmentToken, webOrigin } from './support/environment.ts';
+import { apiUrl, e2e, webOrigin } from './support/environment.ts';
 import { addVirtualAuthenticator, type VirtualAuthenticator } from './support/webauthn.ts';
 
 // One browser that goes through the admin area in order: enrolling, signing out and in, and then the passkey page. What
@@ -20,16 +19,29 @@ test.afterAll(async () => {
   await page.context().close();
 });
 
-test('registers a passkey from the link, signs out, and signs back in with it', async () => {
-  const database: string = JSON.parse(readFileSync(e2eFile, 'utf8')).database;
-
-  await page.goto(`/admin#token=${mintEnrollmentToken(database)}`);
-  await page.getByLabel('What to call it').fill('First key');
+test('sets up with the secret, which registers the first passkey and closes setup, then signs out and back in', async () => {
+  await page.goto('/admin');
+  await page.getByLabel('Setup secret').fill(e2e().setupSecret);
+  await page.getByLabel('Your name').fill('E2E Admin');
+  await page.getByLabel('What to call this passkey').fill('First key');
   await page.getByRole('button', { name: 'Register passkey' }).click();
 
   await expect(page.getByText('Signed in as E2E Admin.')).toBeVisible();
-  expect(page.url()).not.toContain('token=');
   expect(await first.credentialCount()).toBe(1);
+  // The key keeps the name with the passkey, and a browser's chooser shows it: the nickname says which.
+  expect(await first.userNames()).toEqual(['E2E Admin (First key)']);
+
+  // Setup closed with the first passkey: another browser is offered a sign-in, and the secret no longer works.
+  const stranger = await (await page.context().browser()!.newContext({ baseURL: webOrigin })).newPage();
+  await stranger.goto('/admin');
+  await expect(stranger.getByRole('heading', { level: 2, name: 'Sign in' })).toBeVisible();
+  await expect(stranger.getByRole('heading', { level: 2, name: 'Set up' })).toHaveCount(0);
+  const setup = await stranger.request.post(`${apiUrl}/auth/enrollment/setup`, {
+    headers: { Origin: webOrigin },
+    data: { setupSecret: e2e().setupSecret, displayName: 'Nobody' },
+  });
+  expect(setup.status()).toBe(404);
+  await stranger.context().close();
 
   await page.getByRole('button', { name: 'Sign out' }).click();
   await expect(page.getByRole('heading', { level: 2, name: 'Sign in' })).toBeVisible();
@@ -40,6 +52,7 @@ test('registers a passkey from the link, signs out, and signs back in with it', 
   await page.getByRole('link', { name: 'Passkeys' }).click();
   await expect(page.getByRole('heading', { level: 1, name: 'Passkeys' })).toBeVisible();
 });
+
 const row = (name: string) => page.getByRole('row').filter({ has: page.getByRole('rowheader', { name, exact: true }) });
 
 test('lists the passkey the account was enrolled with, and will not remove the only one', async () => {
@@ -77,6 +90,7 @@ test('adds a second passkey, which the first one has to confirm', async () => {
   await page.getByRole('button', { name: 'Add a security key' }).click();
   await expect(page.getByRole('status')).toContainText('confirm with a passkey you already have');
   expect(await second.credentialCount()).toBe(1);
+  expect(await second.userNames()).toEqual(['E2E Admin (Second key)']);
   await second.respond(false);
   await first.respond(true);
   release();

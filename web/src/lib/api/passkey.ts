@@ -7,6 +7,7 @@ import {
   type PasskeyResponse,
   PasskeyResponseList,
   type PendingChangeResponse,
+  type RegistrationOptionsRequest,
   type RegistrationRequest,
   type RenameRequest,
 } from './schema.ts';
@@ -26,17 +27,23 @@ export function getAll<TOptions extends CallOptions>(options?: TOptions): ApiPro
 /**
  * Starts adding a passkey: returns the options for the browser's WebAuthn API to create one.
  *
+ * @param body What to call the new passkey.
+ * @returns The options for the browser's WebAuthn API, and the attempt token for them.
+ * @throws {ApiError} 400: The body is not valid JSON, or does not fit the type.
  * @throws {ApiError} 401: There is no signed-in session.
+ * @throws {ApiError} 422: The nickname is not valid, or another passkey has it.
  *
  * `POST /auth/passkeys/registration/options`
  */
 export function registrationOptions<TOptions extends CallOptions>(
+  body: RegistrationOptionsRequest,
   options?: TOptions,
 ): ApiPromise<CeremonyResponseOfCredentialCreateOptions, TOptions> {
   return http.post<CeremonyResponseOfCredentialCreateOptions>(
     options,
     'passkey.registrationOptions',
     '/auth/passkeys/registration/options',
+    body,
   );
 }
 
@@ -44,11 +51,10 @@ export function registrationOptions<TOptions extends CallOptions>(
  * Checks the new credential and holds it as a pending change. Nothing is stored until a registered passkey
  * confirms it.
  *
- * @param body What the browser's WebAuthn API produced, with the nickname for the new passkey.
+ * @param body What the browser's WebAuthn API produced for the registration options.
  * @returns The pending change to confirm.
  * @throws {ApiError} 400: The credential did not verify.
  * @throws {ApiError} 401: There is no signed-in session.
- * @throws {ApiError} 422: The nickname is not valid.
  *
  * `POST /auth/passkeys/registration`
  */

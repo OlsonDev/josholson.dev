@@ -1,18 +1,20 @@
+import { randomBytes } from 'node:crypto';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
-import { apiEnvironment, e2eFile, mintEnrollmentToken, root } from './environment.ts';
+import { apiEnvironment, e2eFile, root } from './environment.ts';
 
 // Starts the API for the Playwright tests on a database of its own, and stops it and drops the database afterwards. It is
 // the `webServer` command of playwright.config.ts, so Playwright waits for the API to answer before the first test:
 //   1. `mise seed:test` makes a database from the `minimal` layer (ADR 0033: a scoped database for each test run),
 //   2. the API is built, and
-//   3. it runs against that database, allowing the web preview's origin.
-// A test mints the enrollment tokens it needs (`mintEnrollmentToken`), with the database named in `.tmp/e2e.json`. Needs
-// the dev containers and a provisioned API role (`mise db:provision`), and the environment `mise web:test` loads from
-// `.env`.
+//   3. it runs against that database, with a setup secret of its own and the web preview's origin as the one it allows.
+// The database starts with no account and no passkey, so setup is open: the browser tests set up with that secret, as
+// the owner does. The secret and the database are in `.tmp/e2e.json` (`e2e()`). Needs the dev containers and a
+// provisioned API role (`mise db:provision`), and the environment `mise web:test` loads from `.env`.
 
 const id = `e2e${Math.random().toString(36).slice(2, 10)}`;
 const database = `seed_test_${id}`;
+const setupSecret = randomBytes(24).toString('base64url');
 
 function run(command: string[]): void {
   const result = Bun.spawnSync(command, { cwd: root, stdout: 'pipe', stderr: 'pipe' });
@@ -27,14 +29,11 @@ run(['mise', 'seed:test', id, 'minimal']);
 run(['dotnet', 'build', 'JoshOlson.Api', '--nologo', '-v', 'q']);
 
 mkdirSync(dirname(e2eFile), { recursive: true });
-writeFileSync(e2eFile, JSON.stringify({ database }));
-
-// Minting one now proves the database and the API's settings work, before a test needs to.
-mintEnrollmentToken(database);
+writeFileSync(e2eFile, JSON.stringify({ database, setupSecret }));
 
 const api = Bun.spawn(['dotnet', 'run', '--no-build', '--project', 'JoshOlson.Api'], {
   cwd: root,
-  env: apiEnvironment(database),
+  env: apiEnvironment(database, setupSecret),
   stdout: 'inherit',
   stderr: 'inherit',
 });
