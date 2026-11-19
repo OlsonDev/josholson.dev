@@ -1,63 +1,40 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { dirname } from 'node:path';
+import { apiEnvironment, e2eFile, mintEnrollmentToken, root } from './environment.ts';
 
 // Starts the API for the Playwright tests on a database of its own, and stops it and drops the database afterwards. It is
 // the `webServer` command of playwright.config.ts, so Playwright waits for the API to answer before the first test:
 //   1. `mise seed:test` makes a database from the `minimal` layer (ADR 0033: a scoped database for each test run),
-//   2. `JoshOlson.Api enroll` mints the one enrollment token the tests use to register a passkey, and
-//   3. the API runs against that database, allowing the web preview's origin.
-// Needs the dev containers and a provisioned API role (`mise db:provision`), and the environment `mise web:test` loads
-// from `.env`. What the tests need to know is in `.tmp/e2e.json`.
-
-const root = join(import.meta.dirname, '..', '..', '..');
-export const apiUrl = 'http://localhost:5100';
-export const webOrigin = 'http://localhost:4173';
-
-function required(name: string): string {
-  const value = process.env[name];
-  if (value === undefined || value === '') {
-    throw new Error(`${name} is not set. Run the tests with \`mise web:test\`, which loads .env.`);
-  }
-  return value;
-}
+//   2. the API is built, and
+//   3. it runs against that database, allowing the web preview's origin.
+// A test mints the enrollment tokens it needs (`mintEnrollmentToken`), with the database named in `.tmp/e2e.json`. Needs
+// the dev containers and a provisioned API role (`mise db:provision`), and the environment `mise web:test` loads from
+// `.env`.
 
 const id = `e2e${Math.random().toString(36).slice(2, 10)}`;
 const database = `seed_test_${id}`;
-const env = {
-  ...process.env,
-  ConnectionStrings__Default: `Host=localhost;Port=${required('POSTGRES_PORT')};Database=${database};Username=josholson_api;Password=${required('POSTGRES_API_PASSWORD')}`,
-  Auth__AllowedOrigin: webOrigin,
-  ASPNETCORE_URLS: apiUrl,
-  Logging__LogLevel__Default: 'Warning',
-};
 
-function run(command: string[], with_: Record<string, string | undefined> = process.env): string {
-  const result = Bun.spawnSync(command, { cwd: root, env: with_, stdout: 'pipe', stderr: 'pipe' });
+function run(command: string[]): void {
+  const result = Bun.spawnSync(command, { cwd: root, stdout: 'pipe', stderr: 'pipe' });
   if (result.exitCode !== 0) {
     throw new Error(
       `${command.join(' ')} failed (${result.exitCode}):\n${result.stdout.toString()}${result.stderr.toString()}`,
     );
   }
-  return result.stdout.toString();
 }
 
 run(['mise', 'seed:test', id, 'minimal']);
 run(['dotnet', 'build', 'JoshOlson.Api', '--nologo', '-v', 'q']);
 
-const minted = run(
-  ['dotnet', 'run', '--no-build', '--project', 'JoshOlson.Api', '--', 'enroll', 'E2E Admin'],
-  env,
-).split('\n');
-const header = minted.findIndex((line) => line.startsWith('Enrollment token'));
-const token = minted[header + 1]?.trim();
-if (header < 0 || token === undefined || token === '') throw new Error(`no enrollment token in:\n${minted.join('\n')}`);
+mkdirSync(dirname(e2eFile), { recursive: true });
+writeFileSync(e2eFile, JSON.stringify({ database }));
 
-mkdirSync(join(root, '.tmp'), { recursive: true });
-writeFileSync(join(root, '.tmp', 'e2e.json'), JSON.stringify({ apiUrl, webOrigin, database, enrollmentToken: token }));
+// Minting one now proves the database and the API's settings work, before a test needs to.
+mintEnrollmentToken(database);
 
 const api = Bun.spawn(['dotnet', 'run', '--no-build', '--project', 'JoshOlson.Api'], {
   cwd: root,
-  env,
+  env: apiEnvironment(database),
   stdout: 'inherit',
   stderr: 'inherit',
 });
