@@ -1,4 +1,16 @@
 {
+  "customLocalFormatters.formatters": [
+    {
+      "command": "mise -C web exec -- bun fmt --no-script --stdin-filepath ${file}",
+      "languages": ["typescript", "javascript", "svelte", "css", "html", "json"]
+    }
+  ],
+  "[typescript]": { "editor.defaultFormatter": "jkillian.custom-local-formatters", "editor.formatOnSave": true },
+  "[javascript]": { "editor.defaultFormatter": "jkillian.custom-local-formatters", "editor.formatOnSave": true },
+  "[svelte]": { "editor.defaultFormatter": "jkillian.custom-local-formatters", "editor.formatOnSave": true },
+  "[css]": { "editor.defaultFormatter": "jkillian.custom-local-formatters", "editor.formatOnSave": true },
+  "[html]": { "editor.defaultFormatter": "jkillian.custom-local-formatters", "editor.formatOnSave": true },
+  "[json]": { "editor.defaultFormatter": "jkillian.custom-local-formatters", "editor.formatOnSave": true },
   "explorer.autoReveal": false,
   "explorer.incrementalNaming": "smart",
   "files.insertFinalNewline": true,

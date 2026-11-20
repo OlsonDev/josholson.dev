@@ -1,6 +1,7 @@
 {
   "recommendations": [
     "editorconfig.editorconfig",
+    "jkillian.custom-local-formatters",
     "ms-azuretools.vscode-containers",
     "ms-dotnettools.csdevkit",
     "ms-dotnettools.vscode-dotnet-runtime",

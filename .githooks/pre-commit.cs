@@ -1,6 +1,7 @@
 #!/usr/bin/env dotnet
 #:include branch-name-validator.cs
 #:include analyzer-check-trigger.cs
+#:include web-format-check.cs
 
 using System.Diagnostics;
 
@@ -31,6 +32,26 @@ if (AnalyzerCheckTrigger.IsScriptCheckNeeded(staged)
       "A script fails the style rules or analyzers. Fix the ones listed above; `mise scripts:check` reruns the check.",
       "scripts/check-scripts.cs")) {
   return 1;
+}
+
+// The web files are formatted, imports sorted included, by `bun fmt` (ADR 0045); what a commit stages must already be
+var webSources = WebFormatCheck.Sources(Git("diff --cached --name-only --diff-filter=ACMR").Split('\n', StringSplitOptions.RemoveEmptyEntries));
+if (webSources.Count > 0) {
+  List<string> unformatted;
+  try {
+    unformatted = WebFormatCheck.Unformatted(webSources);
+  } catch (InvalidOperationException exception) {
+    Console.Error.WriteLine(exception.Message);
+    return 1;
+  }
+  if (unformatted.Count > 0) {
+    Console.Error.WriteLine("These staged web files are not formatted (or their imports are not sorted):");
+    foreach (var path in unformatted) {
+      Console.Error.WriteLine($"  web/{path}");
+    }
+    Console.Error.WriteLine("Run `mise web:format`, stage them again, and commit again.");
+    return 1;
+  }
 }
 return 0;
 

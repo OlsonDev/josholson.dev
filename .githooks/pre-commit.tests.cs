@@ -4,6 +4,7 @@
 
 #:include branch-name-validator.cs
 #:include analyzer-check-trigger.cs
+#:include web-format-check.cs
 
 using System.Globalization;
 
@@ -106,6 +107,33 @@ foreach (var (paths, expected) in scriptTriggers.Select(paths => (paths, true)).
     Console.WriteLine($"✗ Script check {(expected ? "should run" : "should be skipped")} for [{string.Join(", ", paths)}]");
     countFailed++;
   }
+}
+
+string[] stagedPaths = [
+  "web/src/lib/foo.ts",
+  "web/src/routes/+page.svelte",
+  "web/package.json",
+  "web/src/routes/layout.css",
+  "web/bun.lock",
+  "web/static/favicon.png",
+  "docs/adr/0045-tailwind-css-and-shadcn-svelte.md",
+  "JoshOlson.Api/Tags/TagController.cs",
+  "scripts/web-format.ts",
+  "package.json",
+];
+string[] expectedSources = [
+  "src/lib/foo.ts",
+  "src/routes/+page.svelte",
+  "package.json",
+  "src/routes/layout.css",
+];
+var sources = WebFormatCheck.Sources(stagedPaths);
+if (sources.SequenceEqual(expectedSources, StringComparer.Ordinal)) {
+  Console.WriteLine("✓ Format check takes the staged web files the formatter formats, relative to web/");
+  countPassed++;
+} else {
+  Console.WriteLine($"✗ Format check took [{string.Join(", ", sources)}], expected [{string.Join(", ", expectedSources)}]");
+  countFailed++;
 }
 
 Console.WriteLine();
