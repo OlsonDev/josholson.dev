@@ -21,12 +21,15 @@ test.afterAll(async () => {
 
 test('sets up with the secret, which registers the first passkey and closes setup, then signs out and back in', async () => {
   await page.goto('/admin');
+  await expect(page).toHaveURL(/\/admin\/sign-in$/);
   await page.getByLabel('Setup secret').fill(e2e().setupSecret);
   await page.getByLabel('Your name').fill('E2E Admin');
   await page.getByLabel('What to call this passkey').fill('First key');
   await page.getByRole('button', { name: 'Register passkey' }).click();
 
-  await expect(page.getByText('Signed in as E2E Admin.')).toBeVisible();
+  await expect(page).toHaveURL(/\/admin$/);
+  await expect(page.getByText('Signed in as E2E Admin')).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1, name: 'Dashboard' })).toBeVisible();
   expect(await first.credentialCount()).toBe(1);
   // The key keeps the name with the passkey, and a browser's chooser shows it: the nickname says which.
   expect(await first.userNames()).toEqual(['E2E Admin (First key)']);
@@ -34,8 +37,8 @@ test('sets up with the secret, which registers the first passkey and closes setu
   // Setup closed with the first passkey: another browser is offered a sign-in, and the secret no longer works.
   const stranger = await (await page.context().browser()!.newContext({ baseURL: webOrigin })).newPage();
   await stranger.goto('/admin');
-  await expect(stranger.getByRole('heading', { level: 2, name: 'Sign in' })).toBeVisible();
-  await expect(stranger.getByRole('heading', { level: 2, name: 'Set up' })).toHaveCount(0);
+  await expect(stranger.getByRole('heading', { level: 1, name: 'Sign in' })).toBeVisible();
+  await expect(stranger.getByRole('heading', { level: 1, name: 'Set up' })).toHaveCount(0);
   const setup = await stranger.request.post(`${apiUrl}/auth/enrollment/setup`, {
     headers: { Origin: webOrigin },
     data: { setupSecret: e2e().setupSecret, displayName: 'Nobody' },
@@ -44,10 +47,10 @@ test('sets up with the secret, which registers the first passkey and closes setu
   await stranger.context().close();
 
   await page.getByRole('button', { name: 'Sign out' }).click();
-  await expect(page.getByRole('heading', { level: 2, name: 'Sign in' })).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1, name: 'Sign in' })).toBeVisible();
 
   await page.getByRole('button', { name: 'Sign in with a passkey' }).click();
-  await expect(page.getByText('Signed in as E2E Admin.')).toBeVisible();
+  await expect(page.getByText('Signed in as E2E Admin')).toBeVisible();
 
   await page.getByRole('link', { name: 'Passkeys' }).click();
   await expect(page.getByRole('heading', { level: 1, name: 'Passkeys' })).toBeVisible();

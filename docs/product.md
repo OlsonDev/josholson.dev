@@ -27,8 +27,9 @@ What the site does. Pages and features:
   - Contact form
     - Stored in database
     - Email sent to me
-- Secret admin page
-  - Sign in with a passkey: Red, Purple, or a phone (no password)
-  - Passkey page (`/admin/passkeys`): list, add a phone or a security key, rename, and remove, each change confirmed with a passkey already registered
-  - Contact form submission list page
-  - Editors for JSON Resume
+- Secret admin page (`/admin`, behind a sidebar of one level: Dashboard, Inbox, Resumes, Skills, Projects, Blog, Tags, Media)
+  - Sign in with a passkey: Red, Purple, or a phone (no password), on a page of its own (`/admin/sign-in`), which is also where the first passkey is set up
+  - Passkey page (`/admin/passkeys`, under the user's name with Sign out): list, add a phone or a security key, rename, and remove, each change confirmed with a passkey already registered
+  - Inbox: the contact form submission list
+  - Resumes: editors for JSON Resume, one resume and its sections at a time. Skills and Projects are the default resume's own, with pages of their own
+  - Dashboard: what needs attention, with a card for each feature as it exists
