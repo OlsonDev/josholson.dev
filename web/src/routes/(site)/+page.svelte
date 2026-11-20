@@ -1,4 +1,6 @@
 <script lang="ts">
+  import Tag from '#lib/components/tag.svelte';
+
   import type { PageProps } from './$types';
 
   let { data }: PageProps = $props();
@@ -19,7 +21,7 @@
   {:else}
     <ul class="mt-2 flex flex-wrap gap-2">
       {#each data.tags as tag (tag.tagId)}
-        <li class="rounded-full border px-3 py-1" style:border-color={tag.color}>{tag.name}</li>
+        <li><Tag {tag} /></li>
       {/each}
     </ul>
   {/if}
