@@ -1,5 +1,7 @@
 import { describe, expect, test } from 'bun:test';
+
 import { PasskeyTransport } from '#lib/api/schema.ts';
+
 import { describePasskey, nicknameProblem } from './passkeys.ts';
 
 describe('describePasskey', () => {

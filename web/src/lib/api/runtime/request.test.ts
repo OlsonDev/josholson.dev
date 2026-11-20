@@ -1,7 +1,8 @@
 import { afterEach, describe, expect, test } from 'bun:test';
+
 import { ApiError } from './api-error.ts';
 import * as http from './http.ts';
-import { configureApi, nullOnApiError, resetApi, type CallOptions } from './request.ts';
+import { type CallOptions, configureApi, nullOnApiError, resetApi } from './request.ts';
 import { arrayOf, instant, objectOf } from './revive.ts';
 
 type Sent = { url: string; init: RequestInit };

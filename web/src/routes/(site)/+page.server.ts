@@ -1,4 +1,5 @@
 import { nullOnApiError, tag } from '#lib/api/index.ts';
+
 import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async () => ({

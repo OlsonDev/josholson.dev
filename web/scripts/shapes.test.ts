@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test';
-import { inOrder, newUses, shapeOf, successSchemas, type Constant, type Schemas } from './shapes.ts';
+
+import { type Constant, inOrder, newUses, type Schemas, shapeOf, successSchemas } from './shapes.ts';
 
 const instantSchema = { type: 'string', format: 'date-time' };
 const schemas: Schemas = {

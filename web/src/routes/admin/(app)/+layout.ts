@@ -1,5 +1,7 @@
-import { signIn } from '#lib/api/index.ts';
 import { error, redirect } from '@sveltejs/kit';
+
+import { signIn } from '#lib/api/index.ts';
+
 import type { LayoutLoad } from './$types';
 
 // Every page in the admin area needs a session. Without one the visitor is sent to the sign-in, which is also where setup

@@ -1,6 +1,7 @@
 import { spawnSync } from 'node:child_process';
 import { cpSync, existsSync, mkdirSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { join, relative } from 'node:path';
+
 import { filesUnder, rewriteImports } from './ui-support.ts';
 
 // Shows how the shadcn-svelte components we have differ from what the CLI would copy in today (ADR 0045):
@@ -22,7 +23,7 @@ const components = requested.length > 0 ? requested : readdirSync(ours).filter((
 rmSync(scratch, { recursive: true, force: true });
 mkdirSync(join(scratch, 'src', 'routes'), { recursive: true });
 mkdirSync(join(scratch, 'src', 'lib'), { recursive: true });
-for (const file of ['package.json', 'components.json', 'tsconfig.json', '.prettierrc'])
+for (const file of ['package.json', 'components.json', 'tsconfig.json', '.prettierrc', 'bunfig.toml'])
   cpSync(join(web, file), join(scratch, file));
 cpSync(join(web, 'src', 'routes', 'layout.css'), join(scratch, 'src', 'routes', 'layout.css'));
 cpSync(join(web, 'src', 'lib', 'utils.ts'), join(scratch, 'src', 'lib', 'utils.ts'));

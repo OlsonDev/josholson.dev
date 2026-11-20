@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, test } from 'bun:test';
+
 import { canUsePhone } from './webauthn.ts';
 
 // `PublicKeyCredential` is the browser's, so a test puts in the one it wants and takes it out again.

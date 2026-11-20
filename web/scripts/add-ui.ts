@@ -1,10 +1,11 @@
 import { spawnSync } from 'node:child_process';
+
 import { rewriteImports } from './ui-support.ts';
 
 // Adds shadcn-svelte components to src/lib/components/ui and makes them ours (ADR 0045: Tailwind CSS and shadcn-svelte):
 //   bun scripts/add-ui.ts <component>...        (`mise web:ui:add <component>...` runs it)
 // The CLI copies the components in, spelling every import of a TypeScript file with `.js`. We import `.ts` everywhere,
-// so this rewrites them, and formats the TypeScript like the rest of web/ (`bun fmt` does not reach `.svelte` files).
+// so this rewrites them, and formats the result like the rest of web/ (`bun fmt` also formats `.svelte` files and sorts imports).
 // A component that is already here is left as it is, so an edit of ours survives, and `-o` (the CLI's `--overwrite`)
 // takes the registry's again: `mise web:ui:add -o button`. To see first what would change, `mise web:ui:diff button`.
 const components = process.argv.slice(2);

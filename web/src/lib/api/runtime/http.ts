@@ -1,6 +1,6 @@
+import { type CallOptions, dispatch } from './request.ts';
 import type { Shape } from './revive.ts';
 import type { Query } from './route.ts';
-import { dispatch, type CallOptions } from './request.ts';
 
 // What every generated function calls, one for each method, as `http.get(...)`. Not for app code.
 //

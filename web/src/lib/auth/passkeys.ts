@@ -1,4 +1,4 @@
-import { PasskeyTransport, type PasskeyResponse } from '#lib/api/schema.ts';
+import { type PasskeyResponse, PasskeyTransport } from '#lib/api/schema.ts';
 
 /** What kind of authenticator a passkey is, in words, from how it said it can be reached (ADR 0031: Red, Purple, or a phone). */
 export function describePasskey(passkey: Pick<PasskeyResponse, 'transports' | 'isBackedUp'>): string {

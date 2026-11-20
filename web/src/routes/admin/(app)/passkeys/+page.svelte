@@ -1,5 +1,17 @@
 <script lang="ts">
+  import { refreshAll } from '$app/navigation';
+  import { onMount } from 'svelte';
+
   import { passkey } from '#lib/api/index.ts';
+  import { attempt } from '#lib/auth/failure.ts';
+  import { describePasskey, describeWhen, nicknameProblem } from '#lib/auth/passkeys.ts';
+  import {
+    canUsePhone,
+    type CreateHint,
+    createPasskey,
+    signWithPasskey,
+    supportsPasskeys,
+  } from '#lib/auth/webauthn.ts';
   import PageHeader from '#lib/components/page-header.svelte';
   import * as Alert from '#lib/components/ui/alert/index.ts';
   import { Button } from '#lib/components/ui/button/index.ts';
@@ -7,11 +19,7 @@
   import { Input } from '#lib/components/ui/input/index.ts';
   import { Label } from '#lib/components/ui/label/index.ts';
   import * as Table from '#lib/components/ui/table/index.ts';
-  import { attempt } from '#lib/auth/failure.ts';
-  import { describePasskey, describeWhen, nicknameProblem } from '#lib/auth/passkeys.ts';
-  import { canUsePhone, createPasskey, signWithPasskey, supportsPasskeys, type CreateHint } from '#lib/auth/webauthn.ts';
-  import { refreshAll } from '$app/navigation';
-  import { onMount } from 'svelte';
+
   import type { PageProps } from './$types';
 
   let { data }: PageProps = $props();
@@ -109,7 +117,10 @@
   }
 </script>
 
-<PageHeader title="Passkeys" description="What can sign in. Adding or removing one is confirmed with a passkey you already have." />
+<PageHeader
+  title="Passkeys"
+  description="What can sign in. Adding or removing one is confirmed with a passkey you already have."
+/>
 
 {#if !data.apiAvailable}
   <Alert.Root variant="destructive" role="alert">
@@ -210,7 +221,9 @@
   <Card.Root>
     <Card.Header>
       <Card.Title><h2>Add a passkey</h2></Card.Title>
-      <Card.Description>Name it first. Adding one asks for a passkey you already have as well, to confirm.</Card.Description>
+      <Card.Description
+        >Name it first. Adding one asks for a passkey you already have as well, to confirm.</Card.Description
+      >
     </Card.Header>
     <Card.Content class="grid max-w-sm gap-4">
       <div class="grid gap-2">
@@ -231,7 +244,9 @@
         <Button variant="outline" disabled={busy || !phoneSupported} onclick={() => add('hybrid')}>Add a phone</Button>
       </div>
       {#if !phoneSupported}
-        <p class="text-sm text-muted-foreground">This browser cannot add a phone. Use Chrome or Edge, or a security key.</p>
+        <p class="text-sm text-muted-foreground">
+          This browser cannot add a phone. Use Chrome or Edge, or a security key.
+        </p>
       {/if}
     </Card.Content>
   </Card.Root>

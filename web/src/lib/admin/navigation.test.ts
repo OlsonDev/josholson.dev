@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'bun:test';
+
 import { adminPages, isCurrent, pageAt, passkeysPage } from './navigation.ts';
 
 const page = (title: string) => {

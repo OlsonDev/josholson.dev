@@ -1,4 +1,3 @@
-import type { Component } from 'svelte';
 import FileTextIcon from '@lucide/svelte/icons/file-text';
 import FolderKanbanIcon from '@lucide/svelte/icons/folder-kanban';
 import ImageIcon from '@lucide/svelte/icons/image';
@@ -8,6 +7,7 @@ import LayoutDashboardIcon from '@lucide/svelte/icons/layout-dashboard';
 import NewspaperIcon from '@lucide/svelte/icons/newspaper';
 import SparklesIcon from '@lucide/svelte/icons/sparkles';
 import TagIcon from '@lucide/svelte/icons/tag';
+import type { Component } from 'svelte';
 
 /** A page in the admin area, as the sidebar and the breadcrumb know it. */
 export type AdminPage = { title: string; href: string; icon: Component };

@@ -1,5 +1,7 @@
-import { enrollment, nullOnApiError, signIn } from '#lib/api/index.ts';
 import { redirect } from '@sveltejs/kit';
+
+import { enrollment, nullOnApiError, signIn } from '#lib/api/index.ts';
+
 import type { PageLoad } from './$types';
 
 // What this page offers: setting up (the first passkey) while the API says no passkey exists, and otherwise a sign-in with

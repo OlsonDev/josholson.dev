@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'bun:test';
+
 import { route, withQuery } from './route.ts';
 
 describe('route', () => {

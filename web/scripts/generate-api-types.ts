@@ -1,7 +1,9 @@
 import { readFileSync, writeFileSync } from 'node:fs';
+
 import openapiTS, { astToString, COMMENT_HEADER } from 'openapi-typescript';
 import ts from 'typescript';
-import { inOrder, listName, newUses, shapeOf, successSchemas, type Constant, type Schemas } from './shapes.ts';
+
+import { type Constant, inOrder, listName, newUses, type Schemas, shapeOf, successSchemas } from './shapes.ts';
 
 // Writes the types of what the web sends and receives (the API's payloads and enums) from the API's OpenAPI document:
 //   bun scripts/generate-api-types.ts <openapi.json> <schema.ts>        (`mise api:openapi` runs it)

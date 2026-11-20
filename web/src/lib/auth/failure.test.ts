@@ -1,5 +1,7 @@
 import { expect, test } from 'bun:test';
+
 import { ApiError } from '#lib/api/index.ts';
+
 import { attempt, describeFailure } from './failure.ts';
 
 test('a closed passkey dialog is "Canceled." and not an error', () => {

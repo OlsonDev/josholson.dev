@@ -1,36 +1,38 @@
 <script lang="ts">
-	import PanelLeftIcon from '@lucide/svelte/icons/panel-left';
-	import { Button } from "#lib/components/ui/button/index.ts";
-	import { cn } from "#lib/utils.ts";
-	import { useSidebar } from "./context.svelte.ts";
-	import type { ComponentProps } from "svelte";
+  import PanelLeftIcon from '@lucide/svelte/icons/panel-left';
+  import type { ComponentProps } from 'svelte';
 
-	let {
-		ref = $bindable(null),
-		class: className,
-		onclick,
-		...restProps
-	}: ComponentProps<typeof Button> & {
-		onclick?: (e: MouseEvent) => void;
-	} = $props();
+  import { Button } from '#lib/components/ui/button/index.ts';
+  import { cn } from '#lib/utils.ts';
 
-	const sidebar = useSidebar();
+  import { useSidebar } from './context.svelte.ts';
+
+  let {
+    ref = $bindable(null),
+    class: className,
+    onclick,
+    ...restProps
+  }: ComponentProps<typeof Button> & {
+    onclick?: (e: MouseEvent) => void;
+  } = $props();
+
+  const sidebar = useSidebar();
 </script>
 
 <Button
-	bind:ref
-	data-sidebar="trigger"
-	data-slot="sidebar-trigger"
-	variant="ghost"
-	size="icon-sm"
-	class={cn(className)}
-	type="button"
-	onclick={(e) => {
-		onclick?.(e);
-		sidebar.toggle();
-	}}
-	{...restProps}
+  bind:ref
+  data-sidebar="trigger"
+  data-slot="sidebar-trigger"
+  variant="ghost"
+  size="icon-sm"
+  class={cn(className)}
+  type="button"
+  onclick={(e) => {
+    onclick?.(e);
+    sidebar.toggle();
+  }}
+  {...restProps}
 >
-	<PanelLeftIcon class="cn-rtl-flip" />
-	<span class="sr-only">Toggle Sidebar</span>
+  <PanelLeftIcon class="cn-rtl-flip" />
+  <span class="sr-only">Toggle Sidebar</span>
 </Button>

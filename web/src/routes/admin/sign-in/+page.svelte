@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { goto } from '$app/navigation';
+
   import { enrollment, signIn } from '#lib/api/index.ts';
   import { attempt } from '#lib/auth/failure.ts';
   import { createPasskey, signWithPasskey, supportsPasskeys } from '#lib/auth/webauthn.ts';
@@ -7,7 +9,7 @@
   import * as Card from '#lib/components/ui/card/index.ts';
   import { Input } from '#lib/components/ui/input/index.ts';
   import { Label } from '#lib/components/ui/label/index.ts';
-  import { goto } from '$app/navigation';
+
   import type { PageProps } from './$types';
 
   let { data }: PageProps = $props();
@@ -88,7 +90,9 @@
       </Card.Header>
       <Card.Content>
         <Alert.Root variant="destructive" role="alert">
-          <Alert.Description>This browser cannot use passkeys. Use a current Chrome, Firefox, or Safari.</Alert.Description>
+          <Alert.Description
+            >This browser cannot use passkeys. Use a current Chrome, Firefox, or Safari.</Alert.Description
+          >
         </Alert.Root>
       </Card.Content>
     {:else if setupOpen}

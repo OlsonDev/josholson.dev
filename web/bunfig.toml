@@ -32,3 +32,10 @@ suspicious = "error"
 [test]
 root = "."
 pathIgnorePatterns = ["tests/**"]
+
+# `bun fmt` reads .prettierrc for the style, and this for what a Prettier config cannot say (ADR 0045). Imports are
+# sorted and grouped (packages, then `#lib/...`, then relative paths, a blank line between), and `.svelte` files are
+# formatted: without a Prettier config Bun does both by default, and with one it needs to be told.
+[fmt]
+sortImports = true
+svelte = true

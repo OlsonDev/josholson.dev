@@ -1,6 +1,7 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { key, newUses, refName, shapeOf, type Schema } from './shapes.ts';
+
+import { key, newUses, refName, type Schema, shapeOf } from './shapes.ts';
 
 // Writes the API client from the API's OpenAPI document:
 //   bun scripts/generate-api-client.ts <openapi.json> <output directory>        (`mise api:openapi` runs it)
@@ -307,13 +308,19 @@ function generateController(controller: string, operations: Found[]): Generated 
     .filter((name) => name !== 'Created')
     .toSorted();
   const schemaImport = schemaNames.map((name) => (imports.values.has(name) ? name : `type ${name}`)).join(', ');
-  const header = [
-    GENERATED,
+  // A blank line after the banner, or the formatter's import sorting takes it for the first import's own comment and
+  // moves it down with that import.
+  const importLines = [
     ...(schemaNames.length === 0 ? [] : [`import { ${schemaImport} } from './schema.ts';`]),
     `import { ${runtimeImport} } from './runtime/index.ts';`,
   ];
   const file = `${kebab(controller)}.ts`;
-  return { controller, file, name: controller, code: `${header.join('\n')}\n\n${functions.join('\n')}` };
+  return {
+    controller,
+    file,
+    name: controller,
+    code: `${GENERATED}\n\n${importLines.join('\n')}\n\n${functions.join('\n')}`,
+  };
 }
 
 const byController = new Map<string, Found[]>();

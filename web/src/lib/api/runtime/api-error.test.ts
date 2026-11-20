@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'bun:test';
+
 import { ApiError } from './api-error.ts';
 
 const validation = (errors: Record<string, string[]>): ApiError =>

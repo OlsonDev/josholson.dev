@@ -1,12 +1,13 @@
 <script lang="ts">
-  import { nullOnApiError, signIn } from '#lib/api/index.ts';
-  import type { CurrentUserResponse } from '#lib/api/schema.ts';
-  import { adminPages, isCurrent, passkeysPage } from '#lib/admin/navigation.ts';
-  import * as Sidebar from '#lib/components/ui/sidebar/index.ts';
   import { goto } from '$app/navigation';
   import { page } from '$app/state';
   import LogOutIcon from '@lucide/svelte/icons/log-out';
   import type { ComponentProps } from 'svelte';
+
+  import { adminPages, isCurrent, passkeysPage } from '#lib/admin/navigation.ts';
+  import { nullOnApiError, signIn } from '#lib/api/index.ts';
+  import type { CurrentUserResponse } from '#lib/api/schema.ts';
+  import * as Sidebar from '#lib/components/ui/sidebar/index.ts';
 
   let {
     user,

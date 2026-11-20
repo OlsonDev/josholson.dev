@@ -1,4 +1,5 @@
 import { expect, test } from 'bun:test';
+
 import { arrayOf, instant, objectOf, revive } from './revive.ts';
 
 function instantOf(value: unknown): Temporal.Instant {

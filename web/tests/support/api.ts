@@ -1,6 +1,7 @@
 import { randomBytes } from 'node:crypto';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
+
 import { apiEnvironment, e2eFile, root } from './environment.ts';
 
 // Starts the API for the Playwright tests on a database of its own, and stops it and drops the database afterwards. It is

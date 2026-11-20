@@ -1,6 +1,6 @@
 import { ApiError, type Problem } from './api-error.ts';
-import { withQuery, type Query } from './route.ts';
 import { revive, type Shape } from './revive.ts';
+import { type Query, withQuery } from './route.ts';
 
 /** Options every generated function takes last. */
 export type CallOptions = {

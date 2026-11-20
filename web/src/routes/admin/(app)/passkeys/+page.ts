@@ -1,5 +1,7 @@
-import { passkey } from '#lib/api/index.ts';
 import { redirect } from '@sveltejs/kit';
+
+import { passkey } from '#lib/api/index.ts';
+
 import type { PageLoad } from './$types';
 
 export const load: PageLoad = async () => {

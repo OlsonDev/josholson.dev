@@ -1,10 +1,12 @@
 <script lang="ts">
+  import { page } from '$app/state';
+
   import { pageAt } from '#lib/admin/navigation.ts';
   import AppSidebar from '#lib/components/app-sidebar.svelte';
   import * as Breadcrumb from '#lib/components/ui/breadcrumb/index.ts';
   import { Separator } from '#lib/components/ui/separator/index.ts';
   import * as Sidebar from '#lib/components/ui/sidebar/index.ts';
-  import { page } from '$app/state';
+
   import type { LayoutProps } from './$types';
 
   let { data, children }: LayoutProps = $props();

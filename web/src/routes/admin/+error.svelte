@@ -1,6 +1,7 @@
 <script lang="ts">
-  import * as Alert from '#lib/components/ui/alert/index.ts';
   import { page } from '$app/state';
+
+  import * as Alert from '#lib/components/ui/alert/index.ts';
 </script>
 
 <svelte:head>
