@@ -21,6 +21,8 @@ public static class Startup {
       ["ConnectionStrings:Default"] = TestDatabase.ConnectionString,
       ["Auth:CookieName"] = "session",
       ["Auth:CookieSecure"] = "false",
+      // No setup secret unless a test brings its own: a developer's `.env` has one for the browser, and must not leak in.
+      ["Auth:SetupSecret"] = "",
     };
     var configuration = new ConfigurationBuilder().AddInMemoryCollection(settings).Build();
     services
