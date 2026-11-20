@@ -63,13 +63,13 @@ public sealed class SeedHydratorTests {
     Assert.Equal(2001, next);
   }
 
-  // A layer that merges but that Postgres refuses (its tag has the slug of one of the root's), beside one that builds.
+  // A layer that merges but that Postgres refuses (its tag has the name of one of the root's), beside one that builds.
   [Fact]
   public async Task BuildProblemsAsync_LayerPostgresRefuses_NamesItInTheCallersWordsAndDropsEveryClone() {
     var schema = SeedTestServer.Schema;
     var databases = SeedTestServer.Databases;
     var refused = $"""
-      description: A tag with a slug the root has
+      description: A tag with a name the root has
       extends: {FixtureSeeds.Root}
       tables:
         tag.tag:

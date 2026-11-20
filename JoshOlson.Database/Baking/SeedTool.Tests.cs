@@ -47,7 +47,7 @@ public sealed class SeedToolTests : IAsyncLifetime {
       var tags = await clone.QuerySingleAsync<long>("SELECT count(*) FROM tag.tag;", _cancellationToken);
       // The root's tag with the color the child gave it.
       var color = await clone.QuerySingleAsync<string>(
-        "SELECT color FROM tag.tag WHERE slug = 'qux';",
+        "SELECT color FROM tag.tag WHERE name = 'Qux';",
         _cancellationToken);
       var anchors = await clone.QuerySingleAsync<long>("SELECT count(*) FROM seed.hydration;", _cancellationToken);
       var nextId = await clone.QuerySingleAsync<int>(FixtureSeeds.InsertTagReturningId("Foo"), _cancellationToken);

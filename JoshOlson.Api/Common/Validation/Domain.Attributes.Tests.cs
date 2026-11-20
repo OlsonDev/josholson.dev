@@ -38,6 +38,21 @@ public class DomainAttributesTests {
   public void HexColor_MatchesTheDomain(string value, bool expected)
     => Assert.Equal(expected, new HexColorAttribute().IsValid(value));
 
+  [Theory]
+  [InlineData("black", true)]
+  [InlineData("white", true)]
+  [InlineData("emerald-200", true)]
+  [InlineData("slate-950", true)]
+  [InlineData("", false)]
+  [InlineData("emerald", false)]
+  [InlineData("emerald-150", false)]
+  [InlineData("Emerald-200", false)]
+  [InlineData("foo-200", false)]
+  [InlineData("emerald-200\n", false)]
+  [InlineData("#a1b2c3", false)]
+  public void TailwindColor_MatchesTheDomain(string value, bool expected)
+    => Assert.Equal(expected, new TailwindColorAttribute().IsValid(value));
+
   [Fact]
   public void Null_PassesSoThatRequiredDecidesAlone()
     => Assert.True(new KebabCaseAttribute().IsValid(null));

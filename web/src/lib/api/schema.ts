@@ -49,6 +49,27 @@ export type CurrentUserResponse = {
   /** @description The name shown for the user. */
   displayName: string;
 };
+/**
+ * @description What deleting an item would affect, which the web's delete confirmation shows (`ConfirmDelete`, in
+ *     `web/src/lib/admin`). Blockers make the delete impossible: it is refused with this body. Warnings are consequences
+ *     the user should know about and accept, such as a tag being taken off every skill that uses it. Used by: tags.
+ */
+export type DeletionImpact = {
+  /** @description What prevents the delete. Empty when it can go ahead. */
+  blockers: DeletionImpactItem[];
+  /** @description What the delete would also change or remove. */
+  warnings: DeletionImpactItem[];
+};
+/** @description How many things of one kind refer to the item. */
+export type DeletionImpactItem = {
+  /** @description What kind of thing it is. */
+  kind: DeletionImpactKind;
+  /**
+   * Format: int32
+   * @description How many of them there are. Always at least 1.
+   */
+  count: number;
+};
 /** @description What a client sends to start enrolling a passkey with an enrollment token. */
 export type EnrollmentOptionsRequest = {
   /** @description The one-time enrollment token from setup. */
@@ -158,17 +179,38 @@ export type SignInRequest = {
 };
 /** @description What a client sends to create a tag or to replace one. */
 export type TagRequest = {
+  /**
+   * Format: int32
+   * @description The Version the client last read. When another save has changed the tag since, the replace is refused with 409,
+   *     so one person's edit does not silently undo another's. Null skips the check (an overwrite), and it is ignored when
+   *     creating.
+   */
+  expectedVersion: null | number;
   /** @description What the tag is called. Not empty, and no other tag has the same name, ignoring case. */
   name: string;
   /**
    * @description The tag as it appears in a URL: lowercase words joined by single hyphens, such as foo-bar-42. No other tag has the
-   *     same slug.
+   *     same slug, current or previous. Saving a different slug keeps the old one as a previous slug, so its URL still
+   *     works.
    */
   slug: string;
-  /** @description A sentence or two about the tag, or null for none. */
+  /** @description Markdown about the tag, or null for none. */
   description: null | string;
-  /** @description The tag's color as a lowercase hex code such as #a1b2c3, or null for none. */
+  /**
+   * @description The tag's color as a Tailwind color name for the light-mode background, such as emerald-200, black, or white. Required
+   *     when writing. Dark mode uses the mirrored weight (emerald-800).
+   */
   color: null | string;
+  /**
+   * @description Other names the tag goes by, such as JS for JavaScript. None is empty, and none is another tag's name or alias, or
+   *     this tag's own name, ignoring case.
+   */
+  aliases: string[];
+  /**
+   * @description The slugs the tag used to have, which redirect to the current one. When writing, the previous slugs to keep: one
+   *     left out is dropped, which frees it for any tag to use, and one the tag does not have is ignored.
+   */
+  previousSlugs: string[];
 };
 /** @description A tag as the API returns it. */
 export type TagResponse = {
@@ -177,17 +219,38 @@ export type TagResponse = {
    * @description The tag's ID, which its URL names.
    */
   tagId: number;
+  /** @description The description rendered to HTML that is safe to show as it is, or null when there is no description. */
+  descriptionHtml: null | string;
+  /**
+   * Format: int32
+   * @description How many times the tag has been saved, starting at 1. Send it back as ExpectedVersion to detect a save made in between.
+   */
+  version: number;
   /** @description What the tag is called. Not empty, and no other tag has the same name, ignoring case. */
   name: string;
   /**
    * @description The tag as it appears in a URL: lowercase words joined by single hyphens, such as foo-bar-42. No other tag has the
-   *     same slug.
+   *     same slug, current or previous. Saving a different slug keeps the old one as a previous slug, so its URL still
+   *     works.
    */
   slug: string;
-  /** @description A sentence or two about the tag, or null for none. */
+  /** @description Markdown about the tag, or null for none. */
   description: null | string;
-  /** @description The tag's color as a lowercase hex code such as #a1b2c3, or null for none. */
+  /**
+   * @description The tag's color as a Tailwind color name for the light-mode background, such as emerald-200, black, or white. Required
+   *     when writing. Dark mode uses the mirrored weight (emerald-800).
+   */
   color: null | string;
+  /**
+   * @description Other names the tag goes by, such as JS for JavaScript. None is empty, and none is another tag's name or alias, or
+   *     this tag's own name, ignoring case.
+   */
+  aliases: string[];
+  /**
+   * @description The slugs the tag used to have, which redirect to the current one. When writing, the previous slugs to keep: one
+   *     left out is dropped, which frees it for any tag to use, and one the tag does not have is ignored.
+   */
+  previousSlugs: string[];
 };
 export type ValidationProblemDetails = {
   type?: null | string;
@@ -202,6 +265,12 @@ export type ValidationProblemDetails = {
   /** @description The ID of the request, for finding it in the logs. */
   traceId?: string;
 };
+export enum DeletionImpactKind {
+  Work = 1,
+  Project = 2,
+  Skill = 3,
+  Post = 4,
+}
 export enum PasskeyTransport {
   Usb = 1,
   Nfc = 2,

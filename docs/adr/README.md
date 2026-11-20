@@ -65,3 +65,4 @@ Template:
 - [0043](0043-generated-api-client.md): A generated API client of standalone functions (tree-shakeable), with a configured `fetch`, in-flight requests shared for every method, `ApiError`, and instants as `Temporal.Instant`
 - [0044](0044-first-passkey-from-the-browser-with-a-setup-secret.md): The first passkey is registered from the browser with a setup secret that works only while no passkey exists, replacing the CLI token, and a passkey's nickname goes onto the key
 - [0045](0045-tailwind-css-and-shadcn-svelte.md): Tailwind CSS site-wide and shadcn-svelte components copied into the project, with `.ts` imports, for the admin and the public pages
+- [0046](0046-tag-slug-history-versions-and-rendered-markdown.md): Tag slugs keep a history that redirects with `308`, a save is checked against a version (`409`), Markdown is rendered and sanitized when it is written, color is a Tailwind name, and a delete reports its blockers and warnings

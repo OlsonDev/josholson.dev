@@ -36,3 +36,14 @@ public sealed class HexColorAttribute : DomainPatternAttribute {
   public HexColorAttribute()
     : base(@"^#[0-9a-f]{6}\z", "{0} must be a lowercase hex color such as '#a1b2c3'.") { }
 }
+
+// color.tailwind. The families are the domain's own list: a Tailwind release that adds or renames one needs a migration
+// and a change here and in `web/src/lib/tags/colors.ts`, which a test there compares with the migration.
+[AttributeUsage(AttributeTargets.Property | AttributeTargets.Field | AttributeTargets.Parameter)]
+public sealed class TailwindColorAttribute : DomainPatternAttribute {
+  public TailwindColorAttribute()
+    : base(
+      @"^(black|white|(red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose|slate|gray|zinc|neutral|stone|taupe|mauve|mist|olive)-(50|100|200|300|400|500|600|700|800|900|950))\z",
+      "{0} must be a Tailwind color such as 'emerald-200', 'black', or 'white'."
+    ) { }
+}

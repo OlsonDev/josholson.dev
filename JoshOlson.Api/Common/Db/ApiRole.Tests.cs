@@ -56,25 +56,24 @@ public class ApiRoleTests {
   [Fact]
   public async Task Rows_CanBeInsertedUpdatedAndDeleted() {
     await using var transaction = await _connection.BeginTransactionAsync(_cancellationToken);
-    var slug = $"test-{Guid.NewGuid():N}";
+    var name = $"test-{Guid.NewGuid():N}";
 
     var insertSql = """
       INSERT INTO tag.tag (
           name
-        , slug
       ) VALUES (
           $1
-        , $1
       )
       RETURNING tag_id;
       """;
     await using var insert = new NpgsqlCommand(insertSql, _connection, transaction) {
-      Parameters = { new() { Value = slug } },
+      Parameters = { new() { Value = name } },
     };
     var tagId = (int)(await insert.ExecuteScalarAsync(_cancellationToken))!;
     var updateSql = """
       UPDATE tag.tag AS t SET
-          description  = 'foo'
+          description       = 'foo'
+        , description_html  = '<p>foo</p>'
       WHERE t.tag_id = $1;
       """;
     await using var update = new NpgsqlCommand(updateSql, _connection, transaction) {

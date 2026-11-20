@@ -37,7 +37,17 @@ test('a response with instants in it, through its schema constant, has Temporal.
 });
 
 test('a response with no instants is returned as it was sent', async () => {
-  const foo = { tagId: 3, name: 'Foo', slug: 'foo', description: null, color: null };
+  const foo = {
+    tagId: 3,
+    name: 'Foo',
+    slug: 'foo',
+    description: null,
+    descriptionHtml: null,
+    color: null,
+    version: 1,
+    aliases: [],
+    previousSlugs: [],
+  };
   configureApi({ baseUrl: 'https://api.test', fetch: () => reply(foo) });
 
   expect(await tag.get({ tagId: 3 })).toEqual(foo);

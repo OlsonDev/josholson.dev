@@ -23,7 +23,7 @@ public sealed class SeedApplierTests {
               - { alias_id: 900001, tag_id: 900001, name: Quux }
           tag.tag:
             insert:
-              - { tag_id: 900001, name: Corge, slug: seed-applier-corge, description: ~, color: ~ }
+              - { tag_id: 900001, name: Corge, description: ~, description_html: ~, color: ~, version: 1 }
         """,
         schema).OrThrow(),
       LayerParser.Parse(
@@ -34,7 +34,7 @@ public sealed class SeedApplierTests {
         tables:
           tag.tag:
             update:
-              - { tag_id: 900001, description: Grault }
+              - { tag_id: 900001, description: Grault, description_html: "<p>Grault</p>" }
         """,
         schema).OrThrow(),
     ]);

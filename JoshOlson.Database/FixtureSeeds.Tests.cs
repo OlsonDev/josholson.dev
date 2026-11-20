@@ -86,26 +86,22 @@ public static class FixtureSeeds {
     return workspace;
   }
 
-  // A `tag.tag` row as a layer writes it, which names every column. The slug is the name in lower case.
+  // A `tag.tag` row as a layer writes it, which names every column.
   public static string TagRow(int id, string name, string color = "~")
-    => $"{{ tag_id: {id.ToInvariantString()}, name: {name}, slug: {Slug(name)}, description: ~, color: {color} }}";
+    => $"{{ tag_id: {id.ToInvariantString()}, name: {name}, description: ~, description_html: ~, color: {color}, version: 1 }}";
 
   // SQL that makes a tag the way the app would, its ID from the sequence. The name is a test's own literal, never data
   // from outside, which is why it may be written into the text.
   public static string InsertTag(string name)
-    => $"INSERT INTO tag.tag (name, slug) VALUES ('{name}', '{Slug(name)}');";
+    => $"INSERT INTO tag.tag (name) VALUES ('{name}');";
 
   // The same, returning the ID the sequence gave it.
   public static string InsertTagReturningId(string name)
-    => $"INSERT INTO tag.tag (name, slug) VALUES ('{name}', '{Slug(name)}') RETURNING tag_id;";
+    => $"INSERT INTO tag.tag (name) VALUES ('{name}') RETURNING tag_id;";
 
   // The same with an ID the test chose.
   public static string InsertTagWithId(int id, string name)
-    => "INSERT INTO tag.tag (tag_id, name, slug) OVERRIDING SYSTEM VALUE "
-      + $"VALUES ({id.ToInvariantString()}, '{name}', '{Slug(name)}');";
-
-  private static string Slug(string name)
-    => name.ToLowerInvariant().Replace(' ', '-');
+    => $"INSERT INTO tag.tag (tag_id, name) OVERRIDING SYSTEM VALUE VALUES ({id.ToInvariantString()}, '{name}');";
 }
 
 public sealed class FixtureSeedsTests {

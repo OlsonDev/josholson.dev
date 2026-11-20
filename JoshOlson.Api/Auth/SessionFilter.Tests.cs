@@ -20,6 +20,7 @@ public class SessionFilterTests {
     "SignInController.SignOut",
     "TagController.Get",
     "TagController.GetAll",
+    "TagController.GetBySlug",
   ];
 
   private readonly CancellationToken _cancellationToken = TestContext.Current.CancellationToken;

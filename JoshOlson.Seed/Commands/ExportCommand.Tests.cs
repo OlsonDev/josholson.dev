@@ -79,12 +79,12 @@ public sealed class ExportCommandTests : IAsyncLifetime {
     Assert.True(againCode is 0, again);
     Assert.Contains("Replaced", again, StringComparison.Ordinal);
     Assert.StartsWith($"description: Foo bar\nextends: {FixtureSeeds.Root}\n", replaced, StringComparison.Ordinal);
-    Assert.Contains("zed", replaced, StringComparison.Ordinal);
-    Assert.Contains("quux", replaced, StringComparison.Ordinal);
+    Assert.Contains("Zed", replaced, StringComparison.Ordinal);
+    Assert.Contains("Quux", replaced, StringComparison.Ordinal);
 
     Assert.Equal(1, refusedCode);
     Assert.Contains("already a layer named 'foo-bar'", refused, StringComparison.Ordinal);
     Assert.True(overwrittenCode is 0, overwritten);
-    Assert.Contains("plugh", overwrote, StringComparison.Ordinal);
+    Assert.Contains("Plugh", overwrote, StringComparison.Ordinal);
   }
 }

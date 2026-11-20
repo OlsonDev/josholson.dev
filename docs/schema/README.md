@@ -66,7 +66,8 @@
 | Table                          | Columns |
 | ------------------------------ | ------: |
 | [`tag.alias`][table:tag.alias] |       3 |
-| [`tag.tag`][table:tag.tag]     |       5 |
+| [`tag.slug`][table:tag.slug]   |       5 |
+| [`tag.tag`][table:tag.tag]     |       6 |
 
 ## Domains
 
@@ -126,6 +127,7 @@ erDiagram
 "resume.work__tag__tag" }o--|| "tag.tag" : "tag_id"
 "resume.work__tag__tag" }o--|| "resume.work" : "work_id"
 "tag.alias" }o--|| "tag.tag" : "tag_id"
+"tag.slug" }o--|| "tag.tag" : "tag_id"
 ```
 
 ---
@@ -176,4 +178,5 @@ erDiagram
 [table:resume.work]: resume.work.md
 [table:resume.work__tag__tag]: resume.work__tag__tag.md
 [table:tag.alias]: tag.alias.md
+[table:tag.slug]: tag.slug.md
 [table:tag.tag]: tag.tag.md

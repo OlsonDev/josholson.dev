@@ -26,18 +26,18 @@ public sealed class SeedToolCheckTests {
 
   [Fact]
   public async Task CheckFilesAsync_LayerNotInCanonicalForm_SaysWhereAndSkipsTheLayersBelowIt() {
-    var problems = await CheckWithAsync(FixtureSeeds.Root, "slug: ", "slug:  ");
+    var problems = await CheckWithAsync(FixtureSeeds.Root, "name: ", "name:  ");
 
     var problem = Assert.Single(problems);
     Assert.StartsWith($"{FixtureSeeds.Root}: ", problem, StringComparison.Ordinal);
     Assert.Contains("is not in canonical form (line ", problem, StringComparison.Ordinal);
-    Assert.Contains("slug:  ", problem, StringComparison.Ordinal);
+    Assert.Contains("name:  ", problem, StringComparison.Ordinal);
   }
 
   [Fact]
   public async Task CheckFilesAsync_LayerThatDoesNotBuild_NamesItAndWhy() {
-    // The merge accepts two tags with the same slug; the unique constraint only shows when Postgres sees the rows.
-    var problems = await CheckWithAsync(FixtureSeeds.Child, "slug: waldo,", "slug: xyzzy,");
+    // The merge accepts two tags with the same name; the unique constraint only shows when Postgres sees the rows.
+    var problems = await CheckWithAsync(FixtureSeeds.Child, "name: Waldo,", "name: Xyzzy,");
 
     Assert.Contains(problems, problem => problem.StartsWith($"{FixtureSeeds.Child}: ", StringComparison.Ordinal));
   }

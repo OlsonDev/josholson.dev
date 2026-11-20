@@ -25,6 +25,8 @@
     <PackageReference Include="Dapper" />
     <PackageReference Include="Fido2" />
     <PackageReference Include="Flurl.Http" />
+    <PackageReference Include="HtmlSanitizer" />
+    <PackageReference Include="Markdig" />
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
     <PackageReference Include="Microsoft.CodeAnalysis.BannedApiAnalyzers" PrivateAssets="all" />
     <PackageReference Include="NodaTime" />

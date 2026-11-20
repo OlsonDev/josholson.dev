@@ -64,9 +64,10 @@ erDiagram
 "tag.tag" {
   INTEGER tag_id PK
   text.trimmed name
-  text.kebab_case slug UK
   text.trimmed description
+  TEXT description_html
   color.tailwind color
+  INTEGER version
 }
 ```
 

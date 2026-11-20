@@ -53,7 +53,7 @@ public sealed class CheckCommandTests {
   [Fact]
   public async Task Execute_LayerNotInCanonicalForm_IsListedAndExitsOne() {
     using var workspace = await FixtureSeeds.WorkspaceAsync(_cancellationToken);
-    var padded = FixtureSeeds.RootLayer.Replace("slug: ", "slug:  ", StringComparison.Ordinal);
+    var padded = FixtureSeeds.RootLayer.Replace("name: ", "name:  ", StringComparison.Ordinal);
     await workspace.WriteLayerAsync(FixtureSeeds.Root, padded, _cancellationToken);
 
     var (exitCode, output) = await SeedAppRunner.RunAsync(workspace, "check");

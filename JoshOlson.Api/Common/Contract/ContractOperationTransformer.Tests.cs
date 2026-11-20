@@ -42,6 +42,12 @@ public partial class ContractOperationTransformerTests : IAsyncLifetime {
     return operations;
   }
 
+  // Whether a response's only body is the DeletionImpact schema.
+  private static bool IsDeletionImpact(JsonElement content)
+    => content.EnumerateObject().Any(media => media.Value.TryGetProperty("schema", out var schema)
+                                           && schema.TryGetProperty("$ref", out var reference)
+                                           && reference.GetString()!.EndsWith("/DeletionImpact", StringComparison.Ordinal));
+
   private static List<string> Statuses(JsonElement operation)
     => [.. operation.GetProperty("responses").EnumerateObject().Select(response => response.Name)];
 
@@ -78,6 +84,8 @@ public partial class ContractOperationTransformerTests : IAsyncLifetime {
       operation => {
         foreach (var response in operation.Value.GetProperty("responses").EnumerateObject()) {
           if (!response.Name.StartsWith('4') || !response.Value.TryGetProperty("content", out var content)) continue;
+          // A refused delete answers with what blocks it, which is a result the client reads, not an error's details.
+          if (IsDeletionImpact(content)) continue;
           Assert.Equal([ProblemContentType.Name], content.EnumerateObject().Select(media => media.Name));
         }
       });

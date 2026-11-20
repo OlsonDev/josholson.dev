@@ -122,11 +122,9 @@ public sealed class LayerExporterTests : IAsyncLifetime {
       """
       INSERT INTO tag.tag (
           name
-        , slug
         , color
       ) VALUES (
           'Zed'
-        , 'zed'
         , 'red-200'
       );
 

@@ -20,7 +20,7 @@ migrations:
     checksum: dd36f70a71281874909cb44647108fa08a023807d1b991066ee2b9c8b5432a8e
   - version: 7
     file: V007__tag.sql
-    checksum: 4a31177fff5d7c1b92f172f455fbf1e3242e5aec095da2d70e5245c0a84680f0
+    checksum: e1842b45edf7473b6dc7d42127acab18b83639c613770093d8357d7f13ed235b
   - version: 8
     file: V008__http.sql
     checksum: 9ffe1c6658a5831bead8eb18fbca8812395445b18eca9c10713de655dfbe2491
@@ -36,9 +36,7 @@ migrations:
   - version: 12
     file: V012__blog.sql
     checksum: 4c14effeb9fbb03c83f290a10947d3518b72e14a5e2f83ada4fe41055c7748be
-layers:
-  minimal: 3e93954f1677b07eb9fbfc22582ef5c0044b621a8aa1e88cf5ad78ba3d6e6df9
-  more-tags: 742bb6b292c6d849403f88021d3dde49581975cf4bedd522182aff97eb542fd9
+layers: {}
 domains:
   color.hex:
     type: text
@@ -702,16 +700,33 @@ tables:
     indexes:
       - { name: ix_alias_tag_id, definition: "CREATE INDEX ix_alias_tag_id ON tag.alias USING btree (tag_id)" }
       - { name: ux_alias_name_lower, definition: "CREATE UNIQUE INDEX ux_alias_name_lower ON tag.alias USING btree (lower((name)::text))" }
+  tag.slug:
+    columns:
+      - { name: slug_id, type: integer, generated_as: identity-always }
+      - { name: tag_id, type: integer }
+      - { name: slug, type: text.kebab_case }
+      - { name: is_canonical, type: boolean, default_expression: false }
+      - { name: created_utc, type: timestamptz, default_expression: "now()", policy: relative }
+    primary_key: [slug_id]
+    primary_key_name: pk_slug
+    unique:
+      - { name: uq_slug_slug, columns: [slug], definition: "UNIQUE (slug)" }
+    foreign_keys:
+      - { name: fk_slug__tag, columns: [tag_id], references: tag.tag, referenced_columns: [tag_id], on_delete: cascade }
+    indexes:
+      - { name: ix_slug_tag_id, definition: "CREATE INDEX ix_slug_tag_id ON tag.slug USING btree (tag_id)" }
+      - { name: ux_slug_one_canonical_per_tag, definition: "CREATE UNIQUE INDEX ux_slug_one_canonical_per_tag ON tag.slug USING btree (tag_id) WHERE is_canonical" }
   tag.tag:
     columns:
       - { name: tag_id, type: integer, generated_as: identity-always }
       - { name: name, type: text.trimmed }
-      - { name: slug, type: text.kebab_case }
       - { name: description, type: text.trimmed, nullable: true }
+      - { name: description_html, type: text, nullable: true }
       - { name: color, type: color.tailwind, nullable: true }
+      - { name: version, type: integer, default_expression: 1 }
     primary_key: [tag_id]
     primary_key_name: pk_tag
-    unique:
-      - { name: uq_tag_slug, columns: [slug], definition: "UNIQUE (slug)" }
+    checks:
+      - { name: ck_tag_description_html_together, expression: "CHECK (((description IS NULL) = (description_html IS NULL)))" }
     indexes:
       - { name: ux_tag_name_lower, definition: "CREATE UNIQUE INDEX ux_tag_name_lower ON tag.tag USING btree (lower((name)::text))" }

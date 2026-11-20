@@ -20,5 +20,5 @@ One global `tag.tag` table plus `tag.alias` for alternate names. Each entity has
 ## Consequences
 
 - The admin editor for a resume's skills lists every tag, including blog-only ones; accepted as noise.
-- Tag and alias names are unique case-insensitively, but nothing stops an alias from equalling another tag's name.
+- Tag and alias names are unique case-insensitively. The API refuses an alias that equals another tag's name or alias, or the tag's own name ([ADR 0046, slug history, versions, and rendered Markdown](0046-tag-slug-history-versions-and-rendered-markdown.md)); the database does not.
 - Deleting a tag cascades to its junction rows.
