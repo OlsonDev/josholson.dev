@@ -268,3 +268,16 @@ run = "bun x playwright test --headed"
 description = "Run web/'s Playwright tests in Playwright's UI: a timeline and a snapshot of every step"
 dir = "web"
 run = "bun x playwright test --ui"
+
+# shadcn-svelte components are copied into web/src/lib/components/ui and are ours (ADR 0045). This adds one, rewrites the
+# CLI's `.js` imports to `.ts`, and formats it: mise web:ui:add card table
+[tasks."web:ui:add"]
+description = "Add shadcn-svelte components to web/src/lib/components/ui, e.g. mise web:ui:add card table"
+dir = "web"
+run = "bun scripts/add-ui.ts"
+
+# How our shadcn-svelte components differ from what the CLI copies in today; changes nothing (ADR 0045): mise web:ui:diff [component]...
+[tasks."web:ui:diff"]
+description = "Show how web/'s shadcn-svelte components differ from what the CLI copies in today (changes nothing)"
+dir = "web"
+run = "bun scripts/diff-ui.ts"

@@ -64,3 +64,4 @@ Template:
 - [0042](0042-openapi-contract-and-enum-numbers.md): The OpenAPI document and the TypeScript types generated from it, with enums as numbers on the wire and names in the types
 - [0043](0043-generated-api-client.md): A generated API client of standalone functions (tree-shakeable), with a configured `fetch`, in-flight requests shared for every method, `ApiError`, and instants as `Temporal.Instant`
 - [0044](0044-first-passkey-from-the-browser-with-a-setup-secret.md): The first passkey is registered from the browser with a setup secret that works only while no passkey exists, replacing the CLI token, and a passkey's nickname goes onto the key
+- [0045](0045-tailwind-css-and-shadcn-svelte.md): Tailwind CSS site-wide and shadcn-svelte components copied into the project, with `.ts` imports, for the admin and the public pages

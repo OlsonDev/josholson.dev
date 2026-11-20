@@ -4,6 +4,14 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="text-scale" content="scale" />
+    <script>
+      // The theme follows the system. shadcn-svelte's dark variant is a class, so it is set here, before the first paint,
+      // and kept in step when the system changes.
+      const dark = matchMedia('(prefers-color-scheme: dark)');
+      const apply = () => document.documentElement.classList.toggle('dark', dark.matches);
+      apply();
+      dark.addEventListener('change', apply);
+    </script>
     %sveltekit.head%
   </head>
   <body data-sveltekit-preload-data="hover">
