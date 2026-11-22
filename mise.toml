@@ -282,8 +282,8 @@ description = "Show how web/'s shadcn-svelte components differ from what the CLI
 dir = "web"
 run = "bun scripts/diff-ui.ts"
 
-# The sRGB color of every Tailwind palette color a tag can have, for the picker's contrast ratios (src/lib/tags/palette.generated.ts) and for painting a chip (palette.generated.css). Rerun after upgrading Tailwind.
+# The sRGB color of every Tailwind palette color, for contrast ratios (src/lib/palette/palette.generated.ts) and for painting (palette.generated.css). Rerun after upgrading Tailwind.
 [tasks."web:palette"]
-description = "Regenerate web/src/lib/tags/palette.generated.{ts,css} from Tailwind's theme"
+description = "Regenerate web/src/lib/palette/palette.generated.{ts,css} from Tailwind's theme"
 dir = "web"
-run = "bun scripts/generate-tag-palette.ts && bun fmt src/lib/tags/palette.generated.ts src/lib/tags/palette.generated.css"
+run = "bun scripts/generate-palette.ts && bun fmt src/lib/palette/palette.generated.ts src/lib/palette/palette.generated.css"

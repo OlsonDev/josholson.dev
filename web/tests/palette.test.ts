@@ -3,7 +3,7 @@ import { join } from 'node:path';
 
 import { expect, test } from '@playwright/test';
 
-import { palette } from '../src/lib/tags/palette.generated.ts';
+import { palette } from '../src/lib/palette/palette.generated.ts';
 
 // The generated palette (culori's sRGB for Tailwind's OKLCH colors) against what Chrome paints for the same colors: a
 // canvas fills each one and its pixel is read back. Rounding in Chrome's own math may differ by one step in a channel,

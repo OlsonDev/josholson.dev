@@ -10,13 +10,11 @@ import {
   families,
   formatRatio,
   hexOf,
-  isTagColor,
+  isPaletteColor,
   mirror,
   offeredWeights,
   parseColor,
   storedWeight,
-  tagColors,
-  tagStyle,
   textCandidates,
   weights,
 } from './colors.ts';
@@ -34,11 +32,11 @@ describe('the database domain', () => {
 
   test('every family and weight has a color, and so do black and white', () => {
     for (const family of families)
-      for (const weight of weights) expect(isTagColor(colorName(family, weight))).toBe(true);
-    expect(isTagColor('black')).toBe(true);
-    expect(isTagColor('white')).toBe(true);
-    expect(isTagColor('emerald-150')).toBe(false);
-    expect(isTagColor('foo-200')).toBe(false);
+      for (const weight of weights) expect(isPaletteColor(colorName(family, weight))).toBe(true);
+    expect(isPaletteColor('black')).toBe(true);
+    expect(isPaletteColor('white')).toBe(true);
+    expect(isPaletteColor('emerald-150')).toBe(false);
+    expect(isPaletteColor('foo-200')).toBe(false);
   });
 });
 
@@ -134,23 +132,5 @@ describe('contrast', () => {
     expect(bestText('emerald-800')).toBe('white');
     expect(bestText('white')).toBe('black');
     expect(bestText('black')).toBe('white');
-  });
-});
-
-describe('a tag in both modes', () => {
-  test('stores light, mirrors for dark, and picks text for each', () => {
-    expect(tagColors('emerald-200')).toEqual({
-      light: { background: 'emerald-200', text: 'black' },
-      dark: { background: 'emerald-800', text: 'white' },
-    });
-    expect(tagColors(null)).toBeNull();
-    expect(tagColors('nonsense')).toBeNull();
-  });
-
-  test('is painted with custom properties that name palette variables, never a built class name', () => {
-    expect(tagStyle('emerald-200')).toBe(
-      '--tag-bg: var(--tag-color-emerald-200); --tag-fg: var(--tag-color-black); --tag-bg-dark: var(--tag-color-emerald-800); --tag-fg-dark: var(--tag-color-white)',
-    );
-    expect(tagStyle(null)).toBe('');
   });
 });

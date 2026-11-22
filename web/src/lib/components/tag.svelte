@@ -1,7 +1,7 @@
 <script lang="ts">
   import RenderedMarkdown from '#lib/components/rendered-markdown.svelte';
   import * as HoverCard from '#lib/components/ui/hover-card/index.ts';
-  import { tagStyle } from '#lib/tags/colors.ts';
+  import { tagStyle } from '#lib/tags/tag-style.ts';
   import { cn } from '#lib/utils.ts';
 
   // A tag as a colored chip, the same on the public pages and in the admin. The color is the tag's light-mode background and

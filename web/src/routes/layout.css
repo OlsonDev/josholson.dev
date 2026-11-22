@@ -2,7 +2,7 @@
 @import 'tw-animate-css';
 @import 'shadcn-svelte/tailwind.css';
 @import '@fontsource-variable/inter';
-@import '../lib/tags/palette.generated.css';
+@import '../lib/palette/palette.generated.css';
 
 @custom-variant dark (&:is(.dark *));
 

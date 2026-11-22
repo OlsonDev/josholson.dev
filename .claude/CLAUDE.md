@@ -181,7 +181,7 @@ mise web:ui:add <component>...
 mise web:ui:diff [component]...
 ```
 
-Regenerate the palette the tag colors are computed and painted from (`web/src/lib/tags/palette.generated.{ts,css}`, from Tailwind's theme) after upgrading Tailwind:
+Regenerate the palette that contrast ratios are computed from and colors are painted with (`web/src/lib/palette/palette.generated.{ts,css}`, from Tailwind's theme) after upgrading Tailwind:
 
 ```
 mise web:palette
