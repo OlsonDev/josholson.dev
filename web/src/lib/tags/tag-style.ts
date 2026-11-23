@@ -1,4 +1,4 @@
-import { bestText, isPaletteColor, mirror, type PaletteColor } from '#lib/palette/colors.ts';
+import { bestText, isPaletteColor, mirror, type PaletteColor, paletteVar } from '#lib/palette/colors.ts';
 
 /** A tag's colors in both modes: what is stored for light, its mirror for dark, and the text for each. */
 export type TagColors = {
@@ -16,8 +16,6 @@ export function tagColors(stored: PaletteColor | null): TagColors | null {
   };
 }
 
-const variable = (name: PaletteColor): string => `var(--palette-${name})`;
-
 /**
  * The inline style that paints a chip: four custom properties, which the chip's classes (`bg-(--tag-bg)`,
  * `dark:bg-(--tag-bg-dark)`) read. They name the palette's custom properties (`palette.generated.css`, imported by
@@ -27,9 +25,9 @@ export function tagStyle(stored: PaletteColor | null): string {
   const colors = tagColors(stored);
   if (colors === null) return '';
   return [
-    `--tag-bg: ${variable(colors.light.background)}`,
-    `--tag-fg: ${variable(colors.light.text)}`,
-    `--tag-bg-dark: ${variable(colors.dark.background)}`,
-    `--tag-fg-dark: ${variable(colors.dark.text)}`,
+    `--tag-bg: ${paletteVar(colors.light.background)}`,
+    `--tag-fg: ${paletteVar(colors.light.text)}`,
+    `--tag-bg-dark: ${paletteVar(colors.dark.background)}`,
+    `--tag-fg-dark: ${paletteVar(colors.dark.text)}`,
   ].join('; ');
 }

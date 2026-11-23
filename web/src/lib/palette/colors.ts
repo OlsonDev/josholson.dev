@@ -87,6 +87,16 @@ export function mirror(name: PaletteColor): PaletteColor {
   return parsed === null ? name : colorName(parsed.family, 1000 - parsed.weight);
 }
 
+/** The color a stored one is painted as in a mode: itself in light mode, its mirror in dark mode. */
+export function paintedAs(stored: PaletteColor, mode: Mode): PaletteColor {
+  return mode === 'light' ? stored : mirror(stored);
+}
+
+/** The CSS value that paints a palette color: its custom property from `palette.generated.css`. */
+export function paletteVar(name: PaletteColor): string {
+  return `var(--palette-${name})`;
+}
+
 /** The sRGB hex of a palette color. */
 export function hexOf(name: PaletteColor): string {
   const hex = palette[name];
