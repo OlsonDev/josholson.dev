@@ -127,4 +127,17 @@
   html {
     @apply font-sans;
   }
+  /* The page says which it is, so the browser draws its own parts (scrollbars, form controls, autofill) to match. The
+     `dark` class is set from the system before the first paint (app.html). */
+  :root {
+    color-scheme: light;
+  }
+  .dark {
+    color-scheme: dark;
+  }
+  /* Thin scrollbars in a color from the theme, the same in every browser. */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in oklch, var(--foreground) 30%, transparent) transparent;
+  }
 }

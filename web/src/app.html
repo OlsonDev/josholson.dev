@@ -4,6 +4,19 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="text-scale" content="scale" />
+    <!-- Before any stylesheet has arrived (a page drawn in the browser has none until its script runs), the page is already
+         the color of the mode, and not a flash of white: the browser's own default follows the system (the meta tag), and
+         ours is the theme's background, so it does not change a shade when the styles land. Keep it in step with
+         --background in layout.css. -->
+    <meta name="color-scheme" content="light dark" />
+    <style>
+      html {
+        background: oklch(1 0 0);
+      }
+      html.dark {
+        background: oklch(0.145 0 0);
+      }
+    </style>
     <script>
       // The theme follows the system. shadcn-svelte's dark variant is a class, so it is set here, before the first paint,
       // and kept in step when the system changes.
