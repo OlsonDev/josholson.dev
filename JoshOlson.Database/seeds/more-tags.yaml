@@ -1,49 +1,49 @@
 description: Adds the rest of the tag kinds the skills, work, projects, and posts are sorted by, and spells out Language
-extends: minimal
+extends: some-tags
 tables:
   tag.slug:
     insert:
-      - { slug_id: 1001, tag_id: 1001, slug: framework, is_canonical: true, created_utc: 0s }
-      - { slug_id: 1002, tag_id: 1002, slug: library, is_canonical: true, created_utc: 0s }
-      - { slug_id: 1003, tag_id: 1003, slug: standard, is_canonical: true, created_utc: 0s }
-      - { slug_id: 1004, tag_id: 1004, slug: project-management, is_canonical: true, created_utc: 0s }
-      - { slug_id: 1005, tag_id: 1005, slug: platform, is_canonical: true, created_utc: 0s }
-      - { slug_id: 1006, tag_id: 1006, slug: cloud, is_canonical: true, created_utc: 0s }
-      - { slug_id: 1007, tag_id: 1007, slug: protocol, is_canonical: true, created_utc: 0s }
-      - { slug_id: 1008, tag_id: 1008, slug: format, is_canonical: true, created_utc: 0s }
-      - { slug_id: 1009, tag_id: 1009, slug: methodology, is_canonical: true, created_utc: 0s }
-      - { slug_id: 1010, tag_id: 1010, slug: architecture, is_canonical: true, created_utc: 0s }
-      - { slug_id: 1011, tag_id: 1011, slug: testing, is_canonical: true, created_utc: 0s }
-      - { slug_id: 1012, tag_id: 1012, slug: security, is_canonical: true, created_utc: 0s }
-      - { slug_id: 1013, tag_id: 1013, slug: observability, is_canonical: true, created_utc: 0s }
-      - { slug_id: 1014, tag_id: 1014, slug: devops, is_canonical: true, created_utc: 0s }
-      - { slug_id: 1015, tag_id: 1015, slug: operating-system, is_canonical: true, created_utc: 0s }
-      - { slug_id: 1016, tag_id: 1016, slug: hardware, is_canonical: true, created_utc: 0s }
-      - { slug_id: 1017, tag_id: 1017, slug: accessibility, is_canonical: true, created_utc: 0s }
-      - { slug_id: 1018, tag_id: 1018, slug: leadership, is_canonical: true, created_utc: 0s }
-      - { slug_id: 1019, tag_id: 1019, slug: communication, is_canonical: true, created_utc: 0s }
+      - { slug_id: 2001, tag_id: 2001, slug: framework, is_canonical: true, created_utc: 0s }
+      - { slug_id: 2002, tag_id: 2002, slug: library, is_canonical: true, created_utc: 0s }
+      - { slug_id: 2003, tag_id: 2003, slug: standard, is_canonical: true, created_utc: 0s }
+      - { slug_id: 2004, tag_id: 2004, slug: project-management, is_canonical: true, created_utc: 0s }
+      - { slug_id: 2005, tag_id: 2005, slug: platform, is_canonical: true, created_utc: 0s }
+      - { slug_id: 2006, tag_id: 2006, slug: cloud, is_canonical: true, created_utc: 0s }
+      - { slug_id: 2007, tag_id: 2007, slug: protocol, is_canonical: true, created_utc: 0s }
+      - { slug_id: 2008, tag_id: 2008, slug: format, is_canonical: true, created_utc: 0s }
+      - { slug_id: 2009, tag_id: 2009, slug: methodology, is_canonical: true, created_utc: 0s }
+      - { slug_id: 2010, tag_id: 2010, slug: architecture, is_canonical: true, created_utc: 0s }
+      - { slug_id: 2011, tag_id: 2011, slug: testing, is_canonical: true, created_utc: 0s }
+      - { slug_id: 2012, tag_id: 2012, slug: security, is_canonical: true, created_utc: 0s }
+      - { slug_id: 2013, tag_id: 2013, slug: observability, is_canonical: true, created_utc: 0s }
+      - { slug_id: 2014, tag_id: 2014, slug: devops, is_canonical: true, created_utc: 0s }
+      - { slug_id: 2015, tag_id: 2015, slug: operating-system, is_canonical: true, created_utc: 0s }
+      - { slug_id: 2016, tag_id: 2016, slug: hardware, is_canonical: true, created_utc: 0s }
+      - { slug_id: 2017, tag_id: 2017, slug: accessibility, is_canonical: true, created_utc: 0s }
+      - { slug_id: 2018, tag_id: 2018, slug: leadership, is_canonical: true, created_utc: 0s }
+      - { slug_id: 2019, tag_id: 2019, slug: communication, is_canonical: true, created_utc: 0s }
     update:
-      - { slug_id: 2, slug: programming-language }
+      - { slug_id: 1002, slug: programming-language }
   tag.tag:
     insert:
-      - { tag_id: 1001, name: Framework, description: ~, description_html: ~, color: sky-200, version: 1 }
-      - { tag_id: 1002, name: Library, description: ~, description_html: ~, color: cyan-200, version: 1 }
-      - { tag_id: 1003, name: Standard, description: ~, description_html: ~, color: slate-200, version: 1 }
-      - { tag_id: 1004, name: Project Management, description: ~, description_html: ~, color: orange-200, version: 1 }
-      - { tag_id: 1005, name: Platform, description: ~, description_html: ~, color: teal-200, version: 1 }
-      - { tag_id: 1006, name: Cloud, description: ~, description_html: ~, color: blue-200, version: 1 }
-      - { tag_id: 1007, name: Protocol, description: ~, description_html: ~, color: violet-200, version: 1 }
-      - { tag_id: 1008, name: Format, description: ~, description_html: ~, color: lime-200, version: 1 }
-      - { tag_id: 1009, name: Methodology, description: ~, description_html: ~, color: purple-200, version: 1 }
-      - { tag_id: 1010, name: Architecture, description: ~, description_html: ~, color: fuchsia-200, version: 1 }
-      - { tag_id: 1011, name: Testing, description: ~, description_html: ~, color: green-200, version: 1 }
-      - { tag_id: 1012, name: Security, description: ~, description_html: ~, color: red-200, version: 1 }
-      - { tag_id: 1013, name: Observability, description: ~, description_html: ~, color: yellow-200, version: 1 }
-      - { tag_id: 1014, name: DevOps, description: ~, description_html: ~, color: rose-200, version: 1 }
-      - { tag_id: 1015, name: Operating System, description: ~, description_html: ~, color: stone-200, version: 1 }
-      - { tag_id: 1016, name: Hardware, description: ~, description_html: ~, color: zinc-200, version: 1 }
-      - { tag_id: 1017, name: Accessibility, description: ~, description_html: ~, color: pink-200, version: 1 }
-      - { tag_id: 1018, name: Leadership, description: ~, description_html: ~, color: mauve-200, version: 1 }
-      - { tag_id: 1019, name: Communication, description: ~, description_html: ~, color: olive-200, version: 1 }
+      - { tag_id: 2001, name: Framework, description: ~, description_html: ~, color: sky-200, version: 1 }
+      - { tag_id: 2002, name: Library, description: ~, description_html: ~, color: cyan-200, version: 1 }
+      - { tag_id: 2003, name: Standard, description: ~, description_html: ~, color: slate-200, version: 1 }
+      - { tag_id: 2004, name: Project Management, description: ~, description_html: ~, color: orange-200, version: 1 }
+      - { tag_id: 2005, name: Platform, description: ~, description_html: ~, color: teal-200, version: 1 }
+      - { tag_id: 2006, name: Cloud, description: ~, description_html: ~, color: blue-200, version: 1 }
+      - { tag_id: 2007, name: Protocol, description: ~, description_html: ~, color: violet-200, version: 1 }
+      - { tag_id: 2008, name: Format, description: ~, description_html: ~, color: lime-200, version: 1 }
+      - { tag_id: 2009, name: Methodology, description: ~, description_html: ~, color: purple-200, version: 1 }
+      - { tag_id: 2010, name: Architecture, description: ~, description_html: ~, color: fuchsia-200, version: 1 }
+      - { tag_id: 2011, name: Testing, description: ~, description_html: ~, color: green-200, version: 1 }
+      - { tag_id: 2012, name: Security, description: ~, description_html: ~, color: red-200, version: 1 }
+      - { tag_id: 2013, name: Observability, description: ~, description_html: ~, color: yellow-200, version: 1 }
+      - { tag_id: 2014, name: DevOps, description: ~, description_html: ~, color: rose-200, version: 1 }
+      - { tag_id: 2015, name: Operating System, description: ~, description_html: ~, color: stone-200, version: 1 }
+      - { tag_id: 2016, name: Hardware, description: ~, description_html: ~, color: zinc-200, version: 1 }
+      - { tag_id: 2017, name: Accessibility, description: ~, description_html: ~, color: pink-200, version: 1 }
+      - { tag_id: 2018, name: Leadership, description: ~, description_html: ~, color: mauve-200, version: 1 }
+      - { tag_id: 2019, name: Communication, description: ~, description_html: ~, color: olive-200, version: 1 }
     update:
-      - { tag_id: 2, name: Programming Language }
+      - { tag_id: 1002, name: Programming Language }

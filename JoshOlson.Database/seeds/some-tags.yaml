@@ -1,0 +1,13 @@
+description: The tags Database, Language, and Tool, which the layers of more tags start from
+extends: account
+tables:
+  tag.slug:
+    insert:
+      - { slug_id: 1001, tag_id: 1001, slug: database, is_canonical: true, created_utc: 0s }
+      - { slug_id: 1002, tag_id: 1002, slug: language, is_canonical: true, created_utc: 0s }
+      - { slug_id: 1003, tag_id: 1003, slug: tool, is_canonical: true, created_utc: 0s }
+  tag.tag:
+    insert:
+      - { tag_id: 1001, name: Database, description: ~, description_html: ~, color: indigo-200, version: 1 }
+      - { tag_id: 1002, name: Language, description: ~, description_html: ~, color: emerald-200, version: 1 }
+      - { tag_id: 1003, name: Tool, description: ~, description_html: ~, color: amber-200, version: 1 }

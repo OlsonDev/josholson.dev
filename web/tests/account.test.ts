@@ -58,3 +58,16 @@ test.describe('the account layer', () => {
     });
   });
 });
+
+// The three tags Database, Language, and Tool, one block of IDs above the account's (the layer is the account's child), so
+// a test that opens a tag by its address names the ID the layer gives it.
+test.describe('the some-tags layer', () => {
+  test.use({ layer: 'some-tags', signedIn: true });
+
+  test('has the account and the first three tags, Language being 1002', async ({ page }) => {
+    await page.goto('/admin/tags/1002');
+
+    await expect(page.getByText(`Signed in as ${account.displayName}`)).toBeVisible();
+    await expect(page.getByRole('heading', { level: 1, name: 'Language' })).toBeVisible();
+  });
+});

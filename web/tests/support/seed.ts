@@ -9,7 +9,7 @@ import { root } from './environment.ts';
  * with `test.use({ layer })` (`scope.ts`). A layer is listed here for its template's name to be found once, when the run
  * starts (`api.ts`).
  */
-export const layers = ['blank', 'account', 'minimal', 'more-tags'] as const;
+export const layers = ['blank', 'account', 'some-tags', 'minimal', 'more-tags'] as const;
 export type Layer = (typeof layers)[number];
 
 function failure(command: string[], result: Bun.SyncSubprocess<'pipe', 'pipe'>): Error {
