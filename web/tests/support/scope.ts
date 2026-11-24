@@ -1,4 +1,4 @@
-import { type APIRequestContext, expect, test as base } from '@playwright/test';
+import { type APIRequestContext, type BrowserContext, expect, test as base } from '@playwright/test';
 import { SQL } from 'bun';
 
 import { apiUrl, e2e, ownerLogin, webOrigin } from './environment.ts';
@@ -106,17 +106,28 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
   // Every request the page makes to the web server or the API carries the scope. Added to the request on its way out, so
   // the browser's own checks (a cross-origin call with a header it did not send) never see it.
   context: async ({ context, scope, signedIn }, use) => {
-    for (const origin of [webOrigin, apiUrl]) {
-      await context.route(`${origin}/**`, (route) =>
-        route.continue({ headers: { ...route.request().headers(), [scopeHeader]: scope.id } }),
-      );
-    }
+    await sendScope(context, scope.id);
     if (signedIn) await context.addCookies([await startSession(scope.database)]);
     await use(context);
   },
 });
 
 export { expect };
+
+/**
+ * Makes every request a browser context sends to the web server or the API carry the scope, added on its way out, so the
+ * browser's own checks (a cross-origin call with a header it did not send) never see it. The `context` fixture does it for
+ * the test's own; a test that opens another browser (`browser.newContext()`) does it for that one. A test that routes a
+ * request itself (`page.route`) passes it on with `route.fallback()`: `route.continue()` skips this one, and the request would
+ * reach the default database.
+ */
+export async function sendScope(context: BrowserContext, id: string): Promise<void> {
+  for (const origin of [webOrigin, apiUrl]) {
+    await context.route(`${origin}/**`, (route) =>
+      route.continue({ headers: { ...route.request().headers(), [scopeHeader]: id } }),
+    );
+  }
+}
 
 async function clone(owner: SQL, templates: Map<string, string>, layer: Layer, database: string): Promise<void> {
   let askedAgain = false;

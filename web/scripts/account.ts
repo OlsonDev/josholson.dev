@@ -46,7 +46,8 @@ export function accountLayer(account: TestAccount, publicKey: Uint8Array): strin
     `credential_id: \\x${hex(account.credentialId)}`,
     `public_key: \\x${hex(publicKey)}`,
     'sign_count: 0',
-    'transports: []',
+    // `PasskeyTransport.Usb`, so the page says "Security key", as it does for the key the owner enrolls.
+    'transports: [1]',
     'is_backup_eligible: false',
     'is_backed_up: false',
     `nickname: ${account.nickname}`,

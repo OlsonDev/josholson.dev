@@ -41,6 +41,7 @@ describe('accountLayer', () => {
     expect(yaml).toContain(
       '  auth.passkey:\n    insert:\n      - { passkey_id: 1, user_id: 1, credential_id: \\x0304, public_key: \\x0506,',
     );
+    expect(yaml).toContain('transports: [1]');
     expect(yaml).toContain('nickname: Bar, created_utc: 0s, last_used_utc: ~ }');
     expect(yaml).toContain(
       '  auth.user:\n    insert:\n      - { user_id: 1, display_name: Foo, user_handle: \\x0102, is_active: true, created_utc: 0s }',
