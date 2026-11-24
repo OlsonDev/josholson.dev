@@ -1,0 +1,8 @@
+description: The owner with one passkey, whose private key is in web/tests/support/account.generated.ts
+tables:
+  auth.passkey:
+    insert:
+      - { passkey_id: 1, user_id: 1, credential_id: \xe8deb4fe9518d76bce55112ccbe83ce81232ac575c8ad8f5124589ff348ae2e6, public_key: \xa5010203262001215820ae3c101f3efffb02d234049bcf89b65a73ba267b2711e3969ef1e82723053963225820652679f2060fcc3d22cfbd6cc378c5b4ae7fcb44a78288245c321a7a3d97b063, sign_count: 0, transports: [], is_backup_eligible: false, is_backed_up: false, nickname: First key, created_utc: 0s, last_used_utc: ~ }
+  auth.user:
+    insert:
+      - { user_id: 1, display_name: E2E Admin, user_handle: \xbcb90bab5b3b332fc7e88b16341681acab3beabf965a5fb493e6f7317ca7e78b, is_active: true, created_utc: 0s }

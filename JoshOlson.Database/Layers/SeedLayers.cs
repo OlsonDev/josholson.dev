@@ -4,6 +4,7 @@ namespace JoshOlson.Database.Layers;
 // file name, so renaming one means renaming the file and the `extends` line of every layer below it; `SeedLayersTests`
 // fails until the constants and the files agree.
 public static class SeedLayers {
+  public const string Account = "account";
   public const string Minimal = "minimal";
   public const string MoreTags = "more-tags";
 }

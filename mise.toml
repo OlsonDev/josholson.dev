@@ -289,6 +289,12 @@ description = "Show how web/'s shadcn-svelte components differ from what the CLI
 dir = "web"
 run = "bun scripts/diff-ui.ts"
 
+# The account the browser tests start from: JoshOlson.Database/seeds/account.yaml (a user with one passkey) and the private key of that passkey, web/tests/support/account.generated.ts. A new key every time, so rerun it only to change the account, then `mise seeds:check`.
+[tasks."web:account"]
+description = "Regenerate the account layer and its passkey's private key for the browser tests"
+dir = "web"
+run = "bun scripts/generate-test-account.ts && bun fmt tests/support/account.generated.ts"
+
 # The sRGB color of every Tailwind palette color, for contrast ratios (src/lib/palette/palette.generated.ts) and for painting (palette.generated.css). Rerun after upgrading Tailwind.
 [tasks."web:palette"]
 description = "Regenerate web/src/lib/palette/palette.generated.{ts,css} from Tailwind's theme"
