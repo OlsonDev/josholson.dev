@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './support/scope.ts';
 
 test('the homepage renders with or without the API', async ({ page }) => {
   await page.goto('/');

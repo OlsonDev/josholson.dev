@@ -7,7 +7,9 @@ const apiUrl = 'http://localhost:5100';
 
 export default defineConfig({
   testDir: 'tests',
-  // One database, and a sign-in that depends on the enrollment before it.
+  // Still one worker: a test that imports `test` from tests/support/scope.ts has a database of its own, but the other files
+  // share the API's default one, and the journey's sign-in depends on the enrollment before it. As each file moves to its
+  // own, this goes (ADR 0033, a scoped database per test).
   workers: 1,
   fullyParallel: false,
   webServer: [
@@ -23,7 +25,8 @@ export default defineConfig({
       port: 4173,
       timeout: 120_000,
       reuseExistingServer: !process.env.CI,
-      env: { API_URL: apiUrl, PUBLIC_API_URL: apiUrl },
+      // TEST_SCOPES: a page request's `X-Test-Scope` is passed on to the calls the server makes to the API (hooks.server.ts).
+      env: { API_URL: apiUrl, PUBLIC_API_URL: apiUrl, TEST_SCOPES: 'true' },
     },
   ],
   use: {

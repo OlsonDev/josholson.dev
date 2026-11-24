@@ -3,14 +3,18 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 
 import { apiEnvironment, e2eFile, root } from './environment.ts';
+import { layers, templateName } from './seed.ts';
 
 // Starts the API for the Playwright tests on a database of its own, and stops it and drops the database afterwards. It is
 // the `webServer` command of playwright.config.ts, so Playwright waits for the API to answer before the first test:
-//   1. `mise seed:test` makes a database from the `minimal` layer (ADR 0033: a scoped database for each test run),
-//   2. the API is built, and
-//   3. it runs against that database, with a setup secret of its own and the web preview's origin as the one it allows.
+//   1. `mise seed:test` makes a database from the `minimal` layer (ADR 0033: a scoped database for each test run), which
+//      is where a request with no test scope runs,
+//   2. the name of each seed layer's template is found (`seed.ts`), for a test's scope to be cloned from,
+//   3. the API is built, and
+//   4. it runs against that database, with a setup secret of its own, the web preview's origin as the one it allows, and
+//      the `X-Test-Scope` header honored: a test that asks for a scope (`scope.ts`) runs on a database of its own.
 // The database starts with no account and no passkey, so setup is open: the browser tests set up with that secret, as
-// the owner does. The secret and the database are in `.tmp/e2e.json` (`e2e()`). Needs the dev containers and a
+// the owner does. The secret, the database, and the templates are in `.tmp/e2e.json` (`e2e()`). Needs the dev containers and a
 // provisioned API role (`mise db:provision`), and the environment `mise web:test` loads from `.env`.
 
 const id = `e2e${Math.random().toString(36).slice(2, 10)}`;
@@ -28,9 +32,10 @@ function run(command: string[]): void {
 
 run(['mise', 'seed:test', id, 'minimal']);
 run(['dotnet', 'build', 'JoshOlson.Api', '--nologo', '-v', 'q']);
+const templates = Object.fromEntries(layers.map((layer) => [layer, templateName(layer)]));
 
 mkdirSync(dirname(e2eFile), { recursive: true });
-writeFileSync(e2eFile, JSON.stringify({ database, setupSecret }));
+writeFileSync(e2eFile, JSON.stringify({ database, setupSecret, templates }));
 
 const api = Bun.spawn(['dotnet', 'run', '--no-build', '--project', 'JoshOlson.Api'], {
   cwd: root,
