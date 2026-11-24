@@ -2,8 +2,13 @@ import { isSlug } from '#lib/admin/slug.ts';
 import type { TagRequest, TagResponse } from '#lib/api/schema.ts';
 import { isPaletteColor } from '#lib/palette/colors.ts';
 
+// The tag form's values and rules, in the shape every admin form module has, so a page imports it whole
+// (`import * as tagForm from './tag-form.ts'`) and reads `tagForm.blank()`: `Values`, `blank()` (a new one),
+// `fromResponse(x)` (an existing one), `toRequest(values, ...)` (what saves them), and `validate(values, ...)` (the rules
+// the API enforces too). Used by: `TagEditor`.
+
 /** What the tag form edits: the tag's fields as the inputs hold them (text for every one, and a list for aliases). */
-export type TagFormValues = {
+export type Values = {
   name: string;
   slug: string;
   description: string;
@@ -12,15 +17,23 @@ export type TagFormValues = {
   previousSlugs: string[];
 };
 
-/** The values for a new tag, or for an existing one. */
-export function valuesFromTag(tag: TagResponse | null): TagFormValues {
+/** The values for a new tag: nothing in any field, and no color chosen. */
+export function blank(): Values {
+  return { name: '', slug: '', description: '', color: null, aliases: [], previousSlugs: [] };
+}
+
+/**
+ * The values of an existing tag. The lists are the response's own, not copies: `FormState` clones what it is given, so
+ * hand the result to one (or to its `reset`) and not to anything that edits it in place.
+ */
+export function fromResponse(tag: TagResponse): Values {
   return {
-    name: tag?.name ?? '',
-    slug: tag?.slug ?? '',
-    description: tag?.description ?? '',
-    color: tag?.color ?? null,
-    aliases: [...(tag?.aliases ?? [])],
-    previousSlugs: [...(tag?.previousSlugs ?? [])],
+    name: tag.name,
+    slug: tag.slug,
+    description: tag.description ?? '',
+    color: tag.color,
+    aliases: tag.aliases,
+    previousSlugs: tag.previousSlugs,
   };
 }
 
@@ -29,7 +42,7 @@ export function valuesFromTag(tag: TagResponse | null): TagFormValues {
  * aliases are left out (a row the person added and never filled). `expectedVersion` is the version the form was loaded at,
  * or null to overwrite whatever is there.
  */
-export function toRequest(values: TagFormValues, expectedVersion: number | null): TagRequest {
+export function toRequest(values: Values, expectedVersion: number | null): TagRequest {
   const description = values.description.trim();
   return {
     name: values.name.trim(),
@@ -48,8 +61,8 @@ export function toRequest(values: TagFormValues, expectedVersion: number | null)
  * here first, and the API still checks last (two people can race). `tagId` is the tag being edited, or null for a new one,
  * so a tag does not collide with itself. Tests mirror the API's, and Playwright runs both ends.
  */
-export function validateTag(
-  values: TagFormValues,
+export function validate(
+  values: Values,
   tagId: number | null,
   others: readonly TagResponse[],
 ): Record<string, string[]> {

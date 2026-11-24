@@ -26,7 +26,7 @@
   import type { PreviewColors } from '#lib/palette/color-picker/color-picker.ts';
 
   import { listHref, paneHref } from './routes.ts';
-  import { type TagFormValues, toRequest, validateTag, valuesFromTag } from './tag-form.ts';
+  import * as tagForm from './tag-form.ts';
 
   // The edit form of one tag, or of a new one when `tag` is null, shown beside the list (`ListPane`). It is the first user
   // of the admin's list-and-edit parts, so each is one a later page takes as it is: `FormState` (values, dirty, errors),
@@ -66,8 +66,8 @@
   let root = $state<HTMLElement | null>(null);
 
   // svelte-ignore state_referenced_locally
-  const form = new FormState<TagFormValues>(valuesFromTag(tag), {
-    validate: (values) => validateTag(values, tagId, others),
+  const form = new FormState<tagForm.Values>(tag === null ? tagForm.blank() : tagForm.fromResponse(tag), {
+    validate: (values) => tagForm.validate(values, tagId, others),
     // A field with an error is on the Details section, so that is where to be before focusing it.
     reveal: async () => {
       if (tab !== 'details') await goto(paneHref(tagId ?? '+', search));
@@ -124,7 +124,7 @@
   async function submit({ again, overwrite }: { again: boolean; overwrite: boolean }): Promise<void> {
     busy = true;
     try {
-      const request = toRequest(form.values, overwrite ? null : version);
+      const request = tagForm.toRequest(form.values, overwrite ? null : version);
       if (tagId === null) {
         await tagApi.create(request);
       } else {
@@ -132,7 +132,7 @@
       }
       await invalidate('app:tags');
       if (again) {
-        form.reset(valuesFromTag(null));
+        form.reset(tagForm.blank());
         await tick();
         root?.querySelector<HTMLInputElement>('input[data-field="name"]')?.focus();
       } else {
@@ -159,7 +159,7 @@
     if (tagId === null) return;
     const fresh = await tagApi.get({ tagId });
     version = fresh.version;
-    form.reset(valuesFromTag(fresh));
+    form.reset(tagForm.fromResponse(fresh));
     conflict = false;
   }
 
