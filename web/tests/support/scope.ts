@@ -1,4 +1,4 @@
-import { expect, test as base } from '@playwright/test';
+import { type APIRequestContext, expect, test as base } from '@playwright/test';
 import { SQL } from 'bun';
 
 import { apiUrl, e2e, ownerLogin, webOrigin } from './environment.ts';
@@ -37,7 +37,15 @@ const sourceInUse = '55006';
 const noSuchDatabase = '3D000';
 const attempts = 50;
 
-type TestFixtures = { layer: Layer; signedIn: boolean; scope: Scope };
+type TestFixtures = {
+  layer: Layer;
+  signedIn: boolean;
+  scope: Scope;
+  /** The API, for a test to call as the browser could: on the test's database, as its session, from the allowed origin. */
+  api: APIRequestContext;
+  /** The web server, for a test that wants a page as the server sends it (no scripts run, no styles loaded). */
+  web: APIRequestContext;
+};
 type WorkerFixtures = { owner: SQL; templates: Map<string, string> };
 
 export const test = base.extend<TestFixtures, WorkerFixtures>({
@@ -73,6 +81,26 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
     } finally {
       await owner.unsafe(`DROP DATABASE IF EXISTS "${database}" WITH (FORCE)`);
     }
+  },
+
+  api: async ({ playwright, context, scope }, use) => {
+    const api = await playwright.request.newContext({
+      baseURL: apiUrl,
+      extraHTTPHeaders: { [scopeHeader]: scope.id, Origin: webOrigin },
+      storageState: await context.storageState(),
+    });
+    await use(api);
+    await api.dispose();
+  },
+
+  web: async ({ playwright, context, scope }, use) => {
+    const web = await playwright.request.newContext({
+      baseURL: webOrigin,
+      extraHTTPHeaders: { [scopeHeader]: scope.id },
+      storageState: await context.storageState(),
+    });
+    await use(web);
+    await web.dispose();
   },
 
   // Every request the page makes to the web server or the API carries the scope. Added to the request on its way out, so
