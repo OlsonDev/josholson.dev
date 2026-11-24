@@ -3,7 +3,7 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 
 import { apiEnvironment, e2eFile, root } from './environment.ts';
-import { layers, templateName } from './seed.ts';
+import { buildSeedTool, layers, templateName } from './seed.ts';
 
 // Starts the API for the Playwright tests on a database of its own, and stops it and drops the database afterwards. It is
 // the `webServer` command of playwright.config.ts, so Playwright waits for the API to answer before the first test:
@@ -32,6 +32,7 @@ function run(command: string[]): void {
 
 run(['mise', 'seed:test', id, 'minimal']);
 run(['dotnet', 'build', 'JoshOlson.Api', '--nologo', '-v', 'q']);
+buildSeedTool();
 const templates = Object.fromEntries(layers.map((layer) => [layer, templateName(layer)]));
 
 mkdirSync(dirname(e2eFile), { recursive: true });

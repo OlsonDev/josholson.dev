@@ -1,5 +1,7 @@
 import type { CDPSession, Page } from '@playwright/test';
 
+import { account } from './account.generated.ts';
+
 // A passkey the browser makes up, so no key is touched: Chromium's virtual authenticator, which behaves like a security
 // key with a PIN that is always right and a touch that happens by itself, until a test says it does not.
 export type VirtualAuthenticator = {
@@ -11,7 +13,15 @@ export type VirtualAuthenticator = {
   respond: (answering: boolean) => Promise<void>;
 };
 
-export async function addVirtualAuthenticator(page: Page): Promise<VirtualAuthenticator> {
+/**
+ * The authenticator. With `accountPasskey` it already holds the passkey of the `account` layer (`account.generated.ts`),
+ * the way the key the owner enrolled is on the key they hold, so it can sign in as that account and confirm what the
+ * account's passkey is asked to.
+ */
+export async function addVirtualAuthenticator(
+  page: Page,
+  { accountPasskey = false }: { accountPasskey?: boolean } = {},
+): Promise<VirtualAuthenticator> {
   const cdp: CDPSession = await page.context().newCDPSession(page);
   await cdp.send('WebAuthn.enable');
   const { authenticatorId } = await cdp.send('WebAuthn.addVirtualAuthenticator', {
@@ -24,6 +34,19 @@ export async function addVirtualAuthenticator(page: Page): Promise<VirtualAuthen
       automaticPresenceSimulation: true,
     },
   });
+  if (accountPasskey) {
+    await cdp.send('WebAuthn.addCredential', {
+      authenticatorId,
+      credential: {
+        credentialId: account.credentialId,
+        isResidentCredential: true,
+        rpId: account.relyingPartyId,
+        privateKey: account.privateKey,
+        userHandle: account.userHandle,
+        signCount: 0,
+      },
+    });
+  }
   return {
     credentialCount: async () => (await cdp.send('WebAuthn.getCredentials', { authenticatorId })).credentials.length,
     userNames: async () =>

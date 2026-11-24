@@ -3,6 +3,7 @@ import { SQL } from 'bun';
 
 import { apiUrl, e2e, ownerLogin, webOrigin } from './environment.ts';
 import { type Layer, templateName } from './seed.ts';
+import { startSession } from './session.ts';
 
 // A database of its own for each test (ADR 0033, a scoped database per test). Import `test` from here, not from
 // `@playwright/test`, and the test's `page` runs on a database cloned from a seed layer, so it can change anything and
@@ -14,7 +15,9 @@ import { type Layer, templateName } from './seed.ts';
 //      database (`ScopedDatabaseMiddleware`), and
 //   3. the database is dropped when the test ends (`WITH (FORCE)`, so a request still running does not stop it).
 // A test picks its layer with `test.use({ layer: 'more-tags' })`. The layers are in `seed.ts`, and their templates' names
-// were found when the run started (`api.ts`). A run that is killed leaves its databases behind: `mise seed:clean` drops
+// were found when the run started (`api.ts`). `test.use({ layer: 'account', signedIn: true })` also signs the layer's
+// account in (`session.ts`): a session row in that database and the cookie in the context, so the test can open any page
+// of the admin directly. Without `signedIn` the browser is a stranger, as a browser is that has not signed in. A run that is killed leaves its databases behind: `mise seed:clean` drops
 // them, and so does the next `mise seed:clean`.
 
 /** The database of one test. */
@@ -34,11 +37,12 @@ const sourceInUse = '55006';
 const noSuchDatabase = '3D000';
 const attempts = 50;
 
-type TestFixtures = { layer: Layer; scope: Scope };
+type TestFixtures = { layer: Layer; signedIn: boolean; scope: Scope };
 type WorkerFixtures = { owner: SQL; templates: Map<string, string> };
 
 export const test = base.extend<TestFixtures, WorkerFixtures>({
   layer: ['minimal', { option: true }],
+  signedIn: [false, { option: true }],
 
   // One connection to the server per worker, for the creates and the drops.
   owner: [
@@ -73,12 +77,13 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 
   // Every request the page makes to the web server or the API carries the scope. Added to the request on its way out, so
   // the browser's own checks (a cross-origin call with a header it did not send) never see it.
-  context: async ({ context, scope }, use) => {
+  context: async ({ context, scope, signedIn }, use) => {
     for (const origin of [webOrigin, apiUrl]) {
       await context.route(`${origin}/**`, (route) =>
         route.continue({ headers: { ...route.request().headers(), [scopeHeader]: scope.id } }),
       );
     }
+    if (signedIn) await context.addCookies([await startSession(scope.database)]);
     await use(context);
   },
 });

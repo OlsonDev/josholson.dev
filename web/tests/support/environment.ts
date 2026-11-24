@@ -7,6 +7,8 @@ export const root = join(import.meta.dirname, '..', '..', '..');
 export const apiUrl = 'http://localhost:5100';
 export const webOrigin = 'http://localhost:4173';
 export const e2eFile = join(root, '.tmp', 'e2e.json');
+// The API's `Auth:CookieName` at its default, which the tests do not change (`AuthOptions`).
+export const sessionCookieName = '__Secure-Session';
 
 function required(name: string): string {
   const value = process.env[name];
