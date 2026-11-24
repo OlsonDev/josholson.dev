@@ -121,6 +121,13 @@ description = "Make a scoped database seed_test_<id> from a seed layer, e.g. mis
 depends = ["tools:up"]
 run = "dotnet run --project JoshOlson.Seed -- test"
 
+# The name of a layer's template database, built first if it is not current: mise seed:template more-tags. For a caller
+# that clones the template itself (the browser tests); the name changes whenever the migrations or the layer chain do.
+[tasks."seed:template"]
+description = "Print the name of a seed layer's template database, building it if it is not current, e.g. mise seed:template minimal"
+depends = ["tools:up"]
+run = "dotnet run --project JoshOlson.Seed -- template"
+
 # Drops the seed tool's databases (never the dev database) that the current migrations and layers no longer name: old
 # templates, test databases, and builds that died halfway. `--all` drops the current templates too.
 [tasks."seed:clean"]

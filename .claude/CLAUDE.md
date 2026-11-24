@@ -92,11 +92,12 @@ Write `migrations/schema.lock.yaml` from the schema the migrations on disk produ
 mise seeds:migrate
 ```
 
-Build the schema template and every seed layer's template (a no-op when they are current), make a database of its own from a layer for one test, rebuild the dev database from a layer (everything in it is lost; dev only), and drop the seed tool's stale databases (`--all` drops the current templates too; never the dev database). Layers are `JoshOlson.Database/seeds/*.yaml` (`minimal`, `more-tags`); reads `.env`:
+Build the schema template and every seed layer's template (a no-op when they are current), make a database of its own from a layer for one test (`seed:template` prints the name of a layer's template, built first if it is not current, for a caller that clones it itself, as the browser tests will), rebuild the dev database from a layer (everything in it is lost; dev only), and drop the seed tool's stale databases (`--all` drops the current templates too; never the dev database). Layers are `JoshOlson.Database/seeds/*.yaml` (`minimal`, `more-tags`); reads `.env`:
 
 ```
 mise seeds:bake
 mise seed:test <id> <layer>
+mise seed:template <layer>
 mise seed <layer>
 mise seed <layer> --edit
 mise seed:clean

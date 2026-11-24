@@ -144,6 +144,15 @@ public sealed class SeedTool {
     return "no line differs";
   }
 
+  // `seed:template <layer>`: the name of the layer's template database, built first if the files have changed since it
+  // was (a name carries a hash of the migrations and the layer chain, so a change to either is a new name). It is what a
+  // caller that makes its own clones (the browser tests, which talk to the server directly) needs to know.
+  public async Task<string> TemplateNameAsync(string layer, CancellationToken cancellationToken) {
+    _ = Tree.Get(layer);
+    var (template, _) = (await _layerTemplate.EnsureAsync(layer, cancellationToken)).OrThrow();
+    return template;
+  }
+
   // `seed:test <id> <layer>`: a database of its own for one test, cloned from the layer's template. Returns its name.
   public async Task<string> CreateTestDatabaseAsync(string id, string layer, CancellationToken cancellationToken) {
     var name = SeedDatabaseNames.Test(id);
@@ -151,7 +160,7 @@ public sealed class SeedTool {
     if (await _databases.ExistsAsync(name, cancellationToken)) {
       throw new SeedFormatException($"{name} already exists. Drop it with seed:clean, or pick another id.");
     }
-    var (template, _) = (await _layerTemplate.EnsureAsync(layer, cancellationToken)).OrThrow();
+    var template = await TemplateNameAsync(layer, cancellationToken);
     await _databases.CloneAsync(template, name, cancellationToken);
     return name;
   }

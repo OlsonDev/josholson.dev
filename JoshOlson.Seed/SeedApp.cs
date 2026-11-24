@@ -42,6 +42,8 @@ public static class SeedApp {
       .WithDescription("Drop the dev database and rebuild it from a seed layer, relative times measured from now");
     _ = config.AddCommand<TestCommand>("test")
       .WithDescription("Make a scoped database seed_test_<id> from a seed layer");
+    _ = config.AddCommand<TemplateCommand>("template")
+      .WithDescription("Print the name of a seed layer's template database, building it if it is not current");
     _ = config.AddCommand<CleanCommand>("clean")
       .WithDescription("Drop the seed tool's stale databases (--all: the current templates too)");
     config.SetExceptionHandler((exception, _) => HandleException(exception, console));
