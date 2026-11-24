@@ -1,3 +1,4 @@
+using JoshOlson.Database.Layers;
 using Xunit;
 
 namespace JoshOlson.Database.Baking;
@@ -189,9 +190,24 @@ public sealed class LayerExporterTests : IAsyncLifetime {
     Assert.Null(root.Layer.Extends);
   }
 
+  // A database made from `blank` is the schema with no rows and no layer recorded, like one the migrations made: what is
+  // added to it exports as a root in the first block of IDs, with no `extends`.
+  [Fact]
+  public async Task ExportAsync_DatabaseMadeFromBlank_IsARootInTheFirstBlockWithNoExtends() {
+    var database = await _exports.DatabaseFromAsync(LayerName.Blank);
+    await _exports.RunAsync(database, FixtureSeeds.InsertTag("Foo"));
+
+    var export = await _exports.ExportAsync(database, name: "root-layer", description: "Root export");
+
+    Assert.Null(export.Layer.Extends);
+    Assert.Contains(FixtureSeeds.TagRow(1, "Foo"), export.Yaml, StringComparison.Ordinal);
+    Assert.DoesNotContain("extends", export.Yaml, StringComparison.Ordinal);
+  }
+
   [Theory]
   [InlineData("Foo_Bar", "Foo", "is not a layer name")]
   [InlineData("foo-bar", "  ", "needs a description")]
+  [InlineData("blank", "Foo", "the schema with no rows")]
   public async Task ExportAsync_BadNameOrDescription_IsRefusedBeforeAnythingIsRead(
     string name,
     string description,

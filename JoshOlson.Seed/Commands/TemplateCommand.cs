@@ -19,7 +19,7 @@ public sealed class TemplateCommand : AsyncCommand<TemplateCommand.Settings> {
 
   public sealed class Settings : CommandSettings {
     [CommandArgument(0, "<layer>")]
-    [Description("The layer whose template's name is printed")]
+    [Description("The layer whose template's name is printed, or `blank` for the schema template")]
     public required string Layer { get; init; }
   }
 

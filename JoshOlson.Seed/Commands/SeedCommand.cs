@@ -19,7 +19,7 @@ public sealed class SeedCommand : AsyncCommand<SeedCommand.Settings> {
 
   public sealed class Settings : CommandSettings {
     [CommandArgument(0, "<layer>")]
-    [Description("The layer to rebuild the dev database from, for example `more-tags`")]
+    [Description("The layer to rebuild the dev database from, for example `more-tags`, or `blank` for the schema with no rows")]
     public required string Layer { get; init; }
 
     [CommandOption("--edit")]

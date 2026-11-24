@@ -1,5 +1,6 @@
 using JoshOlson.Database;
 using JoshOlson.Database.Baking;
+using JoshOlson.Database.Layers;
 using Xunit;
 
 namespace JoshOlson.Seed.Commands;
@@ -31,6 +32,15 @@ public sealed class TemplateCommandTests {
 
     Assert.True(rootCode is 0 && childCode is 0, root + child);
     Assert.NotEqual(root.Trim(), child.Trim());
+  }
+
+  [Fact]
+  public async Task Execute_Blank_PrintsTheSchemaTemplate() {
+    var (exitCode, output) = await SeedAppRunner.RunAsync("template", LayerName.Blank);
+
+    Assert.True(exitCode is 0, output);
+    Assert.StartsWith("seed_schema_", output.Trim(), StringComparison.Ordinal);
+    Assert.True(await SeedTestServer.Databases.ExistsAsync(output.Trim(), _cancellationToken));
   }
 
   [Fact]

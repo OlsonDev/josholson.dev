@@ -25,6 +25,16 @@ public class LayerNameTests {
     => Assert.False(LayerName.IsValid(name));
 
   [Fact]
+  public void IsReserved_TheSchemaWithNoRows_IsTheOnlyReservedName() {
+    Assert.True(LayerName.IsReserved("blank"));
+    Assert.False(LayerName.IsReserved("blank-2"));
+    Assert.False(LayerName.IsReserved("Blank"));
+    Assert.False(LayerName.IsReserved("minimal"));
+    // It is a valid name, so only the places that make or read a layer refuse it.
+    Assert.True(LayerName.IsValid(LayerName.Blank));
+  }
+
+  [Fact]
   public void IsValid_LongerThanForty_ReturnsFalse() {
     Assert.True(LayerName.IsValid(new('a', 40)));
     Assert.False(LayerName.IsValid(new('a', 41)));

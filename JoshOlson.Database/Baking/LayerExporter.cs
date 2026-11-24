@@ -49,6 +49,9 @@ public sealed class LayerExporter {
     if (name is not null && !LayerName.IsValid(name)) {
       throw new SeedFormatException($"'{name}' is not a layer name: use lower-kebab-case, 40 characters at most.");
     }
+    if (name is not null && LayerName.IsReserved(name)) {
+      throw new SeedFormatException($"'{name}' is not a layer name: it is the schema with no rows, which is no layer.");
+    }
     if (description is not null && string.IsNullOrWhiteSpace(description)) {
       throw new SeedFormatException("A layer needs a description, a sentence about what it adds.");
     }

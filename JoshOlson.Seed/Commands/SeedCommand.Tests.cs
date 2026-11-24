@@ -1,4 +1,5 @@
 using JoshOlson.Database;
+using JoshOlson.Database.Layers;
 using JoshOlson.Shared.Data;
 using JoshOlson.Shared.Extensions;
 using Microsoft.Extensions.DependencyInjection;
@@ -34,6 +35,19 @@ public sealed class SeedCommandTests : IAsyncLifetime {
       StringComparison.Ordinal);
     await using var rebuilt = await DatabaseEnvironment.OpenOwnerAsync(_development, _cancellationToken);
     Assert.Equal(rows, await rebuilt.QuerySingleAsync<long>("SELECT count(*) FROM tag.tag;", _cancellationToken));
+  }
+
+  [Fact]
+  public async Task Execute_Blank_RebuildsTheDevelopmentDatabaseWithNoRows() {
+    using var workspace = await FixtureSeeds.WorkspaceAsync(_cancellationToken);
+    _ = await SeedAppRunner.RunAsync(Configure(workspace.Paths), "seed", FixtureSeeds.Root);
+
+    var (exitCode, output) = await SeedAppRunner.RunAsync(Configure(workspace.Paths), "seed", LayerName.Blank);
+
+    Assert.True(exitCode is 0, output);
+    Assert.Contains($"Rebuilt {_development} from blank: 0 row(s).", output, StringComparison.Ordinal);
+    await using var rebuilt = await DatabaseEnvironment.OpenOwnerAsync(_development, _cancellationToken);
+    Assert.Equal(0, await rebuilt.QuerySingleAsync<long>("SELECT count(*) FROM tag.tag;", _cancellationToken));
   }
 
   [Fact]

@@ -147,7 +147,9 @@ public sealed class SeedTool {
   // `seed:template <layer>`: the name of the layer's template database, built first if the files have changed since it
   // was (a name carries a hash of the migrations and the layer chain, so a change to either is a new name). It is what a
   // caller that makes its own clones (the browser tests, which talk to the server directly) needs to know.
+  // `blank` is the schema template itself: the schema with no rows, which is no layer (`LayerName.Blank`).
   public async Task<string> TemplateNameAsync(string layer, CancellationToken cancellationToken) {
+    if (LayerName.IsReserved(layer)) return (await _schemaTemplate.EnsureAsync(cancellationToken)).Name;
     _ = Tree.Get(layer);
     var (template, _) = (await _layerTemplate.EnsureAsync(layer, cancellationToken)).OrThrow();
     return template;
@@ -156,7 +158,7 @@ public sealed class SeedTool {
   // `seed:test <id> <layer>`: a database of its own for one test, cloned from the layer's template. Returns its name.
   public async Task<string> CreateTestDatabaseAsync(string id, string layer, CancellationToken cancellationToken) {
     var name = SeedDatabaseNames.Test(id);
-    _ = Tree.Get(layer);
+    if (!LayerName.IsReserved(layer)) _ = Tree.Get(layer);
     if (await _databases.ExistsAsync(name, cancellationToken)) {
       throw new SeedFormatException($"{name} already exists. Drop it with seed:clean, or pick another id.");
     }
@@ -170,12 +172,20 @@ public sealed class SeedTool {
   // baked). Everything in that database is lost. `Development` is its name, POSTGRES_DB unless `WithDevelopment` says
   // otherwise. `editing` is for changing the layer itself: the sequences stay in the layer's own block, so what is made
   // exports back into it, where a database made for a child of the layer (not editing) hands out the next block's.
+  // `blank` is no layer but the schema with no rows (`LayerName.Blank`): the database is the schema template as it is, and
+  // an export of it is a root.
   public async Task<int> SeedDevelopmentAsync(string layer, bool editing, CancellationToken cancellationToken) {
     _ = SeedDatabaseNames.QuoteDevelopment(Development);
-    _ = Tree.Get(layer);
+    var blank = LayerName.IsReserved(layer);
+    if (blank && editing) {
+      throw new SeedFormatException($"{layer} is the schema with no rows, which is no layer, so there is nothing to edit.");
+    }
+    if (!blank) _ = Tree.Get(layer);
     var (schemaName, _) = await _schemaTemplate.EnsureAsync(cancellationToken);
     await _databases.DropDevelopmentAsync(Development, cancellationToken);
     await _databases.CloneDevelopmentAsync(schemaName, Development, cancellationToken);
+    // `blank` is what the migrations alone make: no rows and no layer recorded, so what is added exports as a root.
+    if (blank) return 0;
     return (await SeedHydrator.HydrateAsync(Development, Tree, layer, editing, SeedHydrator.Anchor(_clock), cancellationToken)).OrThrow();
   }
 

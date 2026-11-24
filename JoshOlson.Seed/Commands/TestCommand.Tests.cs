@@ -1,5 +1,6 @@
 using JoshOlson.Database;
 using JoshOlson.Database.Baking;
+using JoshOlson.Database.Layers;
 using JoshOlson.Shared.Data;
 using Xunit;
 
@@ -24,6 +25,22 @@ public sealed class TestCommandTests {
       Assert.Equal(FixtureSeeds.ChildRows, tags);
       Assert.Equal(1, againCode);
       Assert.Contains("already exists", again, StringComparison.Ordinal);
+    } finally {
+      await SeedTestServer.Databases.DropAsync(database, CancellationToken.None);
+    }
+  }
+
+  [Fact]
+  public async Task Execute_Blank_MakesADatabaseWithNoRows() {
+    var id = Guid.NewGuid().ToString("N");
+    var database = SeedDatabaseNames.Test(id);
+    try {
+      var (exitCode, output) = await SeedAppRunner.RunAsync("test", id, LayerName.Blank);
+
+      Assert.True(exitCode is 0, output);
+      Assert.Contains(database, output, StringComparison.Ordinal);
+      await using var clone = await DatabaseEnvironment.OpenOwnerAsync(database, _cancellationToken);
+      Assert.Equal(0, await clone.QuerySingleAsync<long>("SELECT count(*) FROM tag.tag;", _cancellationToken));
     } finally {
       await SeedTestServer.Databases.DropAsync(database, CancellationToken.None);
     }

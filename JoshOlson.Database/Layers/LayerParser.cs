@@ -51,6 +51,9 @@ public static class LayerParser {
     if (!LayerName.IsValid(name)) {
       throw new SeedFormatException($"'{name}' is not a layer name: use lower-kebab-case, 40 characters at most.");
     }
+    if (LayerName.IsReserved(name)) {
+      throw new SeedFormatException($"'{name}' is not a layer name: it is the schema with no rows, which is no layer.");
+    }
     var root = YamlNodes.LoadRoot(name, yaml);
     YamlNodes.CheckKeys(name, "the layer", root, _LayerKeys);
 
@@ -63,6 +66,9 @@ public static class LayerParser {
       extends = Scalar(name, "extends", extendsNode);
       if (extends is null || !LayerName.IsValid(extends)) {
         throw new SeedFormatException($"{name}: extends '{extends}' is not a layer name.");
+      }
+      if (LayerName.IsReserved(extends)) {
+        throw new SeedFormatException($"{name}: extends '{extends}', which is no layer: leave out `extends` to make a root.");
       }
     }
 

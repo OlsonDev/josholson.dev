@@ -21,7 +21,7 @@ public sealed class TestCommand : AsyncCommand<TestCommand.Settings> {
     public required string Id { get; init; }
 
     [CommandArgument(1, "<layer>")]
-    [Description("The layer whose template the database is cloned from")]
+    [Description("The layer whose template the database is cloned from, or `blank` for the schema with no rows")]
     public required string Layer { get; init; }
   }
 

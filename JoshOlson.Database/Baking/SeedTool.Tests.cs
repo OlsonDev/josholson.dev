@@ -1,3 +1,4 @@
+using JoshOlson.Database.Layers;
 using JoshOlson.Shared.Data;
 using NodaTime;
 using Xunit;
@@ -81,6 +82,36 @@ public sealed class SeedToolTests : IAsyncLifetime {
   }
 
   [Fact]
+  public async Task TemplateNameAsync_Blank_IsTheSchemaTemplateAndALayerIsItsOwn() {
+    var blank = await _tool.TemplateNameAsync(LayerName.Blank, _cancellationToken);
+    var root = await _tool.TemplateNameAsync(FixtureSeeds.Root, _cancellationToken);
+
+    Assert.Equal(await SeedTestServer.RealTemplate.NameAsync(_cancellationToken), blank);
+    Assert.True(await _databases.ExistsAsync(blank, _cancellationToken));
+    Assert.NotEqual(blank, root);
+  }
+
+  [Fact]
+  public async Task CreateTestDatabaseAsync_Blank_HasNoRowsAndNoLayerAndHandsOutIdsFromTheFirstBlock() {
+    var id = Guid.NewGuid().ToString("N");
+    var name = SeedDatabaseNames.Test(id);
+    try {
+      _ = await _tool.CreateTestDatabaseAsync(id, LayerName.Blank, _cancellationToken);
+
+      await using var clone = await DatabaseEnvironment.OpenOwnerAsync(name, _cancellationToken);
+      var tags = await clone.QuerySingleAsync<long>("SELECT count(*) FROM tag.tag;", _cancellationToken);
+      var recorded = await clone.QuerySingleAsync<long>("SELECT count(*) FROM seed.hydration;", _cancellationToken);
+      var nextId = await clone.QuerySingleAsync<int>(FixtureSeeds.InsertTagReturningId("Foo"), _cancellationToken);
+      Assert.Equal(0, tags);
+      Assert.Equal(0, recorded);
+      // Not 1001, where a database made from a root layer starts: nothing here is a parent.
+      Assert.Equal(1, nextId);
+    } finally {
+      await _databases.DropAsync(name, CancellationToken.None);
+    }
+  }
+
+  [Fact]
   public async Task CreateTestDatabaseAsync_UnknownLayer_Throws()
     => _ = await Assert.ThrowsAsync<SeedFormatException>(
       () => _tool.CreateTestDatabaseAsync(Guid.NewGuid().ToString("N"), "no-such-layer", _cancellationToken));
@@ -108,6 +139,35 @@ public sealed class SeedToolTests : IAsyncLifetime {
     } finally {
       await _databases.DropDevelopmentAsync(development, CancellationToken.None);
     }
+  }
+
+  [Fact]
+  public async Task SeedDevelopmentAsync_Blank_RebuildsTheDatabaseEmptyWithNoLayerRecorded() {
+    var development = $"seed_tooltest_{Guid.NewGuid():N}";
+    var tool = _tool.WithDevelopment(development);
+    try {
+      _ = await tool.SeedDevelopmentAsync(FixtureSeeds.Root, editing: false, _cancellationToken);
+
+      var rows = await tool.SeedDevelopmentAsync(LayerName.Blank, editing: false, _cancellationToken);
+
+      await using var rebuilt = await DatabaseEnvironment.OpenOwnerAsync(development, _cancellationToken);
+      Assert.Equal(0, rows);
+      Assert.Equal(0, await rebuilt.QuerySingleAsync<long>("SELECT count(*) FROM tag.tag;", _cancellationToken));
+      Assert.Equal(0, await rebuilt.QuerySingleAsync<long>("SELECT count(*) FROM seed.hydration;", _cancellationToken));
+    } finally {
+      await _databases.DropDevelopmentAsync(development, CancellationToken.None);
+    }
+  }
+
+  [Fact]
+  public async Task SeedDevelopmentAsync_BlankForEditing_ThrowsBeforeDroppingAnything() {
+    var exception = await Assert.ThrowsAsync<SeedFormatException>(
+      () => _tool.WithDevelopment("seed_tooltest_neverdropped").SeedDevelopmentAsync(
+        LayerName.Blank,
+        editing: true,
+        _cancellationToken));
+
+    Assert.Contains("nothing to edit", exception.Message, StringComparison.Ordinal);
   }
 
   [Theory]

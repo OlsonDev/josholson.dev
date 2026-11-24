@@ -204,6 +204,7 @@ public class LayerParserTests {
   [InlineData("foo-")]
   [InlineData("1foo")]
   [InlineData("foo bar")]
+  [InlineData("blank")]
   public void Parse_InvalidName_IsRefused(string name)
     => Assert.IsType<SeedProblems>(LayerParser.Parse(name, "description: Foo", SampleLayers.Schema).Value);
 
@@ -223,6 +224,14 @@ public class LayerParserTests {
   [InlineData("description: [unclosed")]
   public void Parse_InvalidContent_IsRefused(string yaml)
     => Assert.NotEmpty(Problems(yaml, SampleLayers.Schema));
+
+  [Fact]
+  public void Parse_ExtendsTheSchemaWithNoRows_IsRefusedAndSaysToLeaveExtendsOut() {
+    var problems = Problems("description: Foo\nextends: blank", SampleLayers.Schema);
+
+    Assert.Contains("extends 'blank'", problems, StringComparison.Ordinal);
+    Assert.Contains("leave out `extends`", problems, StringComparison.Ordinal);
+  }
 
   // The problems of a layer named `foo` that is expected not to read, as their text.
   private static string Problems(string yaml, SeedSchema schema)
