@@ -11,14 +11,14 @@
   import { describeImpactItem, impactKinds } from '#lib/admin/impact-kinds.ts';
   import { normalizeSearch } from '#lib/admin/list-state.ts';
   import PaneBar from '#lib/admin/pane-bar.svelte';
+  import SaveAlerts from '#lib/admin/save-alerts.svelte';
+  import { outcomeOfSaveError } from '#lib/admin/save-outcome.ts';
   import { nextSlug } from '#lib/admin/slug.ts';
   import TabLinks from '#lib/admin/tab-links.svelte';
   import UnsavedChangesDialog from '#lib/admin/unsaved-changes-dialog.svelte';
   import { UnsavedGuard } from '#lib/admin/unsaved-guard.svelte.ts';
-  import { ApiError, tag as tagApi } from '#lib/api/index.ts';
+  import { tag as tagApi } from '#lib/api/index.ts';
   import type { DeletionImpact, TagResponse } from '#lib/api/schema.ts';
-  import { describeFailure } from '#lib/auth/failure.ts';
-  import * as Alert from '#lib/components/ui/alert/index.ts';
   import { Button } from '#lib/components/ui/button/index.ts';
   import { Input } from '#lib/components/ui/input/index.ts';
   import { Textarea } from '#lib/components/ui/textarea/index.ts';
@@ -30,7 +30,7 @@
 
   // The edit form of one tag, or of a new one when `tag` is null, shown beside the list (`ListPane`). It is the first user
   // of the admin's list-and-edit parts, so each is one a later page takes as it is: `FormState` (values, dirty, errors),
-  // `Field`, `PaneBar`, `UnsavedGuard`, and `ConfirmDelete`.
+  // `Field`, `PaneBar`, `UnsavedGuard`, `ConfirmDelete`, and `SaveAlerts` (with `outcomeOfSaveError`).
   //
   // The form is shown on the Details section and a list of what uses the tag on the Used by section, each with an address
   // of its own (`/admin/tags/5` and `/admin/tags/5/used-by`), so a refresh stays on the section. Both are always in the
@@ -140,14 +140,15 @@
         await goto(listHref(search));
       }
     } catch (error) {
-      if (error instanceof ApiError && error.is(409)) {
+      const outcome = outcomeOfSaveError(error);
+      if (outcome.kind === 'conflict') {
         conflict = true;
-      } else if (error instanceof ApiError && error.is(422)) {
-        form.setErrors(error.fieldErrors);
-        failure = form.errorCount === 0 ? (error.formErrors[0] ?? error.messages[0] ?? null) : null;
+      } else if (outcome.kind === 'invalid') {
+        form.setErrors(outcome.fieldErrors);
+        failure = outcome.message;
         if (root !== null) await form.focusFirstInvalid(root);
       } else {
-        failure = describeFailure(error).message;
+        failure = outcome.message;
       }
     } finally {
       busy = false;
@@ -200,30 +201,13 @@
     </p>
   </div>
 
-  {#if conflict}
-    <Alert.Root variant="destructive" role="alert">
-      <Alert.Title>Someone saved this tag after you opened it</Alert.Title>
-      <Alert.Description>
-        <p>
-          Saving now would undo their changes. Load their version (and lose what you typed here), or save yours over it.
-        </p>
-        <div class="mt-3 flex gap-2">
-          <Button type="button" variant="outline" size="sm" onclick={reload}>Load their version</Button>
-          <Button
-            type="button"
-            variant="destructive"
-            size="sm"
-            onclick={() => submit({ again: false, overwrite: true })}
-          >
-            Save mine anyway
-          </Button>
-        </div>
-      </Alert.Description>
-    </Alert.Root>
-  {/if}
-  {#if failure !== null}
-    <Alert.Root variant="destructive" role="alert"><Alert.Description>{failure}</Alert.Description></Alert.Root>
-  {/if}
+  <SaveAlerts
+    noun="tag"
+    {conflict}
+    {failure}
+    onreload={reload}
+    onoverwrite={() => submit({ again: false, overwrite: true })}
+  />
 
   <div>
     {#if tagId !== null}
