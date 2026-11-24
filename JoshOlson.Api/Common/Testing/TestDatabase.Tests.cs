@@ -20,6 +20,18 @@ public static class TestDatabase {
     SslMode = SslMode.Disable,
   }.ToString();
 
+  // The owner, on the server's own `postgres` database, for the one kind of test that makes databases (the scoped
+  // databases' own: `ScopedDatabaseTestData`). Every other test is the DML-only role above.
+  public static string OwnerConnectionString { get; } = new NpgsqlConnectionStringBuilder {
+    Host = "127.0.0.1",
+    Port = int.Parse(Setting("POSTGRES_PORT") ?? "5432", CultureInfo.InvariantCulture),
+    Username = Setting("POSTGRES_USER") ?? "josholson",
+    Password = Setting("POSTGRES_PASSWORD")
+      ?? throw new InvalidOperationException("POSTGRES_PASSWORD is not set in the environment or in `.env`."),
+    Database = "postgres",
+    SslMode = SslMode.Disable,
+  }.ToString();
+
   // Connections from here read and write NodaTime types, as the API's data source does.
   public static NpgsqlDataSource DataSource { get; }
     = new NpgsqlDataSourceBuilder(ConnectionString).UseNodaTime().Build();

@@ -45,6 +45,9 @@ builder.Services.AddPayloadValidation();
 builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<PostgresExceptionHandler>();
 builder.Services.AddDatabase(builder.Configuration);
+#if INCLUDE_TESTS
+builder.Services.AddScopedDatabases(builder.Configuration, builder.Environment);
+#endif
 builder.Services.AddServicesAndRepositories();
 builder.Services.AddClock();
 builder.Services.AddAuth(builder.Configuration);
@@ -59,6 +62,9 @@ if (args is [OpenApiCommand.Name, ..]) {
 }
 
 app.UseExceptionHandler();
+#if INCLUDE_TESTS
+app.UseScopedDatabases();
+#endif
 app.UseAuth();
 app.MapControllers();
 
