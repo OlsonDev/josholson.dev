@@ -59,8 +59,8 @@ public sealed class EnrollmentTokenRepository {
       UPDATE auth.enrollment_token AS t SET
           used_utc  = @nowUtc
       WHERE t.token_hash   = @tokenHash
-        AND t.used_utc     IS NULL
-        AND t.expires_utc  > @nowUtc;
+        AND t.used_utc    IS NULL
+        AND t.expires_utc >  @nowUtc;
       """;
     var parameters = new {
       tokenHash,

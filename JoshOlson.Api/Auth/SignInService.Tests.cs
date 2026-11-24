@@ -82,7 +82,7 @@ public class SignInServiceTests : IAsyncLifetime {
     var request = NewRequest(_signInService.Start());
     var sql = """
       UPDATE auth.user AS u SET
-          is_active = FALSE
+          is_active  = FALSE
       WHERE u.user_id = @userId;
       """;
     await _connection.ExecuteAsync(sql, new { userId = _userId }, _cancellationToken);

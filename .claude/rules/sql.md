@@ -197,16 +197,23 @@ INSERT INTO foo.bar (
 RETURNING bar_id;
 
 UPDATE foo.bar AS b SET
-    name   = @name
-  , note   = @note
+    name  = @name
+  , note  = @note
 WHERE b.bar_id = @barId;
 
 DELETE FROM foo.bar AS b
 WHERE b.bar_id = @barId;
 
+-- Several conditions: AND is right-aligned with the E of WHERE, and the operators sit in their own column
+UPDATE foo.bar AS b SET
+    is_thud  = FALSE
+WHERE b.baz_id   = @bazId
+  AND b.corge   != @corge
+  AND b.is_thud;
+
 -- Joined: the sources join with ON, and only the tie to the target is in WHERE
 UPDATE foo.bar AS b SET
-    status = z.status
+    status  = z.status
 FROM (SELECT) AS _
 JOIN foo.baz AS z  ON z.is_thud = TRUE
 WHERE z.baz_id = b.baz_id;
@@ -250,14 +257,14 @@ WHERE fb.corge IS DISTINCT FROM EXCLUDED.corge;
 ```
 
 - `INSERT`: the column list and the `VALUES` list are comma-first, one item per line, the first indented to line up with the others. The middle line is `) VALUES (`, and the closing `)` sits at the statement's indentation.
-- `UPDATE`: the target always takes `AS` and an alias, as every `SELECT` source does, and its columns are qualified in `WHERE` and `RETURNING`. `SET` ends the first line, after the alias. The assignments follow comma-first, one per line, with `=` two spaces after the longest column name. `SET` columns are never qualified; Postgres rejects it.
+- `UPDATE`: the target always takes `AS` and an alias, as every `SELECT` source does, and its columns are qualified in `WHERE` and `RETURNING`. `SET` ends the first line, after the alias. The assignments follow comma-first, one per line, with `=` two spaces after the longest column name, a single assignment included (`nickname  = @nickname`). `ON CONFLICT ... DO UPDATE SET` is not decided yet (see the note above the examples). `SET` columns are never qualified; Postgres rejects it.
 - `DELETE FROM` takes `AS` and an alias too. It is one line, and its `WHERE` is the next.
 - `INSERT` takes an alias only when `ON CONFLICT DO UPDATE` needs one to name the existing row.
 - Multi-row `VALUES`: one tuple per line, with the columns aligned. The column names take part in the alignment.
   - Each column is as wide as its longest cell, column name included. Names and strings are left-aligned. Numbers are aligned on the decimal point, and integers, which have none, are right-aligned. The `,` after a cell sits right after the column's padding, and the last cell is padded before `)`.
   - Compact form (above) holds while every line is 120 characters or fewer. If any line would pass 120, the whole statement switches to the expanded form: the column list and every tuple get one value per line, with `) , (` between tuples.
 - `RETURNING *` is banned. `RETURNING` names its columns.
-- `WHERE` follows the `SELECT` rules for conditions.
+- `WHERE` follows the `SELECT` rules for conditions, including their alignment (see Alignment under Queries). The conditions follow `WHERE `, and `AND`/`OR` is right-aligned with the `E` of `WHERE`. The operators sit in a two-character column of their own, one space after the longest left side in that `WHERE`: `=` is right-aligned in it, `!=`, `<=`, `>=`, and `IN` fill it, and `<` and `>` are left-aligned. A condition with no operator (`b.is_thud`) is not aligned. A `WHERE` of one condition has nothing to align, so it takes one space (`WHERE b.bar_id = @barId`). The columns are qualified with the target's alias, as in `RETURNING`.
 - `RETURNING` names the key and nothing else unless the caller needs something unavailable to them (a computed column, for example) (the API does not echo what it was sent, [ADR 0026](../../docs/adr/0026-rest-json-with-controllers.md)).
 - Postgres does not put the target of an `UPDATE` or `DELETE` in the `FROM`/`USING` list, so a `JOIN ... ON` cannot refer to it ("invalid reference to FROM-clause entry"). The condition that ties the other sources to the target goes in `WHERE`. This is an exception to "`WHERE` only where a condition cannot live in an `ON`". `SET` columns are never qualified with the table or alias.
 
