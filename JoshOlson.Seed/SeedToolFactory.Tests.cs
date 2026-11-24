@@ -14,7 +14,7 @@ public sealed class SeedToolFactoryTests {
   public async Task OpenAsync_RepositoryPaths_LoadsTheRealLayersForTheDatabaseTheFactoryWasGiven() {
     var tool = await Factory(SeedTestServer.Paths).OpenAsync(_cancellationToken);
 
-    Assert.Contains(SeedLayers.Minimal, tool.Tree.InBakeOrder().Select(layer => layer.Name));
+    Assert.Contains(SeedLayers.Account, tool.Tree.InBakeOrder().Select(layer => layer.Name));
     Assert.Contains(SeedLayers.MoreTags, tool.Tree.InBakeOrder().Select(layer => layer.Name));
     Assert.Equal("seed_foo", tool.Development);
   }

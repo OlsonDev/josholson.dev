@@ -7,7 +7,7 @@ import { buildSeedTool, layers, templateName } from './seed.ts';
 
 // Starts the API for the Playwright tests on a database of its own, and stops it and drops the database afterwards. It is
 // the `webServer` command of playwright.config.ts, so Playwright waits for the API to answer before the first test:
-//   1. `mise seed:test` makes a database from the `minimal` layer (ADR 0033: a scoped database for each test run), which
+//   1. `mise seed:test` makes a database from the `blank` layer (ADR 0033: a scoped database for each test run), which
 //      is where a request with no test scope runs,
 //   2. the name of each seed layer's template is found (`seed.ts`), for a test's scope to be cloned from,
 //   3. the API is built, and
@@ -30,7 +30,7 @@ function run(command: string[]): void {
   }
 }
 
-run(['mise', 'seed:test', id, 'minimal']);
+run(['mise', 'seed:test', id, 'blank']);
 run(['dotnet', 'build', 'JoshOlson.Api', '--nologo', '-v', 'q']);
 buildSeedTool();
 const templates = Object.fromEntries(layers.map((layer) => [layer, templateName(layer)]));

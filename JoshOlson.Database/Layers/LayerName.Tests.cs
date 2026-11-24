@@ -29,7 +29,7 @@ public class LayerNameTests {
     Assert.True(LayerName.IsReserved("blank"));
     Assert.False(LayerName.IsReserved("blank-2"));
     Assert.False(LayerName.IsReserved("Blank"));
-    Assert.False(LayerName.IsReserved("minimal"));
+    Assert.False(LayerName.IsReserved("account"));
     // It is a valid name, so only the places that make or read a layer refuse it.
     Assert.True(LayerName.IsValid(LayerName.Blank));
   }

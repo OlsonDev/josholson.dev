@@ -26,12 +26,15 @@ async function tagCountFromTheApi(request: APIRequestContext, scope?: string): P
   return countOf(body);
 }
 
-test.describe('a scope of the minimal layer', () => {
-  test('is the layer the tests start from, in the browser and on the server', async ({ page, scope }) => {
-    expect(scope.layer).toBe('minimal');
+test.describe('a scope of the some-tags layer', () => {
+  test.use({ layer: 'some-tags' });
+
+  test("has the layer's tags, drawn by the server and the same ones the browser fetches", async ({ page, scope }) => {
+    expect(scope.layer).toBe('some-tags');
     await page.goto('/');
 
     const tagsOnThePage = await page.getByRole('region', { name: 'Tags' }).getByRole('listitem').count();
+    expect(tagsOnThePage).toBeGreaterThan(0);
     expect(tagsOnThePage).toBe(await tagCountFromTheBrowser(page));
   });
 });

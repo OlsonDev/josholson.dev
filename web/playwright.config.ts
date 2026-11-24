@@ -1,3 +1,5 @@
+import { availableParallelism } from 'node:os';
+
 import { defineConfig } from '@playwright/test';
 
 // Two servers: the API on a database of its own (tests/support/api.ts), and a production build of the web app pointed at
@@ -7,11 +9,12 @@ const apiUrl = 'http://localhost:5100';
 
 export default defineConfig({
   testDir: 'tests',
-  // Still one worker: a test that imports `test` from tests/support/scope.ts has a database of its own, but the other files
-  // share the API's default one, and the journey's sign-in depends on the enrollment before it. As each file moves to its
-  // own, this goes (ADR 0033, a scoped database per test).
-  workers: 1,
-  fullyParallel: false,
+  // Every test has a database of its own (tests/support/scope.ts, ADR 0033), so nothing depends on the order or on another
+  // test, and they all run side by side: `PW_WORKERS=1` for a run in order (to read one, say). Half the cores, and no more
+  // than eight: a run of 50 tests took 46 s on one worker, 22 s on four, 19 s on six, 18.8 s on eight, and 18.3 s on sixteen, the
+  // rest of it the servers starting and the longest test, and each worker is a browser and its connections.
+  workers: Number(process.env['PW_WORKERS'] ?? Math.min(8, Math.max(1, Math.floor(availableParallelism() / 2)))),
+  fullyParallel: true,
   webServer: [
     {
       command: 'bun tests/support/api.ts',

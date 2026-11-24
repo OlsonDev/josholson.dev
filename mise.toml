@@ -100,7 +100,7 @@ run = "dotnet run --project JoshOlson.Seed -- bake"
 
 # Makes a layer from what is in the dev database (ADR 0014, hierarchical seed layers) and writes seeds/<name>.yaml: the
 # difference from the parent layer's template (the layer the database was built from, recorded in seed.hydration; a
-# database that records none makes a root, from the schema template). The flow: `mise seed minimal`, use the app,
+# database that records none makes a root, from the schema template). The flow: `mise seed some-tags`, use the app,
 # then `mise seeds:export --name my-layer --description "What it adds"`. Needs the `tools` container to build a
 # template that is not current. Reads .env.
 [tasks."seeds:export"]
@@ -124,7 +124,7 @@ run = "dotnet run --project JoshOlson.Seed -- test"
 # The name of a layer's template database, built first if it is not current: mise seed:template more-tags. For a caller
 # that clones the template itself (the browser tests); the name changes whenever the migrations or the layer chain do.
 [tasks."seed:template"]
-description = "Print the name of a seed layer's template database, building it if it is not current, e.g. mise seed:template minimal"
+description = "Print the name of a seed layer's template database, building it if it is not current, e.g. mise seed:template account"
 depends = ["tools:up"]
 run = "dotnet run --project JoshOlson.Seed -- template"
 

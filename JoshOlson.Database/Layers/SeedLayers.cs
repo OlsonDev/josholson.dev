@@ -5,7 +5,6 @@ namespace JoshOlson.Database.Layers;
 // fails until the constants and the files agree.
 public static class SeedLayers {
   public const string Account = "account";
-  public const string Minimal = "minimal";
   public const string MoreTags = "more-tags";
   public const string SomeTags = "some-tags";
 }

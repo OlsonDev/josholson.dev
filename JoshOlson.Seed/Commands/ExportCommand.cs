@@ -8,8 +8,8 @@ using Spectre.Console.Cli;
 namespace JoshOlson.Seed.Commands;
 
 // `seed export --name <name> --description <text>` (`mise seeds:export ...`): makes a layer from what is in a database
-// and writes it to `seeds/<name>.yaml`. The flow it is for: `seed minimal`, use the app, then export what you added as a
-// child of `minimal`, the layer the database records in `seed.hydration`. A database that records none makes a root
+// and writes it to `seeds/<name>.yaml`. The flow it is for: `seed some-tags`, use the app, then export what you added as a
+// child of `some-tags`, the layer the database records in `seed.hydration`. A database that records none makes a root
 // layer. The layer is the difference from the parent's template (a root: from the schema template): `insert`s of new rows,
 // `update`s of only the columns that changed, `delete`s of gone rows. The tables it found rows in are listed as it writes,
 // so a row that should not be there (a real account you enrolled) is not a surprise in the diff.

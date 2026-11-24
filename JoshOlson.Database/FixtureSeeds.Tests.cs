@@ -8,7 +8,7 @@ using Xunit;
 namespace JoshOlson.Database;
 
 // Two seed layers over the real schema that belong to the tests: a root and a child of it, in the canonical form
-// `LayerWriter` writes. The real layers (`minimal`, `more-tags`) grow with the site, so a test that asserts a count, a
+// `LayerWriter` writes. The real layers (`account`, `some-tags`, `more-tags`) grow with the site, so a test that asserts a count, a
 // color, or an ID of theirs breaks for no reason; these change only when a test needs them to. Their text is fixed, so
 // their templates are built the first time and stay on the server (a name is a hash of the files).
 public static class FixtureSeeds {

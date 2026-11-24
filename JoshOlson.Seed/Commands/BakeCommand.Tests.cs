@@ -17,7 +17,7 @@ public sealed class BakeCommandTests {
     Assert.True(exitCode is 0, output);
     Assert.Contains("(schema)", output, StringComparison.Ordinal);
     Assert.Contains(SeedDatabaseNames.Prefix + "schema_", output, StringComparison.Ordinal);
-    Assert.Contains(SeedLayers.Minimal, output, StringComparison.Ordinal);
+    Assert.Contains(SeedLayers.Account, output, StringComparison.Ordinal);
     Assert.Contains(SeedLayers.MoreTags, output, StringComparison.Ordinal);
     Assert.Contains("current", output, StringComparison.Ordinal);
     Assert.DoesNotContain("built", output, StringComparison.Ordinal);

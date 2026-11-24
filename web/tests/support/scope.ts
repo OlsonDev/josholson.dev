@@ -49,7 +49,7 @@ type TestFixtures = {
 type WorkerFixtures = { owner: SQL; templates: Map<string, string> };
 
 export const test = base.extend<TestFixtures, WorkerFixtures>({
-  layer: ['minimal', { option: true }],
+  layer: ['blank', { option: true }],
   signedIn: [false, { option: true }],
 
   // One connection to the server per worker, for the creates and the drops.

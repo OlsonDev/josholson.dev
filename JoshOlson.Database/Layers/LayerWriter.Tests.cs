@@ -37,7 +37,8 @@ public class LayerWriterTests {
     };
 
   [Theory]
-  [InlineData("minimal")]
+  [InlineData("account")]
+  [InlineData("some-tags")]
   [InlineData("more-tags")]
   public async Task Write_TheRealLayers_GiveBackTheirFilesByteForByte(string name) {
     var schemaLock = SchemaLockParser.Parse(await File.ReadAllTextAsync(SeedPaths.ForRepository().LockFile, TestContext.Current.CancellationToken));
