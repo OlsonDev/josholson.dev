@@ -70,7 +70,7 @@ function isSchemasOf(node: ts.TypeNode): boolean {
   );
 }
 
-function byName<TNode extends ts.Node>(root: TNode): TNode {
+function byName(root: ts.TypeNode): ts.TypeNode {
   const result = ts.transform(root, [
     (context) => {
       const visit = (node: ts.Node): ts.Node => {
@@ -87,7 +87,7 @@ function byName<TNode extends ts.Node>(root: TNode): TNode {
         }
         return ts.visitEachChild(node, visit, context);
       };
-      return (node) => ts.visitNode(node, visit) ?? node;
+      return (node) => ts.visitNode(node, visit, ts.isTypeNode) ?? node;
     },
   ]);
   const [only] = result.transformed;

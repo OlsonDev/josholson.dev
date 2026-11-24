@@ -296,7 +296,7 @@ test('spaces the parts of the color picker evenly, from the top edge to the bott
     return {
       top: parts[0].top - box.top,
       between: parts.slice(1).map((part, index) => part.top - parts[index].bottom),
-      bottom: box.bottom - parts.at(-1).bottom,
+      bottom: box.bottom - parts.at(-1)!.bottom,
     };
   });
 
